@@ -39,7 +39,7 @@ func _ready() -> void:
 func _draw() -> void:
 	match kind:
 		"tree":
-			draw_rect(Rect2(-3, -20, 6, 20), Color(0.78, 0.6, 0.52))
+			draw_rect(Rect2(-3, -20, 6, 20), Color(0.612, 0.585, 0.626))
 			draw_circle(Vector2(0, -34), 16.0, color.darkened(0.2))
 			draw_circle(Vector2(-4, -38), 11.0, color)
 		"stairs":
@@ -63,10 +63,10 @@ func draw_box() -> void:
 	draw_colored_polygon(PackedVector2Array([Vector2(0, top - HH), Vector2(HW, top), Vector2(0, top + HH), Vector2(-HW, top)]), roof)
 	for face in window_faces:
 		for s in storeys:
-			var glass := Color(1.0, 0.82, 0.9) if curtains and s == 0 else Color(0.78, 0.92, 1.0)
+			var glass := Color("#f5ccd4") if curtains and s == 0 else Color(0.862, 0.916, 0.972)
 			draw_on_face(face, 0.3, 0.7, s * storey_height + 22.0, s * storey_height + 40.0, glass)
 	if door_face != "":
-		draw_on_face(door_face, 0.25, 0.75, 0.0, 40.0, Color(0.96, 0.66, 0.6))
+		draw_on_face(door_face, 0.25, 0.75, 0.0, 40.0, Color(0.631, 0.576, 0.612))
 
 
 # Outline of the box on screen (local coordinates), for mouse picking.

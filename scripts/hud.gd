@@ -25,9 +25,9 @@ const DRAWER_WIDTH := 320
 const NEEDS := ["hunger", "thirst", "energy", "fun", "bladder", "hygiene", "social"]
 const FOOTER_HEIGHT := 64
 const UiTheme = preload("res://scripts/ui_theme.gd")
-const FOOTER_COLOR := Color(1.0, 0.96, 0.98, 0.95)
-const FOOTER_ACCENT := Color(0.98, 0.75, 0.86)
-const BAR_BACK := Color(0.92, 0.89, 0.96)
+const FOOTER_COLOR := Color(0.97, 0.96, 0.99, 0.95)
+const FOOTER_ACCENT := Color("#f5ccd4")
+const BAR_BACK := Color(0.893, 0.893, 0.940)
 const LOW := Color(0.98, 0.5, 0.58)
 const MID := Color(1.0, 0.78, 0.45)
 const HIGH := Color(0.5, 0.84, 0.66)
@@ -49,6 +49,8 @@ var feeling_label: Label
 var drawer: PanelContainer
 var drawer_list: VBoxContainer
 var drawer_refresh_at := 0  # real-time msec of the next refresh
+var toast: Label  # "Game saved" etc.
+var toast_until := 0
 const CARE_ACTIONS := ["Feed", "Change & clean", "Rock to sleep", "Play with", "Read a story", "Hug"]
 var child: Node2D = null  # the little one shown in the left panel
 var child_panel: PanelContainer
@@ -135,6 +137,26 @@ func _ready() -> void:
 	time_box.add_child(date_label)
 	var speed_row := HBoxContainer.new()
 	time_box.add_child(speed_row)
+	var game_menu := MenuButton.new()
+	game_menu.text = "Menu  ▾"
+	game_menu.flat = false
+	game_menu.focus_mode = Control.FOCUS_NONE
+	for item in ["Save game", "Save as a new game", "Save and exit to main menu", "Exit to main menu", "Quit game"]:
+		game_menu.get_popup().add_item(item)
+	game_menu.get_popup().id_pressed.connect(on_game_menu)
+	time_box.add_child(game_menu)
+	toast = Label.new()
+	toast.anchor_left = 0.5
+	toast.anchor_right = 0.5
+	toast.offset_left = -200
+	toast.offset_right = 200
+	toast.offset_top = 70
+	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast.add_theme_font_size_override("font_size", 20)
+	toast.add_theme_color_override("font_color", Color(0.85, 0.45, 0.65))
+	toast.add_theme_color_override("font_outline_color", Color.WHITE)
+	toast.add_theme_constant_override("outline_size", 8)
+	add_child(toast)
 	for n in 5:  # pause, then one button per speed
 		var b := Button.new()
 		b.text = ["||", ">", ">>", ">>>", ">>>>"][n]
@@ -239,7 +261,7 @@ func update_household() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 		b.tooltip_text = "%s · %s" % [Ages.describe(c), "you control them" if c == player else "click to control"]
 		if c == player:
-			b.modulate = Color(0.75, 1.0, 0.85)
+			b.modulate = Color("#c9def4") * 1.2
 		elif Ages.stage(c) <= Ages.TODDLER:
 			b.modulate = Color(0.95, 0.75, 0.85)
 			b.tooltip_text = "%s · not playable: click to see their needs" % Ages.describe(c)
@@ -589,6 +611,7 @@ func _process(_delta: float) -> void:
 	money_label.modulate = LOW if player.money < 0 else Color(0.3, 0.65, 0.45)
 
 	update_household()
+	toast.visible = Time.get_ticks_msec() < toast_until
 	if child_panel.visible:
 		update_child_panel()
 	var t: float = player.world.now()
@@ -600,7 +623,7 @@ func _process(_delta: float) -> void:
 		var active: bool = game.paused if n == 0 else (not game.paused and not game.sleep_boost and game.speed == n - 1) \
 			or (n == 4 and game.sleep_boost and not game.paused)
 		speed_buttons[n].set_pressed_no_signal(active)
-		speed_buttons[n].modulate = Color(0.75, 1.0, 0.85) if active else Color.WHITE
+		speed_buttons[n].modulate = Color(0.749, 0.827, 0.909) * 1.25 if active else Color.WHITE
 
 	mode_button.text = "Mode: %s  (Tab)" % ("Auto" if player.auto_mode else "Manual")
 
@@ -625,3 +648,42 @@ func apply_theme() -> void:
 	for child in get_children():
 		if child is Control:
 			child.theme = UiTheme.get_theme()
+
+
+# --- Game menu (Menu ▾ under the clock) ---
+
+const SaveGame = preload("res://scripts/save_game.gd")
+const Session = preload("res://scripts/session.gd")
+
+
+func on_game_menu(id: int) -> void:
+	match id:
+		0:
+			save_game(false)
+		1:
+			save_game(true)
+		2:
+			if save_game(false):
+				exit_to_menu()
+		3:
+			exit_to_menu()
+		4:
+			get_tree().quit()
+
+
+func save_game(as_new: bool) -> bool:
+	if Session.slot == "" or as_new:
+		Session.slot = SaveGame.new_slot(game.household_name)
+	var ok := SaveGame.save(game, Session.slot)
+	show_toast("Game saved ✿" if ok else "Couldn't save the game")
+	return ok
+
+
+func show_toast(text: String) -> void:
+	toast.text = text
+	toast_until = Time.get_ticks_msec() + 2500
+
+
+func exit_to_menu() -> void:
+	Engine.time_scale = 1.0
+	get_tree().change_scene_to_file("res://scenes/menu.tscn")

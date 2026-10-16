@@ -15,16 +15,28 @@ const WEEKDAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 const SUN := {"Spring": [6.0, 20.0], "Summer": [5.5, 21.5], "Fall": [7.0, 19.0], "Winter": [8.0, 17.0]}
 const TWILIGHT_HOURS := 1.0  # dawn and dusk fade over this long, centred on sunrise/sunset
 
-# Screen tint (CanvasModulate). Full daylight is no tint; indoors at night the lamps are on.
-const NIGHT_TINT := Color(0.62, 0.6, 0.86)  # a soft lavender night
-const DUSK_TINT := Color(1.0, 0.84, 0.82)
-const INDOOR_NIGHT_TINT := Color(1.0, 0.9, 0.86)
+# Screen tint (CanvasModulate). The HUD is never tinted.
+# Indoors keeps the palette: no tint by day, soft pink lamplight at night.
+const INDOOR_NIGHT_TINT := Color(0.953, 0.868, 0.896)
+# Outdoors follows the sky (keyframes in sky_keys(), placed around the season's sunrise and sunset):
+# deep night -> pink-lilac dawn -> cool blue morning -> bright afternoon -> golden hour -> sunset -> violet dusk.
+const SKY := {
+	"night": Color(0.36, 0.38, 0.62),
+	"dawn": Color(0.86, 0.76, 0.9),
+	"morning": Color(0.8, 0.87, 1.0),
+	"late_morning": Color(0.92, 0.95, 1.0),
+	"afternoon": Color.WHITE,
+	"golden": Color(1.0, 0.84, 0.68),
+	"sunset": Color(1.0, 0.72, 0.76),
+	"dusk": Color(0.64, 0.54, 0.8),
+}
 
 # Season colours for terrain and trees (world.gd).
-const GRASS := {"Spring": Color(0.72, 0.9, 0.74), "Summer": Color(0.78, 0.92, 0.66),
-	"Fall": Color(0.98, 0.86, 0.68), "Winter": Color(0.95, 0.96, 1.0)}
-const LEAVES := {"Spring": Color(1.0, 0.76, 0.86), "Summer": Color(0.6, 0.86, 0.62),  # cherry blossom in spring
-	"Fall": Color(1.0, 0.7, 0.45), "Winter": Color(0.97, 0.98, 1.0)}
+# Palette shades (ui_theme.gd): the ground is blue-lavender, changing gently with the seasons.
+const GRASS := {"Spring": Color("#d0dbef"), "Summer": Color("#c9def4"),
+	"Fall": Color("#e6d2df"), "Winter": Color(0.931, 0.931, 0.961)}
+const LEAVES := {"Spring": Color(0.884, 0.736, 0.765), "Summer": Color(0.821, 0.714, 0.749),  # blossom pinks
+	"Fall": Color(0.767, 0.700, 0.743), "Winter": Color(0.924, 0.924, 0.957)}
 
 
 static func game_seconds(clock: float) -> float:
@@ -84,11 +96,24 @@ static func part_of_day(t: float) -> String:
 
 
 static func tint(t: float, indoors: bool) -> Color:
-	var d := daylight(t)
 	if indoors:
-		return INDOOR_NIGHT_TINT.lerp(Color.WHITE, d)
-	var c := NIGHT_TINT.lerp(Color.WHITE, d)
-	return c.lerp(c * DUSK_TINT, 1.0 - absf(d * 2.0 - 1.0))  # warm at dawn and dusk
+		return INDOOR_NIGHT_TINT.lerp(Color.WHITE, daylight(t))
+	var h := hours(t)
+	var keys := sky_keys(season(t))
+	for i in keys.size() - 1:
+		if h <= keys[i + 1][0]:
+			var w: float = inverse_lerp(keys[i][0], keys[i + 1][0], h)
+			return (SKY[keys[i][1]] as Color).lerp(SKY[keys[i + 1][1]], smoothstep(0.0, 1.0, w))
+	return SKY.night
+
+
+# The outdoor sky through a day: [[hour, SKY key], ...] in order, from 0 to 24.
+static func sky_keys(season_name: String) -> Array:
+	var rise: float = SUN[season_name][0]
+	var set_h: float = SUN[season_name][1]
+	return [[0.0, "night"], [rise - 1.0, "night"], [rise, "dawn"], [rise + 1.0, "morning"],
+		[maxf(rise + 2.0, 10.5), "late_morning"], [12.0, "afternoon"], [maxf(12.5, set_h - 2.0), "afternoon"],
+		[set_h - 0.75, "golden"], [set_h, "sunset"], [set_h + 0.75, "dusk"], [set_h + 1.5, "night"], [24.0, "night"]]
 
 
 # "Monday 08:15:00", "Spring, day 1 of 7, year 1"

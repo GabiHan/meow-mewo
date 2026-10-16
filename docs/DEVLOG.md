@@ -2,6 +2,40 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-10-16 — Outdoor sky through the day
+- Outside, the screen tint now follows a sky gradient (`SKY` + `sky_keys()` in `game_time.gd`): deep night, pink-lilac
+  dawn, cool blue morning, bright afternoon, golden hour, pink-coral sunset, violet dusk. Keyframes sit around each
+  season's sunrise/sunset, so winter evenings get dark early. Indoors keeps the palette (untinted by day, pink lamplight
+  at night). Furniture colours unchanged. `NIGHT_TINT`/`DUSK_TINT` removed.
+- Tests: blue morning, white afternoon, warm sunset, dark night outside; untinted indoors by day; keyframes ordered
+  in every season.
+
+## 2026-10-16 — Palette and bubbly buttons
+- One 7-shade palette (`#c9def4` … `#f5ccd4`, `PALETTE` in `ui_theme.gd`) now drives the whole environment: ground per
+  season, roads, houses and roofs, floors, interior walls, blossom trees, dusk and night tints, the home-screen gradient
+  and bubbles. Furniture re-baked with palette tints (`TINTS` in bake_furniture.gd, 180 sprites).
+- **Bubbly buttons:** `UiTheme.bubble()` pill style (raised bottom edge, shadow; pressed = baby blue and sinks).
+- **Watch out:** constants can't call `.darkened()`/`.lightened()`, so shaded palette colours are literal `Color(...)`
+  values; recompute them if the palette changes.
+
+## 2026-10-16 — Pastel look, home screen, households, saving
+- **Pastel, cutesy look:** new palette for terrain, roads, trees (cherry blossom in spring), houses (each with its own
+  roof colour), floors, walls, windows, doors, night tint; `ui_theme.gd` (rounded light panels, candy buttons, lilac text)
+  on the HUD, build mode and menus; world labels dark-on-white. Furniture re-baked with a pastel tint per kind
+  (`TINTS` in bake_furniture.gd), characters with a softer finish.
+- **Home screen** (`scenes/menu.tscn` is now the main scene; `menu.gd`): Play Game (choose one of 3 households, or create
+  a new one: name + up to 4 people with sex, age, look with preview, traits; validated), Continue, Saved Games (load/delete),
+  Quit. `session.gd` carries the choice to main.gd.
+- New **Starter house** (building 3) with basic furniture for created households ($1,500 shared by the grown-ups;
+  children get them as parents). `main.gd` split into `place_furniture`, `spawn_residents`, `spawn_household`.
+- **Saving** (`save_game.gd`): a full snapshot (people via `SAVE_FIELDS`, objects, props, world, log) with store_var in
+  `user://saves/<slot>.save`; `restore()` rebuilds it. Social log entries keep names, so people who died still show.
+- In-game **Menu ▾** under the clock: save, save as new, save and exit, exit to main menu, quit; a "Game saved ✿" toast.
+- Tests: save → load round trip (people, money, relationships, ages, looks, skills, control, clock, furniture, log),
+  delete, new household (starter house, funds, parents, school), choosing Alex's family, creator validation.
+- **Watch out:** static vars (Social.event_log, Session) survive scene changes; main.gd clears the log on start.
+  Adding a field to people that should persist means adding it to `SAVE_FIELDS`.
+
 ## 2026-10-16 — Real characters (Quaternius Universal Base Characters)
 - The pack (CC0, free version: rigged bodies in underwear, no animations) is in `assets/characters` (only the Godot
   glTF files, the light-skin textures, and two normal maps copied under the names the glTFs expect).

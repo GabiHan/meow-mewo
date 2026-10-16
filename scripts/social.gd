@@ -523,7 +523,9 @@ static func log_event(text: String, a: Node2D, b: Node2D) -> void:
 
 
 static func format_event(e: Dictionary, viewer: Node2D) -> String:
-	var text: String = e.text.replace("{a}", display_name(viewer, e.a)).replace("{b}", display_name(viewer, e.b))
+	var a_name: String = display_name(viewer, e.a) if is_instance_valid(e.a) else e.get("a_name", "Someone")
+	var b_name: String = display_name(viewer, e.b) if is_instance_valid(e.b) else e.get("b_name", "someone")
+	var text: String = e.text.replace("{a}", a_name).replace("{b}", b_name)
 	text = text.replace("You's", "your").replace("You was", "You were")
 	if you_word == null:
 		you_word = RegEx.create_from_string("(?<=\\s)You\\b")

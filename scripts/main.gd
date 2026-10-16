@@ -13,6 +13,20 @@ const Npc = preload("res://scripts/npc.gd")
 const Controller = preload("res://scripts/controller.gd")
 const Prop = preload("res://scripts/prop.gd")
 const BuildMode = preload("res://scripts/build_mode.gd")
+const Session = preload("res://scripts/session.gd")
+const SaveGame = preload("res://scripts/save_game.gd")
+const Social = preload("res://scripts/social.gd")
+const Ages = preload("res://scripts/ages.gd")
+
+# Households you can pick on the home screen (Play → Choose a household): home building index.
+const HOUSEHOLDS := [
+	{"name": "Jo & Sam", "home": 0, "about": "Jo (20), a fresh start in life, and her roommate Sam (23), a stand-up comic."},
+	{"name": "Alex's family", "home": 1, "about": "Alex (38), a fiery cook, raising Mia (8) and little Lily (2)."},
+	{"name": "Riley & Noah", "home": 2, "about": "Riley (42), a bookish office worker, and his teenage son Noah (15)."},
+]
+const STARTER_HOUSE := 3  # where new households move in
+const STARTING_FUNDS := 1500  # shared by a new household's grown-ups
+const STAGE_YEARS := {"Child": 8.0, "Teen": 15.0, "Young adult": 21.0, "Adult": 35.0, "Old": 68.0}
 const PLAYER_NAME := "Jo"  # your character's name: change it here
 const Hud = preload("res://scripts/hud.gd")
 const Life = preload("res://scripts/life.gd")
@@ -68,7 +82,7 @@ const OBJECTS := [
 	["Stove", 0, 0, Vector2(487, 500), {}, 0.0, Color(0.25, 0.25, 0.28), 20],
 	["Sink", 0, 0, Vector2(488, 500), {}, 0.0, Color(0.75, 0.8, 0.85), 20],
 	["Table", 0, 0, Vector2(486, 504), {}, 0.0, Color(0.55, 0.38, 0.25), 16],
-	["TV", 0, 0, Vector2(491, 500), {"fun": 60}, 30.0, Color(0.62, 0.56, 0.75), 28, {"verb": "Watching TV", "skill": "Comedy"}],
+	["TV", 0, 0, Vector2(491, 500), {"fun": 60}, 30.0, Color(0.656, 0.626, 0.671), 28, {"verb": "Watching TV", "skill": "Comedy"}],
 	["Toilet", 0, 0, Vector2(492, 505), {"bladder": 90}, 3.0, Color(0.95, 0.95, 0.9), 20],
 	["Chair", 0, 0, Vector2(485, 504), {"energy": 5}, 10.0, Color(0.3, 0.25, 0.2), 20, {"sprite": "Chair_1_r1", "facing": 1}],
 	["Chair", 0, 0, Vector2(487, 504), {"energy": 5}, 10.0, Color(0.3, 0.25, 0.2), 20, {"sprite": "Chair_1_r3", "facing": 3}],
@@ -90,7 +104,7 @@ const OBJECTS := [
 	["Bed", 1, 0, Vector2(499, 502), {"energy": 100}, 420.0, Color(0.85, 0.55, 0.7), 14, {"verb": "Sleeping", "moodlet": "Well rested"}],  # Mia's
 	["Crib", 1, 0, Vector2(506, 503), {"energy": 100}, 300.0, Color(0.95, 0.9, 0.7), 18, {"verb": "Sleeping", "moodlet": "Well rested"}],  # Lily's
 	["Bookshelf", 1, 0, Vector2(503, 506), {"fun": 35}, 45.0, Color(0.5, 0.33, 0.2), 44, BOOKSHELF],
-	["TV", 1, 0, Vector2(505, 505), {"fun": 60}, 30.0, Color(0.62, 0.56, 0.75), 28, {"verb": "Watching TV", "skill": "Comedy"}],
+	["TV", 1, 0, Vector2(505, 505), {"fun": 60}, 30.0, Color(0.656, 0.626, 0.671), 28, {"verb": "Watching TV", "skill": "Comedy"}],
 
 	["Fridge", 2, 0, Vector2(488, 519), {}, 0.0, Color(0.85, 0.9, 0.95), 40],
 	["Counter", 2, 0, Vector2(489, 519), {}, 0.0, Color(0.7, 0.6, 0.5), 20],
@@ -102,11 +116,23 @@ const OBJECTS := [
 	["Toilet", 2, 0, Vector2(488, 524), {"bladder": 90}, 3.0, Color(0.95, 0.95, 0.9), 20],
 	["Bed", 2, 0, Vector2(493, 521), {"energy": 100}, 420.0, Color(0.4, 0.6, 0.5), 14, {"verb": "Sleeping", "moodlet": "Well rested"}],  # Noah's
 	["Bookshelf", 2, 0, Vector2(487, 519), {"fun": 35}, 45.0, Color(0.5, 0.33, 0.2), 44, BOOKSHELF],
-	["TV", 2, 0, Vector2(492, 523), {"fun": 60}, 30.0, Color(0.62, 0.56, 0.75), 28, {"verb": "Watching TV", "skill": "Comedy"}],
+	["TV", 2, 0, Vector2(492, 523), {"fun": 60}, 30.0, Color(0.656, 0.626, 0.671), 28, {"verb": "Watching TV", "skill": "Comedy"}],
 
-	["Bench", -1, 0, Vector2(500, 516), {"fun": 25}, 15.0, Color(0.98, 0.76, 0.62), 12],
-	["Bus stop", -1, 0, Vector2(497, 511), {}, 0.0, Color(0.62, 0.8, 1.0), 50],  # jobs: where you leave for work
-	["Pull-up bar", -1, 0, Vector2(503, 516), {"fun": 15, "energy": -10, "hygiene": -10}, 30.0, Color(0.82, 0.82, 0.95), 48,
+	# The starter house (3): basic furniture for a new household.
+	["Fridge", 3, 0, Vector2(499, 519), {}, 0.0, Color.WHITE, 40],
+	["Counter", 3, 0, Vector2(500, 519), {}, 0.0, Color.WHITE, 20],
+	["Stove", 3, 0, Vector2(501, 519), {}, 0.0, Color.WHITE, 20],
+	["Sink", 3, 0, Vector2(502, 519), {}, 0.0, Color.WHITE, 20],
+	["Table", 3, 0, Vector2(500, 523), {}, 0.0, Color.WHITE, 16],
+	["Bed", 3, 0, Vector2(503, 519), {"energy": 100}, 420.0, Color.WHITE, 14],
+	["Bed", 3, 0, Vector2(505, 519), {"energy": 100}, 420.0, Color.WHITE, 14],
+	["Toilet", 3, 0, Vector2(499, 524), {"bladder": 90}, 3.0, Color.WHITE, 20],
+	["Shower", 3, 0, Vector2(506, 524), {"hygiene": 80}, 10.0, Color.WHITE, 36],
+	["TV", 3, 0, Vector2(504, 523), {"fun": 60}, 30.0, Color(0.656, 0.626, 0.671), 28],
+
+	["Bench", -1, 0, Vector2(500, 516), {"fun": 25}, 15.0, Color(0.865, 0.720, 0.748), 12],
+	["Bus stop", -1, 0, Vector2(497, 511), {}, 0.0, Color(0.694, 0.766, 0.842), 50],  # jobs: where you leave for work
+	["Pull-up bar", -1, 0, Vector2(503, 516), {"fun": 15, "energy": -10, "hygiene": -10}, 30.0, Color("#d8d8e9"), 48,
 		{"verb": "Working out", "skill": "Fitness", "moodlet": "Pumped"}],
 ]
 
@@ -115,6 +141,7 @@ var camera: Camera2D
 var player: Node2D  # the character you control right now (controller.gd keeps this up to date)
 var controller: Node
 var build: CanvasLayer  # build mode (B)
+var household_name := "Jo & Sam"  # shown in saves
 var speed := 0  # index into SPEEDS chosen by the player
 var paused := false
 var sleep_boost := false  # time is at Ultra because you're asleep
@@ -122,11 +149,40 @@ var auto_sleep_speed := true  # whether sleeping speeds time up (the tests turn 
 
 
 func _ready() -> void:
-	RenderingServer.set_default_clear_color(Color(0.96, 0.92, 0.97))  # pale lilac around everything
+	RenderingServer.set_default_clear_color(Color(0.901, 0.901, 0.944))  # pale lilac around everything
 	y_sort_enabled = true  # things lower on screen draw in front
+	Social.event_log.clear()  # static: would otherwise carry over from a previous game
+	Engine.time_scale = 1.0
 
 	world = World.new()
 	add_child(world)
+	var you: Node2D
+	if Session.mode == "load" and not Session.save_data.is_empty():
+		you = SaveGame.restore(self, Session.save_data)
+	else:
+		place_furniture()
+		var jo := spawn_residents()
+		if Session.mode == "new" and not Session.new_household.is_empty():
+			you = spawn_household(Session.new_household)
+		else:
+			var h: int = Session.household
+			household_name = HOUSEHOLDS[h].name
+			you = jo if h == 0 else get_tree().get_nodes_in_group("characters").filter(
+				func(c): return c.home == h and Ages.is_grown_up(c)).front()
+		Life.setup_families(self)
+
+	camera = Camera2D.new()
+	camera.position = Vector2(0, -30)
+	controller = Controller.new().setup(self, camera)
+	add_child(controller)
+	controller.take_control(you)  # the camera follows whoever you control
+	add_child(Hud.new().setup(player, self))
+	build = BuildMode.new().setup(self)
+	add_child(build)
+	apply_speed()
+
+
+func place_furniture() -> void:
 	for o in OBJECTS:
 		var extras: Dictionary = (o[8] if o.size() > 8 else {}).duplicate()
 		if not extras.has("sprite") and FURNITURE.has(o[0]):
@@ -136,9 +192,12 @@ func _ready() -> void:
 	for p in PROPS:
 		world.add_prop(Prop.new().setup(p[0], p[3], p[4]), p[1], p[2])
 
+
+# The people who live on the street at the start. Returns Jo.
+func spawn_residents() -> Node2D:
 	# setup(name, tile, color, home building, traits, starting skill levels). See docs/PEOPLE.md.
-	# .set_life(money, job), .set_age(sex, years, parents). See docs/WORK.md and docs/LIFE.md.
-	add_child(Npc.new().setup("Sam", Vector2(490, 503), Color(0.95, 0.65, 0.35), 0,  # your roommate
+	# .set_life(money, job), .set_age(sex, years, parents), .set_look(look). See docs/WORK.md, LIFE.md, README.
+	add_child(Npc.new().setup("Sam", Vector2(490, 503), Color(0.95, 0.65, 0.35), 0,  # Jo's roommate
 		["Outgoing", "Goofball", "Slob"], {"Comedy": 3, "Charisma": 2}).set_life(200, "Comedy club").set_age("M", 23).set_look("sam"))
 	add_child(Npc.new().setup("Alex", Vector2(502, 504), Color(0.75, 0.45, 0.85), 1,
 		["Hot-headed", "Foodie", "Neat"], {"Cooking": 5, "Fitness": 2}).set_life(400, "Restaurant").set_age("F", 38).set_look("alex"))
@@ -150,24 +209,35 @@ func _ready() -> void:
 		["Loner", "Bookworm", "Cheerful"], {"Logic": 4, "Cooking": 2}).set_life(600, "Office").set_age("M", 42).set_look("riley"))
 	add_child(Npc.new().setup("Noah", Vector2(492, 525), Color(0.45, 0.55, 0.9), 2,  # Riley's son
 		["Active", "Goofball"], {"Fitness": 2}).set_life(20).set_age("M", 15, ["Riley"]).set_look("noah"))
+	var jo: Node2D = Npc.new().setup(PLAYER_NAME, Vector2(488, 504), Color(0.35, 0.8, 0.45), 0, [], {"Cooking": 2, "Charisma": 1})
+	jo.set_life(300).set_age("F", 20).set_look("jo")  # no job yet: get one at the Bus stop
+	jo.speed = 2.5
+	for need in jo.needs:
+		jo.needs[need] = 85.0
+	add_child(jo)
+	return jo
 
-	var you: Node2D = Npc.new().setup(PLAYER_NAME, Vector2(488, 504), Color(0.35, 0.8, 0.45), 0, [], {"Cooking": 2, "Charisma": 1})
-	you.set_life(300).set_age("F", 20).set_look("jo")  # no job yet: get one at the Bus stop
-	you.speed = 2.5
-	for need in you.needs:
-		you.needs[need] = 85.0
-	add_child(you)
-	Life.setup_families(self)
 
-	camera = Camera2D.new()
-	camera.position = Vector2(0, -30)
-	controller = Controller.new().setup(self, camera)
-	add_child(controller)
-	controller.take_control(you)  # the camera follows whoever you control
-	add_child(Hud.new().setup(player, self))
-	build = BuildMode.new().setup(self)
-	add_child(build)
-	apply_speed()
+# A household made on the home screen moves into the starter house. Returns who you'll control.
+# spec: {name, members: [{name, sex, stage, look, traits}]}. Grown-ups share STARTING_FUNDS; children
+# get the grown-ups as parents.
+func spawn_household(spec: Dictionary) -> Node2D:
+	household_name = spec.name
+	var grown: Array = spec.members.filter(func(m): return STAGE_YEARS[m.stage] >= 18)
+	var adults: Array = grown.map(func(m): return m.name).slice(0, 2)
+	var first: Node2D = null
+	for n in spec.members.size():
+		var m: Dictionary = spec.members[n]
+		var c: Node2D = Npc.new().setup(m.name, Vector2(501 + n, 521), Color.from_hsv(randf(), 0.35, 0.95), STARTER_HOUSE,
+			m.traits, {})
+		var kid: bool = STAGE_YEARS[m.stage] < 18
+		c.set_life(0 if kid else int(STARTING_FUNDS / maxf(grown.size(), 1)))
+		c.set_age(m.sex, STAGE_YEARS[m.stage], adults if kid else [])
+		c.set_look(m.look)
+		add_child(c)
+		if first == null and not kid:
+			first = c
+	return first
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -162,13 +162,13 @@ func save_current() -> void:
 
 # The game's pastel look: each kind of furniture gets a pastel colour (shaded by the model's own
 # light and dark), plants keep their colours but softer. First matching prefix wins.
-const TINTS := [
-	["Kitchen_Fridge", Color(0.78, 0.9, 1.0)], ["Kitchen", Color(0.72, 0.93, 0.84)], ["Bed", Color(1.0, 0.76, 0.84)],
-	["Couch", Color(0.82, 0.76, 1.0)], ["Chair", Color(1.0, 0.82, 0.68)], ["Stool", Color(1.0, 0.82, 0.68)],
-	["Table", Color(1.0, 0.84, 0.7)], ["NightStand", Color(1.0, 0.84, 0.7)], ["Bathroom", Color(0.78, 0.9, 1.0)],
-	["Bookshelf", Color(1.0, 0.94, 0.82)], ["Shelf", Color(1.0, 0.94, 0.82)], ["Drawer", Color(1.0, 0.86, 0.78)],
-	["Light", Color(1.0, 0.95, 0.7)], ["Carpet", Color(1.0, 0.75, 0.82)], ["Trashcan", Color(0.8, 0.92, 0.85)],
-	["Fireplace", Color(1.0, 0.85, 0.78)],
+const TINTS := [  # the game palette (ui_theme.gd): blue → lavender → pink
+	["Kitchen_Fridge", Color("#c9def4")], ["Kitchen", Color("#d0dbef")], ["Bed", Color("#f5ccd4")],
+	["Couch", Color("#dfd5e4")], ["Chair", Color("#eecfd9")], ["Stool", Color("#eecfd9")],
+	["Table", Color("#e6d2df")], ["NightStand", Color("#e6d2df")], ["Bathroom", Color("#c9def4")],
+	["Bookshelf", Color("#d8d8e9")], ["Shelf", Color("#d8d8e9")], ["Drawer", Color("#e6d2df")],
+	["Light", Color("#f5ccd4")], ["Carpet", Color("#eecfd9")], ["Trashcan", Color("#d0dbef")],
+	["Fireplace", Color("#dfd5e4")],
 ]
 const SOFTEN := 0.3  # plants (no tint): lift towards white this much
 
@@ -187,7 +187,7 @@ func pastel(image: Image) -> void:
 			var rgb: Color
 			if tint.a > 0.0:
 				var light := clampf(c.get_luminance() * 1.6, 0.0, 1.0)
-				rgb = (tint * (0.62 + 0.38 * light)).lerp(Color.WHITE, 0.12)
+				rgb = tint * (0.72 + 0.4 * light)  # shaded by the model, centred on the palette colour
 			else:
 				rgb = Color(c.r, c.g, c.b).lerp(Color(1.0, 0.97, 0.98), SOFTEN)
 			image.set_pixel(x, y, Color(rgb.r, rgb.g, rgb.b, c.a))

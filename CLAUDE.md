@@ -9,10 +9,12 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
    `godot --headless --fixed-fps 60 -s res://tests/check_sim.gd`. It must print `ALL PASSED` with no
    `SCRIPT ERROR` lines. Add checks to `tests/check_sim.gd` for new behavior.
 3. Update `README.md` (tables and how-to sections must match the code) and add a `docs/DEVLOG.md` entry.
-4. Launch for the user with `godot --path .` (run in the background). The user can also double-click `play.command`.
+4. Launch for the user with `godot --path .` (run in the background; it opens on the home screen). The user can also
+   double-click `play.command`. Tests load `scenes/main.tscn` directly (Jo & Sam, via `session.gd` defaults).
 
 ## Conventions
-- Everything is built in code from `main.gd`; there are no `.tscn` files besides `scenes/main.tscn`. Placeholder
+- Everything is built in code from `main.gd` (the game) and `menu.gd` (the home screen); the only scenes are
+  `scenes/menu.tscn` (first scene) and `scenes/main.tscn`. Placeholder
   art is drawn in `_draw()`; furniture uses baked sprites (art/furniture).
 - Use `preload("res://scripts/x.gd")` constants, not `class_name` (headless runs don't have the class cache).
 - Game logic uses grid coordinates; convert only for rendering via `iso.gd`.
@@ -56,8 +58,12 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 - Furniture art: sprites baked from `assets/furniture_obj` by `tools/bake_furniture.gd` (needs a window), shown
   with `Furniture.make_sprite()` (a Sprite2D). See README "Furniture art".
 
+- Saving: a new per-person field that should survive save/load must be added to `SAVE_FIELDS` in `save_game.gd`.
+- UI: use `ui_theme.gd` (pastel) for new controls; world colours are pastel too (keep it cute).
+
 ## Gotchas
 - Don't `draw_texture()` in `_draw` for world sprites: it renders white inside the y-sorted world (use Sprite2D).
 - Capturing a screenshot needs a non-headless run: `root.get_texture().get_image().save_png(path)` in
   a `-s` script after ~2s.
 - `PopupMenu.set_item_disabled` needs a real index (`item_count - 1`), not `-1`.
+- Palette shades used in constants are precomputed literal `Color(...)` values (constants can't call `.darkened()`).

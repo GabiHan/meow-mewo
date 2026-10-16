@@ -39,20 +39,22 @@ const CURTAIN_SECONDS := 60.0  # how long curtains stay closed after someone yel
 const PATH_MARGIN := 10  # A* searches the box around start and goal, grown by this many tiles
 const MAX_PATH_SPAN := 160  # longer trips are refused
 
-const ROOF_COLOR := Color(0.93, 0.58, 0.68)  # default; buildings can set "roof"
+const ROOF_COLOR := Color(0.788, 0.656, 0.682)  # default; buildings can set "roof" (palette: ui_theme.gd)
 const SNOW_ROOF_COLOR := Color(0.98, 0.98, 1.0)  # roofs in winter
-const WOOD_COLOR := Color(0.98, 0.87, 0.77)  # pastel floors
-const INNER_WALL_COLOR := Color(1.0, 0.95, 0.93)
+const WOOD_COLOR := Color(0.950, 0.859, 0.888)  # floors
+const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: lavender walls
 
 # rect includes the outer walls. door is on floor 0 and must be on the bottom (+y) or right (+x)
 # wall so it faces the camera. stairs (optional) is one interior cell shared by every floor.
 const BUILDINGS := [
 	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(487, 508),
-		"stairs": Vector2i(483, 500), "color": Color(1.0, 0.83, 0.87), "roof": Color(0.93, 0.55, 0.66)},
+		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665)},
 	{"name": "Alex's house", "rect": Rect2i(498, 499, 10, 10), "floors": 1, "door": Vector2i(502, 508),
-		"color": Color(0.8, 0.94, 0.88), "roof": Color(0.5, 0.78, 0.74)},
+		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765)},
 	{"name": "Riley's house", "rect": Rect2i(486, 518, 10, 9), "floors": 1, "door": Vector2i(495, 522),
-		"color": Color(0.87, 0.84, 0.99), "roof": Color(0.68, 0.58, 0.9)},
+		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697)},
+	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 522),
+		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681)},  # for new households (Play → Create)
 ]
 
 var player: Node2D
@@ -510,7 +512,7 @@ static func terrain_color(c: Vector2i, p_season: String) -> Color:
 		var lane := c.x % ROAD_EVERY == 1 or c.y % ROAD_EVERY == 1
 		var dash := (c.x + c.y) % 4 < 2 and not (c.x % ROAD_EVERY < ROAD_WIDTH and c.y % ROAD_EVERY < ROAD_WIDTH)
 		if lane and dash:
-			return Color(0.95, 0.94, 0.99)
-		return Color(0.85 + shade, 0.83 + shade, 0.92 + shade)
+			return Color(0.939, 0.939, 0.965)  # lane dashes
+		return Color(0.840, 0.802, 0.858) + Color(shade, shade, shade, 0.0)  # roads
 	var grass: Color = GameTime.GRASS[p_season]
 	return Color(grass.r + shade, grass.g + shade * 2.0, grass.b + shade)

@@ -35,6 +35,34 @@ block it: right-click it → *Open* → *Open*.
 
 In the editor, press **F5** to play.
 
+## Home screen and saving
+
+The game opens on the **home screen** (`scenes/menu.tscn`, `menu.gd`):
+
+| Button | What it does |
+|---|---|
+| **Play Game** | **Choose a household** (Jo & Sam, Alex's family, Riley & Noah: you play the household's first grown-up) or **Create a new household** |
+| **Continue** | Loads your most recent save (greyed out until you have one; shows which) |
+| **Saved Games** | Every save (household, in-game date, money, when saved) with **Load** and **Delete** |
+| **Quit** | Closes the game |
+
+**Creating a household:** give it a name and add up to 4 people, each with a name, sex, age (Child,
+Teen, Young adult, Adult, Old), a look (with a preview) and up to 3 traits. Names must be new (not
+someone on the street), and there must be at least one grown-up. They move into the **Starter house**
+on the street (basic furniture included), the grown-ups share **$1,500**, and children get the
+grown-ups as parents (and go to school).
+
+**In the game**, the **Menu ▾** button under the clock: **Save game** (to this game's save; the first
+save creates it), **Save as a new game**, **Save and exit to main menu**, **Exit to main menu**
+(without saving), **Quit game**.
+
+**What's saved** (`save_game.gd`, files in `user://saves/`, on a Mac `~/Library/Application
+Support/Godot/app_userdata/Meow Mewo/saves`): every person (needs, emotions and mental state,
+memories, relationships and romance, skills, money, job, age, look, family...), all furniture (also
+what you bought, food on counters, graves), the clock and date, clean dishes, invitations, the social
+log, who you control and the game speed. Not saved: what people were doing at that instant (they
+carry on from idle).
+
 ## Controls
 
 | Input | Action |
@@ -59,6 +87,31 @@ In the editor, press **F5** to play.
 NPCs. Clicks still work in Auto; your character follows the order, then decides for itself again.
 
 ---
+
+## The look
+
+Pastel and cutesy, built from one 7-shade palette (`PALETTE` in `ui_theme.gd`), baby blue → lavender → pink:
+
+| # | Hex | Used for |
+|---|-----|----------|
+| 0 | `#c9def4` | Summer ground, fridge and bathroom furniture, pressed buttons |
+| 1 | `#d0dbef` | Spring ground, kitchen furniture, trash cans |
+| 2 | `#d8d8e9` | Background, shelves, disabled buttons, panels (lightened) |
+| 3 | `#dfd5e4` | Roads (darkened), interior walls (lightened), couches, fireplace |
+| 4 | `#e6d2df` | Fall ground, tables, night stands, drawers |
+| 5 | `#eecfd9` | Starter house, panel borders, chairs, stools, carpets |
+| 6 | `#f5ccd4` | Buttons, beds, lamps, blossom trees |
+
+Houses use shades 6, 0, 3 and 5, each with a darker roof; floors are pink. Inside, nights are a soft pink lamplight; outside, the sky changes through the day (see Day and night).
+Furniture sprites are tinted with these shades when baked (`TINTS` in `tools/bake_furniture.gd`; plants are
+just softened), and character sheets get a soft brighter finish.
+
+**Bubbly buttons:** every button is a pill (`UiTheme.bubble()`): round ends, a deeper bottom edge and a
+soft shadow so it looks raised; hovered it brightens, pressed it turns baby blue and sinks (the edge
+shrinks and the text moves down). Panels are rounded, light lavender with a pink border.
+
+Colour constants are written as literal `Color(r, g, b)` values (a palette shade already darkened or
+lightened), because GDScript constants can't call `.darkened()`.
 
 ## You and your household
 
@@ -90,7 +143,8 @@ someone else). Whoever you control: Tab switches them between Manual (only your 
 
 ```
 project.godot           Engine config (main scene, 1280x720 window, GL Compatibility renderer)
-scenes/main.tscn        Main scene: just a Node2D with main.gd; everything else is built in code
+scenes/menu.tscn        First scene: the home screen (menu.gd)
+scenes/main.tscn        The game: just a Node2D with main.gd; everything else is built in code
 scripts/
   main.gd               Builds the game (world, OBJECTS table, characters, camera, HUD); speed, F3, zoom
   world.gd              Map, buildings, floors, pathfinding, terrain streaming, what you can see
@@ -107,6 +161,10 @@ scripts/
   smart_object.gd       Objects that advertise which needs they satisfy
   npc.gd                Character brain: needs, utility AI, movement, conversation state machine
   controller.gd         You: mouse and keyboard, menus, and which household member you control
+  menu.gd               Home screen: play, continue, saved games, create/choose a household
+  session.gd            What the home screen asked the game to start (household, new, or a save)
+  save_game.gd          Saving and loading the whole game (user://saves)
+  ui_theme.gd           The palette and the UI theme (bubbly pill buttons, rounded light panels)
   romance.gd            Romance score, chemistry, dating/engaged/married, jealousy
   mind.gd               Long-term mental states (depressed, anxious, thriving...) and learned tastes
   social.gd             Interactions, relationships, memories and grudges, spoken lines, social event log
@@ -163,9 +221,23 @@ year.
 **Calendar:** a week has 7 days (Monday–Sunday). A year has 4 seasons of **7 days** each
 (`DAYS_PER_SEASON`): Spring, Summer, Fall, Winter, so a year is 28 days.
 
-**Day and night:** the sun rises and sets at different times per season. Dawn and dusk fade over an
-hour, and the screen is tinted by `CanvasModulate`: warm at dawn/dusk, dark blue at night. Indoors at
-night the lamps are on, so it's only dimmed slightly and warmer. The HUD is never tinted.
+**Day and night:** the sun rises and sets at different times per season (`SUN`). The screen is tinted by
+`CanvasModulate`; the HUD is never tinted.
+
+* **Indoors** keeps the palette: no tint by day, soft pink lamplight at night (`INDOOR_NIGHT_TINT`).
+* **Outdoors** follows the sky (`SKY` colours, placed by `sky_keys()` around the season's sunrise and sunset), blending smoothly:
+
+| When (spring) | Sky | Look |
+|---------------|-----|------|
+| until 1 h before sunrise (05:00) | night | deep dark blue |
+| sunrise (06:00) | dawn | pink-lilac |
+| sunrise + 1 h (07:00) | morning | cool blue |
+| 10:30 | late morning | pale blue |
+| 12:00 to sunset − 2 h (18:00) | afternoon | bright, untinted |
+| sunset − 45 min (19:15) | golden | warm gold |
+| sunset (20:00) | sunset | pink-coral |
+| sunset + 45 min (20:45) | dusk | violet |
+| from sunset + 1.5 h (21:30) | night | deep dark blue |
 
 | Season | Sunrise | Sunset | Grass | Trees | Roofs |
 |---|---|---|---|---|---|
@@ -204,7 +276,8 @@ around tile (490, 512). The camera follows you.
 |---|---|---|---|---|---|
 | Your house | (482,499) 12×10 | 2 | (487,508) | (483,500) | Jo, Sam |
 | Alex's house | (498,499) 10×10 | 1 | (502,508) | – | Alex |
-| Riley's house | (486,518) 10×9 | 1 | (495,522) | – | Riley |
+| Riley's house | (486,518) 10×9 | 1 | (495,522) | – | Riley, Noah |
+| Starter house | (498,518) 10×9 | 1 | (507,522) | – | a household you create (empty otherwise) |
 
 **What you can see** (`update_view()`, runs every frame after everyone has moved):
 

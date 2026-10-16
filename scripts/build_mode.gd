@@ -65,9 +65,9 @@ func build_panel() -> void:
 	panel.offset_top = -FOOTER_HEIGHT - PANEL_HEIGHT
 	panel.offset_bottom = -FOOTER_HEIGHT
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(1.0, 0.97, 0.99, 0.97)
+	style.bg_color = Color(0.97, 0.96, 0.99, 0.97)
 	style.border_width_top = 3
-	style.border_color = Color(0.98, 0.75, 0.86)
+	style.border_color = Color("#f5ccd4")
 	style.set_content_margin_all(8)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.visible = false

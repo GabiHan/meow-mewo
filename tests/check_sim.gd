@@ -21,6 +21,8 @@ const Mind = preload("res://scripts/mind.gd")
 const Catalog = preload("res://scripts/catalog.gd")
 const Actions = preload("res://scripts/actions.gd")
 const Looks = preload("res://scripts/looks.gd")
+const SaveGame = preload("res://scripts/save_game.gd")
+const Session = preload("res://scripts/session.gd")
 const DAY := 24 * 60.0  # real seconds (world.clock) per game day
 const Iso = preload("res://scripts/iso.gd")
 const Block = preload("res://scripts/block.gd")
@@ -180,8 +182,20 @@ func check_time() -> void:
 	var winter_evening := GameTime.game_seconds(21 * DAY + 10.5 * 60.0)
 	check(GameTime.daylight(summer_evening) > 0.9 and GameTime.daylight(winter_evening) < 0.1,
 		"at 18:30 it's still light in summer but dark in winter")
-	check(GameTime.tint(midnight, false).v < 0.6 and GameTime.tint(midnight, true).v > GameTime.tint(midnight, false).v
+	check(GameTime.tint(midnight, false).v < 0.9 and GameTime.tint(midnight, true).v > GameTime.tint(midnight, false).v
 		and GameTime.tint(noon, false) == Color.WHITE, "night darkens the screen; indoors the lamps are on")
+	var spring_at := func(h: float) -> Color: return GameTime.tint(GameTime.game_seconds((h - 8.0) * 60.0), false)
+	var morning: Color = spring_at.call(8.0)
+	var sunset: Color = spring_at.call(20.0)
+	check(morning.b > morning.r and spring_at.call(15.0) == Color.WHITE and sunset.r > sunset.b and sunset.r > 0.9
+		and spring_at.call(23.0).v < 0.7 and GameTime.tint(GameTime.game_seconds(0.0), true) == Color.WHITE,
+		"outside: blue morning, bright afternoon, sunset at dusk, dark night; indoors stays untinted by day")
+	for season_name in GameTime.SEASONS:
+		var keys: Array = GameTime.sky_keys(season_name)
+		var ordered := true
+		for i in keys.size() - 1:
+			ordered = ordered and keys[i][0] <= keys[i + 1][0]
+		check(ordered, "%s sky keyframes are in order" % season_name)
 
 
 func person(name: String) -> Node2D:
@@ -713,6 +727,75 @@ func check_death() -> void:
 		"no game over: you die, become a grave, and carry on as %s from your household" % main.player.npc_name)
 
 
+# Replace the running game with a fresh one started the way the session says.
+func restart_game() -> void:
+	root.remove_child(main)
+	main.free()
+	main = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	player = main.player
+
+
+# Save → load round trip, deleting saves, a new household, choosing a household, the creator's rules.
+func check_saving() -> void:
+	var slot := "check_sim_test"
+	var before := {}
+	for c in main.get_tree().get_nodes_in_group("characters"):
+		before[c.npc_name] = [c.money, c.relationships.duplicate(), Ages.stage(c), c.look, c.skills.duplicate()]
+	var objects_before: int = main.get_tree().get_nodes_in_group("smart_objects").size()
+	var clock_before: float = main.world.clock
+	var me: String = main.player.npc_name
+	var log_before: int = Social.event_log.size()
+	check(SaveGame.save(main, slot) and SaveGame.list().any(func(s): return s.slot == slot), "the game saves, and the save is listed")
+	Session.reset()
+	Session.mode = "load"
+	Session.save_data = SaveGame.read(slot)
+	restart_game()
+	var after := {}
+	for c in main.get_tree().get_nodes_in_group("characters"):
+		after[c.npc_name] = [c.money, c.relationships, Ages.stage(c), c.look, c.skills]
+	check(after.keys().size() == before.keys().size() and after.keys().all(func(n): return before.has(n) and str(before[n]) == str(after[n])),
+		"loading brings everyone back with their money, relationships, age, look and skills (%d people)" % after.size())
+	check(main.player.npc_name == me and main.world.clock == clock_before
+		and main.get_tree().get_nodes_in_group("smart_objects").size() == objects_before and Social.event_log.size() == log_before,
+		"same person controlled, same time, same furniture (%d objects), same social log" % objects_before)
+	SaveGame.delete(slot)
+	check(not SaveGame.list().any(func(s): return s.slot == slot), "deleting a save removes it")
+
+	Session.reset()
+	Session.mode = "new"
+	Session.new_household = {"name": "The Meows", "members": [
+		{"name": "Mimi", "sex": "F", "stage": "Adult", "look": "girl_b", "traits": ["Cheerful"]},
+		{"name": "Tom", "sex": "M", "stage": "Child", "look": "boy_a", "traits": []}]}
+	restart_game()
+	var tom := person("Tom")
+	check(main.player.npc_name == "Mimi" and main.player.home == main.STARTER_HOUSE and main.player.money == main.STARTING_FUNDS
+		and tom.parents == ["Mimi"] and tom.job == "School" and main.household_name == "The Meows",
+		"a new household moves into the starter house: Mimi ($%d) and her son Tom (at school)" % main.player.money)
+	check(main.controller.household().size() == 2 and person("Jo") != null, "your household is Mimi and Tom; Jo still lives on the street")
+
+	Session.reset()
+	Session.household = 1
+	restart_game()
+	check(main.player.npc_name == "Alex" and main.household_name == "Alex's family", "choosing Alex's family: you play Alex")
+
+	var menu: Control = load("res://scenes/menu.tscn").instantiate()
+	root.add_child(menu)
+	menu.show_create()
+	menu.members[0].name.text = "Sam"
+	menu.household_edit.text = "The Meows"
+	var taken: Dictionary = menu.read_household()
+	menu.members[0].name.text = "Mimi"
+	menu.members[0].age.select(0)  # a child alone
+	var no_adult: Dictionary = menu.read_household()
+	menu.members[0].age.select(3)
+	var ok: Dictionary = menu.read_household()
+	check(taken.is_empty() and no_adult.is_empty() and ok.get("name") == "The Meows" and ok.members[0].stage == "Adult",
+		"the household creator refuses taken names and households without a grown-up")
+	menu.free()
+	Session.reset()
+
+
 # Set the clock to `hour` on game day `day` (0 = day 1, a Monday).
 func set_time(day: int, hour: float) -> void:
 	main.world.clock = (day * 86400.0 + hour * 3600.0 - GameTime.START_HOUR * 3600.0) / 60.0 / GameTime.MINUTES_PER_SECOND
@@ -1240,7 +1323,8 @@ func _process(delta: float) -> bool:
 		check_kitchen()
 		check_streaming()
 		check_peeking()
-		check_death()  # last: you die in it
+		check_death()  # you die in it
+		check_saving()  # replaces the game several times: keep it last
 		print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])
 		quit(1 if failures > 0 else 0)
 	return false
