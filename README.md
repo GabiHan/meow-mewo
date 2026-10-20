@@ -31,20 +31,34 @@ block it: right-click it → *Open* → *Open*.
 | Play (Finder) | double-click `play.command` |
 | Play (Godot app) | open Godot → *Import* → pick `project.godot` → *Import & Edit*, then press **F5** |
 | Open the editor | `godot -e --path .` (or Godot → Import → pick `project.godot`) |
-| Run automated checks | `godot --headless --fixed-fps 60 -s res://tests/check_sim.gd` |
+| Run automated checks | `godot --headless --fixed-fps 60 -s res://tests/check_sim.gd` and `godot --headless -s res://tests/check_online.gd` |
 
 In the editor, press **F5** to play.
 
+**Optional: AI words.** With `brew install llama.cpp`, the game starts a local **Qwen3.5 4B** model
+(from Hugging Face; ~2.7 GB, downloaded on the first start) and people speak, think and answer you with
+written words. Without it everything works with the scripted lines. See *AI words* below and
+[docs/AI.md](docs/AI.md).
+
 ## Home screen and saving
 
-The game opens on the **home screen** (`scenes/menu.tscn`, `menu.gd`):
+The game opens on the **home screen** (`scenes/menu.tscn`, `menu.gd`): the key art on the left (a little
+room with the household, `key_art.gd`; pages you open show there instead), and on the right "A life
+simulation", the title, the menu, "Loading the neighbourhood…" (the game loads in the background) and the
+version (**v 0.0.1**, `application/config/version` in `project.godot`).
 
 | Button | What it does |
 |---|---|
-| **Play Game** | **Choose a household** (Jo & Sam, Alex's family, Riley & Noah: you play the household's first grown-up) or **Create a new household** |
+| **Play Game** | Offline. **Choose a household** (Jo & Sam, Alex's family, Riley & Noah: you play the household's first grown-up) or **Create a new household** |
+| **Play Online** | Live with other people on the same Wi-Fi: **Host a town** (pick, create or continue a household; others can join) or **Join a town** (towns on your Wi-Fi, or type an address → pick a free household or move a new one in). See *Online mode* below and [docs/ONLINE.md](docs/ONLINE.md) |
 | **Continue** | Loads your most recent save (greyed out until you have one; shows which) |
 | **Saved Games** | Every save (household, in-game date, money, when saved) with **Load** and **Delete** |
+| **Settings** | Volume, Music, Sounds (sliders), Mute everything, Fullscreen. Saved in `user://settings.cfg`; also in the game's ☰ menu |
 | **Quit** | Closes the game |
+
+**Music** (`music.gd`): one song on the home screen, another while you're inside your own home, a third
+anywhere else (outside, at the neighbours'), and a fourth in build mode; they crossfade over 2 s. Speeding the game up or pausing never
+changes the music. Songs are in `assets/music` (see *Credits*).
 
 **Creating a household:** give it a name and add up to 4 people, each with a name, sex, age (Child,
 Teen, Young adult, Adult, Old), a look (with a preview) and up to 3 traits. Names must be new (not
@@ -52,7 +66,7 @@ someone on the street), and there must be at least one grown-up. They move into 
 on the street (basic furniture included), the grown-ups share **$1,500**, and children get the
 grown-ups as parents (and go to school).
 
-**In the game**, the **Menu ▾** button under the clock: **Save game** (to this game's save; the first
+**In the game**, the **☰** button at the bottom right: **Save game** (to this game's save; the first
 save creates it), **Save as a new game**, **Save and exit to main menu**, **Exit to main menu**
 (without saving), **Quit game**.
 
@@ -67,7 +81,7 @@ carry on from idle).
 
 | Input | Action |
 |---|---|
-| Left-click floor | Walk there (around walls, through doors) |
+| Left-click floor | Walk there (around walls, through doors); **Shift+click** to run (you might trip!) |
 | Left-click an object | Use it; if it has several interactions (bed: Sleep / Nap / Relax, toilet: Pee / Poo...), a menu lets you choose |
 | (automatic) | A small bar over anyone doing something shows how far along the action is |
 | Left-click a kitchen object (Fridge, Stove, Counter, Table, Sink) | Menu: cook, drink, eat leftovers, throw away, wash dishes |
@@ -76,12 +90,14 @@ carry on from idle).
 | R, or the Relationships button | Open/close the relationships drawer on the right |
 | B, or the Build button | **Build mode**: buy furniture from a catalog and place it in your home (R rotates, right-click cancels, click furniture to sell or move); see [docs/BUILD.md](docs/BUILD.md) |
 | Left-click a ground-floor window (outside) | Walk to it and **peek in** until you do something else |
-| Left-click a person | Open the interaction menu (shows your relationship and their mood) |
-| Tab / Mode button | Toggle **Manual** / **Auto** for your character |
+| Left-click a person | Open the interaction menu (shows your relationship and their mood; with the AI on, what they're thinking and want to do, and **Talk…** to type your own words) |
+| Talk panel (Talk…) | Type and press Enter to say it; they answer in character. Esc or x to leave |
+| Tab / Mode button (Passport) | Toggle **Manual** / **Auto** for your character |
+| `>` tab (top left) / `<` tab (top right) | Show or hide **Today** / the **Passport** |
 | P / Space / 0, or the `\|\|` button | Pause / unpause (resumes at your speed). You can still click to give orders while paused |
 | 1 / 2 / 3 / 4, or the `>` … `>>>>` buttons | Speed: Normal 1x / Fast 5x / Faster 20x / Ultra 60x |
 | Mouse wheel | Zoom in / out |
-| F3 | Show NPC details above their heads: why they feel what they feel, traits, skills, needs, who they can see |
+| F3 | Show NPC details above their heads: why they feel what they feel, what they're doing, traits, skills, needs, who they can see |
 
 **Manual** mode: your character only does what you click. **Auto** mode: it runs the same AI as the
 NPCs. Clicks still work in Auto; your character follows the order, then decides for itself again.
@@ -90,25 +106,30 @@ NPCs. Clicks still work in Auto; your character follows the order, then decides 
 
 ## The look
 
-Pastel and cutesy, built from one 7-shade palette (`PALETTE` in `ui_theme.gd`), baby blue → lavender → pink:
+Cozy and pastel. The **atmosphere** is one 7-shade palette (`PALETTE` in `ui_theme.gd`), baby blue → lavender → pink:
 
 | # | Hex | Used for |
 |---|-----|----------|
-| 0 | `#c9def4` | Summer ground, fridge and bathroom furniture, pressed buttons |
+| 0 | `#c9def4` | Summer ground, fridge and bathroom furniture, top of the backdrop |
 | 1 | `#d0dbef` | Spring ground, kitchen furniture, trash cans |
-| 2 | `#d8d8e9` | Background, shelves, disabled buttons, panels (lightened) |
+| 2 | `#d8d8e9` | Shelves, the paper of every panel (lightened almost to white) |
 | 3 | `#dfd5e4` | Roads (darkened), interior walls (lightened), couches, fireplace |
 | 4 | `#e6d2df` | Fall ground, tables, night stands, drawers |
-| 5 | `#eecfd9` | Starter house, panel borders, chairs, stools, carpets |
-| 6 | `#f5ccd4` | Buttons, beds, lamps, blossom trees |
+| 5 | `#eecfd9` | Starter house, chairs, stools, carpets |
+| 6 | `#f5ccd4` | Beds, lamps, blossom trees, bottom of the backdrop |
 
 Houses use shades 6, 0, 3 and 5, each with a darker roof; floors are pink. Inside, nights are a soft pink lamplight; outside, the sky changes through the day (see Day and night).
 Furniture sprites are tinted with these shades when baked (`TINTS` in `tools/bake_furniture.gd`; plants are
 just softened), and character sheets get a soft brighter finish.
 
-**Bubbly buttons:** every button is a pill (`UiTheme.bubble()`): round ends, a deeper bottom edge and a
-soft shadow so it looks raised; hovered it brightens, pressed it turns baby blue and sinks (the edge
-shrinks and the text moves down). Panels are rounded, light lavender with a pink border.
+**Cozy UI (like a paper planner):** a second palette, `ACCENTS` in `ui_theme.gd`, is the UI's accent, periwinkle → lilac:
+`#9ba9ff` `#a5adff` `#afb1ff` `#b9b5ff` `#c4baff` `#cebeff` `#d8c2ff` `#e2c6ff` `#eccaff` `#f4ccff`. `#9ba9ff`
+draws what's active (the button that's on, the person you control, bars, the mood line, Today's dots and line, skill
+chips), `#c4baff` the soft borders (dashed skills box, hover). Cards are almost-white paper (`PAPER`, from shade 2)
+with thin `LINE` borders, small corners and a soft lavender shadow; buttons are flat with a thin border (pressed:
+a lilac fill and a periwinkle border). Text is **EB Garamond** (`assets/fonts`, SIL Open Font License; italic for
+subtitles), also on the labels in the world. Behind the world is the atmosphere palette as a soft gradient
+(`UiTheme.backdrop()`, blue at the top to pink at the bottom), dimmed with the daylight.
 
 Colour constants are written as literal `Color(r, g, b)` values (a palette shade already darkened or
 lightened), because GDScript constants can't call `.darkened()`.
@@ -128,16 +149,24 @@ someone else). Whoever you control: Tab switches them between Manual (only your 
 
 ## Screen (HUD)
 
+The screen stays light: only the **bottom row** is always there. **Today** and **Passport** open
+from the small tabs at the top corners (`>` on the left, `<` on the right) and close the same way; they
+stay as you left them.
+
 | Where | What |
 |---|---|
-| Footer band (full width, bottom) | Your **feeling** (colour per emotion, with the reasons underneath), your **money** (red below $0) and the **7 need bars** with their values. Bars shade from red (low) through amber to green; a value under 25 turns red |
-| Top left | Household bar (click to switch), Manual/Auto button, Relationships button, where you are, game speed, who you are (age, sex), job, skills, mind (mental state) |
+| Bottom left | **Household** (click a name to control them; babies and toddlers open their needs) and your **money** (red below $0) |
+| Bottom centre | **Clock** (hover: part of day, date, speed) and weekday, **pause / speed** buttons (greyed out when you joined someone's town), **Build mode** |
+| Bottom right | **☰ menu**: Relationships, Controls (the cheat sheet), Settings (volume, music, fullscreen), Save game, Save as a new game, Save and exit, Exit to main menu, Quit |
+| Top left, `>` tab | **Today**: what you're doing now (where, minutes left), the next steps of your task ("Next", "Then"), your next shift or school day ("now!" when it's time), and what you feel like doing (AI) |
+| Top right, `<` tab | **Passport**: portrait, name, Manual/Auto (Tab), **mood** line and word with the reasons, **skill** chips, the **7 need bars** (lilac → periwinkle as they fill; rose and a rose number under 25), age, where you are, job, mind, online status, and what you're doing with a **progress bar** and % |
+| Above each person | Just **`Name - Mood`** (`Unknown - Happy` for people you haven't met). F3 adds the details |
+| Furniture | No names in the way: an object's name (and what's on it, like plates on a counter) shows only while the mouse is over it |
+| Above the household | **Chat feed** (what people near you say, think and do: `Sam: Good morning, you!`, `Mia thinks: …`, for a minute; strangers are "Unknown") and the newest social events (for 20 s after something happens). Hidden when there's nothing new |
 | Left panel | A baby or toddler you clicked: needs, feeling, parents, care buttons |
-| Right drawer (R) | **Relationships**: everyone, sorted by friendship, with a bar (−100…100), tier, how they see you, how they feel, where they are, traits (once met), invitations both ways, and their latest memory of you. Refreshes twice a second, even when paused |
-| Top right | Clock, weekday, part of day, date, speed buttons |
-| Top centre | "PAUSED" while paused |
-| Bottom left, above the footer | Recent social events |
-| Bottom right, above the footer | Controls cheat sheet |
+| Right drawer (R, or ☰ → Relationships) | **Relationships**: everyone, sorted by friendship, with a bar (−100…100), tier, how they see you, how they feel, where they are, traits (once met), invitations both ways, and their latest memory of you. Refreshes twice a second, even when paused |
+| Top centre | "PAUSED" while paused, and messages like "Game saved ✿" |
+| Bottom centre, above the row | The **talk panel** while you type to someone (Talk… in their menu) |
 
 ## Project layout
 
@@ -177,15 +206,28 @@ scripts/
   jobs.gd               Money, jobs and schools, shifts, pay, performance, promotions, firing, weekly bills
   ages.gd               Life stages, years, fertility, family (no dependencies)
   life.gd               Ageing, growing up, pregnancy, births, families
-  hud.gd                Footer band (feeling + need bars), mode/info panel, clock, event feed, controls cheat sheet
+  llm.gd                AI words: local Qwen3.5 (llama-server) for lines, thoughts, wishes, typing to people
+  talk.gd               Talking in your own words: the conversation (to an NPC via the AI, or to another player)
+  talk_panel.gd         The window you type in (Talk… in someone's menu)
+  net.gd                Online mode: host or join a town on the Wi-Fi, sync, orders from joined players
+  music.gd              Background music: home screen / at home / outside, crossfades, ignores game speed
+  settings.gd           Volume, music, sounds, mute, fullscreen (user://settings.cfg)
+  settings_panel.gd     The Settings controls (home screen page and the in-game ☰ window)
+  key_art.gd            The home screen's picture: a cozy room made of the game's pieces
+  body.gd               The body: running, tripping, passing out, fainting, accidents, farts, illness, throwing up
+  vision.gd             What your sim can see: sight rays, the cone, light, memory, the soft veil (docs/VIEW.md)
+  weather.gd            Clear / cloudy / rain / fog: how far you see outdoors, chances per season
+  weather_fx.gd         Rain falling and fog haze on screen
+  hud.gd                Bottom row (household, money, clock, speed, build, ☰), Today and Passport tabs, chat feed
 tests/
   check_sim.gd          Headless simulation with assertions (exit code 1 on failure)
+  check_online.gd       Online end to end: starts a host (online_host.gd) and joins it (exit code 1 on failure)
 tools/
   bake_furniture.gd     Renders 3D models into isometric sprites (art/furniture)
   bake_characters.gd    Poses the 3D characters and renders their sprite sheets (art/characters)
 assets/                 The furniture packs (zips) and the unpacked OBJ models (assets/furniture_obj)
 art/furniture/          Baked sprites + sprites.json (anchors)
-art/characters/         One sprite sheet per look (8 directions × 7 frames)
+art/characters/         One sprite sheet per look (8 directions × 13 frames) and a head portrait
 docs/
   DEVLOG.md             What changed in each update and why
   KITCHEN.md            Everything about the kitchen: recipes, drinks, spoiling, dishes, NPC use
@@ -193,6 +235,9 @@ docs/
   WORK.md               Everything about money and jobs
   LIFE.md               Everything about ages, growing up, schools and babies
   BUILD.md              Build mode: controls, rules, the catalog
+  AI.md                 The language model: setup, what it writes, what it's told, tuning
+  VIEW.md               Sight, light and weather (Project Zomboid-style view)
+  ONLINE.md             Online mode: hosting, joining, what's different, what's sent
 play.command            Double-click to play (macOS)
 ```
 
@@ -279,14 +324,16 @@ around tile (490, 512). The camera follows you.
 | Riley's house | (486,518) 10×9 | 1 | (495,522) | – | Riley, Noah |
 | Starter house | (498,518) 10×9 | 1 | (507,522) | – | a household you create (empty otherwise) |
 
-**What you can see** (`update_view()`, runs every frame after everyone has moved):
+**What you can see** (`update_view()` and `vision.gd`; full details in **[docs/VIEW.md](docs/VIEW.md)**), Project
+Zomboid style: the whole neighbourhood is always on screen, inside or out, but you only *see* what your sim
+can see. The house you're in opens up (the floor you're on, walls cut down, no roof); other houses are seen
+from outside. Walls block sight, windows and doors don't; you see far in front of you (by day), only a few
+tiles behind, and only a few tiles at all in the dark except where it's lit (lamps, homes with someone awake).
+The **weather** (clear, cloudy, rain, fog) shortens sight outdoors; rain falls and fog veils the screen.
+Out of sight is under a soft veil (light where you remember, thicker where you've never been); people out of
+sight aren't shown.
 
-| Where you are | Visible |
-|---|---|
-| Inside a building | Only the floor you're on: its floor tiles, walls (cut down to `INNER_WALL_HEIGHT`), stairs, objects and the people on it. The outside, other floors and other buildings are hidden. |
-| Outside | Terrain, trees, outdoor objects and people outside within `VIEW_RADIUS` (40 tiles); houses as closed exteriors (walls, windows, door, roof). Interiors and the people in them are hidden. |
-
-| Peeking through a window | The outside view, except that the house you're peeking into shows its ground floor instead of its exterior. Rooms out of sight are dimmed, and only the objects and people in line of sight are shown. |
+| Peeking through a window | The house you're peeking into shows its ground floor instead of its exterior. Rooms out of sight are dimmed, and only the objects and people in line of sight are shown. |
 
 Standing in a doorway counts as inside. Clicking a house from outside picks what's under the mouse
 on its exterior (`exterior_hit()`): the **door** walks you to the tile just inside, a **ground-floor
@@ -298,7 +345,6 @@ Ground-floor windows are every other tile on the walls facing the camera (bottom
 
 **Streaming:** terrain is cut into 16×16-tile chunks (`CHUNK`). Outside, the 7×7 chunks around you
 exist as nodes; when you cross into a new chunk, missing ones are built and far ones are freed.
-Indoors no terrain is drawn.
 
 **Walls and floors:** a building's outer ring of tiles is wall on every floor, except the door
 (ground floor only). Upper floors exist only inside buildings. Objects make their own tile solid.
@@ -450,12 +496,14 @@ carrying is in `held`. A task that's interrupted puts the carried item down (`dr
 Full details and every table: **[docs/PEOPLE.md](docs/PEOPLE.md)**. In short:
 
 * **Emotions** come from moodlets (e.g. *Argued*: Angry for 3 h; *Hungry*: Uncomfortable while
-  hunger < 25). The strongest emotion is what they feel, shown as `Feeling: Angry` above their head.
+  hunger < 25). The strongest emotion is what they feel, shown as `Name - Angry` above their head.
   Emotions change who they talk to, what they choose, whether they say yes, and how fast they learn.
 * **Traits** (3 per NPC) change need decay, likes, feelings and learning: Outgoing, Loner, Cheerful,
   Hot-headed, Goofball, Foodie, Bookworm, Active, Lazy, Neat, Slob.
 * **Memories:** everyone remembers what others did to them. Recent bad memories become grudges, and
   they bring old events up in conversation.
+* **The body:** people run when they're in a hurry (and can trip), pass out at 0 energy, faint at 0 hunger,
+  have accidents at 0 bladder, fart, catch colds and the flu, get food poisoning from old food and throw up.
 * **Skills** 0–10: Cooking, Charisma, Comedy, Fitness, Logic, earned by doing things. They unlock
   recipes and interactions, make food better, jokes land, people say yes, and you walk faster.
 
@@ -476,8 +524,10 @@ Interactions: **Chat, Tell a joke, Compliment, Deep talk, Discuss ideas, Hug, Co
 NPCs **greet** people they know when they see them ("Good morning, Sam!"), or glare at people
 they're angry with.
 
-**Names are hidden until you've met.** An NPC appears as **Unknown** (above their head, in menus,
-in the HUD and in the event feed) until they complete an interaction with you. A rejected one doesn't
+**Strangers stay a mystery.** Until you've talked with someone (completed an interaction), nothing shows
+above their head, their menu shows only "Unknown" (no feeling, traits or thoughts), the relationships drawer
+says only that you haven't met, and you don't hear them talking among themselves (only what they say to you).
+The social events feed only shows what happens to your household. Names are hidden until you've met: A rejected one doesn't
 count. Every character has `known` (names it has met); `Social.display_name(viewer, c)` decides
 what to show. Text that mentions someone uses a `{who}` placeholder plus `activity_with`, and log
 entries use `{a}`/`{b}`, so names are filled in at display time from the point of view of the person you control.
@@ -489,7 +539,7 @@ more than you like Sam. Tiers: Enemy (< −30), Disliked (< 0), Acquaintance (< 
 already in one. NPCs approach the person you control (in Manual mode) only while they stand still. You can interrupt an
 NPC who is walking to an object, but not one who is using one.
 
-All completed and rejected interactions go to `Social.event_log`, which is shown in the bottom-left of the HUD, just above the footer.
+All completed and rejected interactions go to `Social.event_log`, which is shown in the bottom-left of the HUD, above the household row, for a little while after something happens.
 
 ### Money and jobs (`jobs.gd`)
 Full details: **[docs/WORK.md](docs/WORK.md)**. Everyone has money. It comes from **jobs**: 5
@@ -531,6 +581,30 @@ nobody, not even you, can walk in uninvited (only out, if you're already inside)
 * Guests can't use the hosts' kitchen (NPCs only use their own home's objects).
 * The relationships drawer shows invitations both ways with the time left.
 
+### AI words (`llm.gd`)
+Full details: **[docs/AI.md](docs/AI.md)**. A local language model (Qwen3.5 4B from Hugging Face, run by
+llama.cpp's `llama-server`, started by the game on port 8765 if it's installed) writes words on top of the
+systems, which still decide everything:
+
+* **Conversation lines:** near you, an accepted interaction's scripted line is replaced by a written one
+  that fits who they are, how they feel and what they remember, and the partner replies.
+* **Thoughts:** people near you sometimes show a private thought (`~ … ~`), also shown in their menu.
+* **Wishes:** every few seconds one NPC is asked what they feel like doing for the next 3 game hours (an
+  object, cooking or company); that option scores ×1.6 in the utility AI.
+* **Talk…:** type to someone near you; they answer in character, and how your words come across changes
+  their friendship toward you.
+
+The top-left panel shows whether it's on. Without the server, scripted lines are used.
+
+### Online mode (`net.gd`)
+Full details: **[docs/ONLINE.md](docs/ONLINE.md)**. Several real people play in one town on the same Wi-Fi.
+The **host** runs the whole simulation (and the AI); people who **join** get a snapshot of the town, then a
+live mirror of it (positions 10× a second, everything else every second), and play a household of their
+own. What they click is worked out on their screen and sent to the host as an order, which the host
+carries out with a controller of its own for them; menus come back to their screen. **Talk…** with
+another player passes your words to them (no AI). The host decides the game speed; build mode and
+saving are host/offline only for now.
+
 ### Perception (`perception.gd`)
 Every `LOOK_INTERVAL` (0.5 s) each NPC looks around. It **sees** every character on its floor within
 `SIGHT_RADIUS` (10 tiles) with a line of sight, including through windows and open doors. The result
@@ -553,7 +627,7 @@ score = their friendship toward you / 100 + (their mood − 50) / 100 − 0.15 �
 | −0.15 to 0.25 | Stares back | −3 | – |
 | < −0.15 | Yells "Creep!" | −10 (−20 if at the Shower/Toilet) | Closes the curtains on that window for 60 s, which ends your peek and blocks sight |
 
-The reaction shows above their head for 4 s and goes into the social log. In practice strangers
+The reaction shows in your chat feed and goes into the social log. In practice strangers
 usually stare or yell, good friends in a good mood wave, and anyone caught in the shower yells.
 Staring or yelling makes **you** Embarrassed, and they **remember** it; a wave makes them Happy.
 
@@ -579,8 +653,8 @@ animations and its bodies are in underwear, so **`tools/bake_characters.gd`** do
 * **Clothes** painted on by a shader, per vertex by its main bone: shirt on the spine, clavicles and
   upper arms; trousers on the pelvis and legs; shoes on the feet; skin (the pack's texture) elsewhere.
 * **Hair** ("origin at 0" models) attached to the head bone; hair and eyebrows tinted per look.
-* Rendered at the game's isometric angle and scale in **8 directions × 7 frames** (idle, walk ×4,
-  sit, lie) into one sheet per look: `art/characters/<look>.png`, cells of 96×112 px, feet at (48, 100).
+* Rendered at the game's isometric angle and scale in **8 directions × 13 frames** (idle, walk ×4,
+  sit, lie in bed, run ×4, bent over, down on the floor) into one sheet per look: `art/characters/<look>.png`, cells of 96×112 px, feet at (48, 100).
 
 | Look | Body | Skin | Hair | Shirt / pants |
 |---|---|---|---|---|
@@ -602,6 +676,10 @@ progress bar and whatever they carry.
 **Add or change a look:** edit `LOOKS` in `looks.gd`, run `godot --path . -s res://tools/bake_characters.gd`
 (needs a window; add look names after `--` to bake only those), then `godot --headless --import`, and
 give a person `.set_look("name")` in `main.gd`.
+
+**Portraits:** the same tool also renders each look's **head** from the front (128×128,
+`art/characters/<look>_face.png`, `Looks.face()`), shown in the Passport. Only the portraits:
+`godot --path . -s res://tools/bake_characters.gd -- portraits` (add look names to do just those).
 
 ## Furniture art
 
@@ -636,6 +714,13 @@ need), run `godot --path . -s res://tools/bake_furniture.gd` (needs a window), t
 `godot --headless --import`, and use `"<Model>_r<n>"` in `FURNITURE` (an object type), an object's
 `"sprite"` extra, or a `PROPS` row.
 
+## Credits
+
+* Font: EB Garamond (SIL Open Font License, `assets/fonts/OFL.txt`).
+* Music: "Join my server" and "The game" by adrihuwu, "Beautiful lofi" and "Tokyo lofi" by zephiramusic (`assets/music`;
+  from the files the owner provided: check each track's licence before publishing the game).
+* Characters: Quaternius Universal Base Characters (CC0). Furniture: a low-poly furniture pack (see *Furniture art*).
+
 ## How to…
 
 **Add an object:** one row in `OBJECTS` in `main.gd`:
@@ -664,6 +749,10 @@ in `main.gd`, where `home` is a building index (−1 = no home).
 
 **Add a trait, moodlet or skill:** see *How to…* in [docs/PEOPLE.md](docs/PEOPLE.md).
 
+**Add something a joined player can do:** make the UI call `Net.order(game, "kind", [args])` and handle
+`kind` in `Net.run()`. Anything new about a person that a joined player should see: it's in `SAVE_FIELDS`
+(sent every second) or add it to `PERSON_EXTRAS` / `fast_state()` in net.gd.
+
 **After any change:** run the checks (see *Running it*). Add a check to `tests/check_sim.gd` for new
 behavior, and add an entry to `docs/DEVLOG.md`.
 
@@ -676,9 +765,8 @@ behavior, and add an entry to `docs/DEVLOG.md`.
 * Only ground-floor windows on the two camera-facing walls can be peeked through.
 * Doors can't be locked; ownership is enforced by pathfinding, not by a lock.
 * Only one street has houses; the rest of the 1 km map is grass, trees and empty roads.
-* Seasons only change how things look and how long the days are; there's no temperature or weather yet.
+* Seasons change how things look, how long the days are and the weather; there's no temperature yet.
 * NPCs have no daily schedule (work, school) yet; they only prefer to sleep at night.
-* Nothing happens when a need hits 0 (no accidents, fainting or moodles yet).
 * Food costs money but the fridge never runs out (no grocery shopping or stock yet).
 * Workplaces and schools are off-map: you see the bus stop, not the café or school.
 * Graves are decorative; nobody visits them yet.
@@ -686,8 +774,10 @@ behavior, and add an entry to `docs/DEVLOG.md`.
 * One person per object: a Table seats one, so two people eat one after the other.
 * No save/load; relationships reset each run.
 * Everything resets each run (no save/load).
-* Jo has no traits; NPC lines come from small fixed lists.
+* Jo has no traits. Without the AI server, NPC lines come from small fixed lists.
+* AI words take 1–3 s on a laptop, so at high speed short conversations keep their scripted line.
 * Labels can overlap when characters stand close together.
+* Online: same Wi-Fi only; build mode and saving are for offline/the host; the host sets the speed.
 
 ## Roadmap (rough order)
 1. **Consequences at 0**: bladder accident, passing out, refusing to socialize when miserable.
@@ -697,4 +787,5 @@ behavior, and add an entry to `docs/DEVLOG.md`.
 5. **Schedules and weather**: jobs, opening hours, temperature, rain and snowfall.
 5. **Rooms and a bigger town**: inner walls, lockable doors, more streets and buildings, maybe generated.
 6. **Zomboid layer**: scarcity, danger, injuries, safety as a need.
-7. Optional: LLM-written dialogue on top of the systemic AI (systems decide, LLM only writes words).
+7. ~~Optional: LLM-written dialogue on top of the systemic AI~~ (done: docs/AI.md). Next: let written
+   conversations leave richer memories, and NPCs talk to each other at length when you're watching.

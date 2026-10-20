@@ -166,8 +166,10 @@ static func eat_and_wash_steps(c: Node2D, b: int) -> Array:
 		if c.held.get("kind") == "food":
 			meals_eaten += 1
 			var moodlet: String = QUALITY[c.held.get("quality", "Good")].moodlet
-			if freshness(c.held, c.world.now()) == "Spoiled":
+			var fresh := freshness(c.held, c.world.now())
+			if fresh == "Spoiled":
 				moodlet = "Stomach ache"
+			load("res://scripts/body.gd").ate(c, fresh)  # stale or spoiled food can mean food poisoning
 			if moodlet != "":
 				Emotions.add(c, moodlet)
 			c.held = new_item({"kind": "dirty", "dish": "plate"})

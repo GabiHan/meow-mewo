@@ -26,16 +26,6 @@ func setup(p_kind: String, p_cell: Vector2i, p_height: float, p_color: Color) ->
 	return self
 
 
-func _ready() -> void:
-	if kind == "stairs":
-		var label := Label.new()
-		label.text = "Stairs"
-		label.add_theme_font_size_override("font_size", 12)
-		label.position = Vector2(-20, -40)
-		label.add_theme_color_override("font_color", Color(0.36, 0.29, 0.48, 0.8))
-		add_child(label)
-
-
 func _draw() -> void:
 	match kind:
 		"tree":

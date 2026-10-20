@@ -7,6 +7,8 @@
 #   Right-click / Esc                  -> stop placing (a moved item goes back where it was)
 #   Left-click your furniture (nothing selected) -> Rotate (in place), Move, or Delete (sold: 75% back)
 #   "Other floor"                      -> build upstairs/downstairs
+#   Wall / Remove walls (Build)        -> press, drag and let go: a straight line of walls is built (or the walls
+#                                         you built along it are removed and sold); a plain click does one tile
 # Rules and prices are in catalog.gd; documentation in docs/BUILD.md.
 extends CanvasLayer
 
@@ -16,7 +18,7 @@ const Furniture = preload("res://scripts/furniture.gd")
 const Social = preload("res://scripts/social.gd")
 
 const PANEL_HEIGHT := 178
-const FOOTER_HEIGHT := 64  # hud.gd's footer band sits below the catalog
+const FOOTER_HEIGHT := 88  # hud.gd's bottom row (BAR_HEIGHT + margins) sits below the catalog
 
 var main: Node2D
 var active := false
@@ -26,6 +28,10 @@ var selected := ""  # catalog id being placed
 var rot := 0
 var moving: Dictionary = {}  # {cell, rot, floor} of the item being moved (placed for free; Esc puts it back)
 var cell := Vector2i.ZERO
+const DRAG_TOOLS := ["wall", "wall_erase"]
+var dragging := false
+var drag_from := Vector2i.ZERO
+var line_preview: Node2D  # the tiles a drag would build on (or clear)
 
 var panel: PanelContainer
 var items_row: HBoxContainer
@@ -54,6 +60,10 @@ func _ready() -> void:
 	ghost_box = Polygon2D.new()
 	ghost_box.polygon = PackedVector2Array([Vector2(-28, -28), Vector2(0, -42), Vector2(28, -28), Vector2(28, 0), Vector2(0, 14), Vector2(-28, 0)])
 	ghost.add_child(ghost_box)
+	line_preview = Node2D.new()
+	line_preview.z_index = 60
+	line_preview.draw.connect(draw_line_preview)
+	main.world.add_child(line_preview)
 
 
 func build_panel() -> void:
@@ -136,6 +146,9 @@ func toggle() -> void:
 		close()
 		return
 	var p: Node2D = main.player
+	if main.is_online():
+		p.show_emote("Build mode only works offline for now", null)
+		return
 	if p.home < 0 or p.building != p.home:
 		p.show_emote("Go home to build", null)
 		return
@@ -196,12 +209,72 @@ func _unhandled_input(event: InputEvent) -> void:
 			cancel()
 	if not active:
 		return
-	if event is InputEventMouseButton and event.pressed:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed and dragging:
+		get_viewport().set_input_as_handled()
+		finish_drag()
+	elif event is InputEventMouseButton and event.pressed:
 		get_viewport().set_input_as_handled()
 		if event.button_index == MOUSE_BUTTON_RIGHT:
+			dragging = false
 			cancel()
+		elif event.button_index == MOUSE_BUTTON_LEFT and selected in DRAG_TOOLS:
+			dragging = true
+			drag_from = cell
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			click()
+
+
+# The tiles from `a` to `b` in a straight line, along whichever direction you dragged further.
+static func line_cells(a: Vector2i, b: Vector2i) -> Array:
+	var cells := []
+	var d := b - a
+	if absi(d.x) >= absi(d.y):
+		for x in range(mini(a.x, b.x), maxi(a.x, b.x) + 1):
+			cells.append(Vector2i(x, a.y))
+	else:
+		for y in range(mini(a.y, b.y), maxi(a.y, b.y) + 1):
+			cells.append(Vector2i(a.x, y))
+	return cells
+
+
+# Let go after dragging: build the line of walls (each tile that fits and that you can afford), or
+# remove the walls you built along it.
+func finish_drag() -> void:
+	dragging = false
+	var p: Node2D = main.player
+	var count := 0
+	for c in line_cells(drag_from, cell):
+		if selected == "wall_erase":
+			var thing := Catalog.thing_at(p, c, p.floor)
+			if thing and thing.get("wall") and Catalog.sell(p, thing) >= 0:
+				count += 1
+		elif Catalog.place(p, "wall", c, 0, p.floor):
+			count += 1
+	if count > 0:
+		Social.log_event("{a} %s %d wall%s" % ["removed" if selected == "wall_erase" else "built", count, "" if count == 1 else "s"], p, p)
+	else:
+		p.show_emote("No walls to remove there" if selected == "wall_erase" else reason(), null)
+	line_preview.queue_redraw()
+
+
+func draw_line_preview() -> void:
+	if not active or not selected in DRAG_TOOLS:
+		return
+	var p: Node2D = main.player
+	var cells := line_cells(drag_from, cell) if dragging else [cell]
+	for c in cells:
+		var ok: bool
+		if selected == "wall_erase":
+			var thing := Catalog.thing_at(p, c, p.floor)
+			ok = thing != null and thing.get("wall")
+		else:
+			ok = Catalog.why_not(p, "wall", c, 0, p.floor) == ""
+		var at := Iso.to_screen(Vector2(c))
+		var color := Color(0.6, 1.0, 0.6, 0.55) if ok else Color(1.0, 0.45, 0.45, 0.45)
+		if selected == "wall_erase" and ok:
+			color = Color(1.0, 0.55, 0.6, 0.6)
+		line_preview.draw_colored_polygon(PackedVector2Array([at + Vector2(0, -Iso.TILE_H / 2.0), at + Vector2(Iso.TILE_W / 2.0, 0),
+			at + Vector2(0, Iso.TILE_H / 2.0), at + Vector2(-Iso.TILE_W / 2.0, 0)]), color)
 
 
 func click() -> void:
@@ -218,13 +291,20 @@ func click() -> void:
 		else:
 			p.show_emote(reason(), null)
 		return
+	var controller := get_tree().get_first_node_in_group("controller")
+	var house: Dictionary = main.world.BUILDINGS[p.home]
+	if p.floor == 0 and house.get("stairs") == cell and house.get("built_stairs", false):  # stairs you built
+		var empty: bool = main.world.upper_floor_empty(p.home)
+		controller.show_menu(["Stairs + upper floor"], [{"label": "Remove them and the upper floor (sell for $%d)" % int(
+			Catalog.ITEMS.stairs.price * Catalog.SELL_BACK) if empty else "Empty the upper floor first", "disabled": not empty,
+			"action": remove_stairs}])
+		return
 	var thing := Catalog.thing_at(p, cell, p.floor)
 	if thing == null:
 		return
 	var id := Catalog.id_of(thing)
 	var name: String = Catalog.ITEMS[id].name if id != "" else (thing.object_name if "object_name" in thing else "this")
-	var controller := get_tree().get_first_node_in_group("controller")
-	var entries := [{"label": "Rotate", "action": turn.bind(thing)}]
+	var entries := [] if thing.get("wall") else [{"label": "Rotate", "action": turn.bind(thing)}]
 	if id != "":
 		entries.append({"label": "Move", "action": pick_up.bind(thing, id)})
 	entries.append({"label": "Delete (sell for $%d)" % Catalog.sell_price(thing), "action": sell.bind(thing)})
@@ -239,6 +319,11 @@ func reason() -> String:
 	if moving.is_empty() and p.money < Catalog.ITEMS[selected].price:
 		return "Can't afford it"
 	return "That would block the way"
+
+
+func remove_stairs() -> void:
+	if Catalog.remove_stairs(main.player) >= 0:
+		Social.log_event("{a} took the stairs out", main.player, main.player)
 
 
 func turn(thing: Node2D) -> void:
@@ -276,8 +361,13 @@ func _process(_delta: float) -> void:
 		main.world.BUILDINGS[p.home].name, "ground floor" if p.floor == 0 else "floor %d" % p.floor, p.money]
 	if selected == "":
 		ghost.visible = false
+		line_preview.queue_redraw()
 		return
 	cell = Vector2i(Iso.to_grid(main.world.get_global_mouse_position()).round())
+	line_preview.queue_redraw()
+	if selected in DRAG_TOOLS:  # walls: tiles light up instead (draw_line_preview)
+		ghost.visible = false
+		return
 	ghost.visible = true
 	ghost.position = Iso.to_screen(Vector2(cell))
 	var sprite_name := Catalog.sprite(selected, rot)

@@ -25,10 +25,13 @@ const BABY_COLORS := [Color(0.95, 0.75, 0.4), Color(0.5, 0.75, 0.95), Color(0.85
 
 
 # At the start: parents and children (and siblings) know and love each other; housemates know each other.
-static func setup_families(node: Node) -> void:
+# `only`: just pairs with one of these people (a household that moved in later, online).
+static func setup_families(node: Node, only := []) -> void:
 	var people: Array = node.get_tree().get_nodes_in_group("characters")
 	for a in people:
 		for b in people:
+			if not only.is_empty() and not (a in only or b in only):
+				continue
 			if a != b and Ages.family(a, b):
 				a.known[b.npc_name] = true
 				Social.change_friendship(a, b, FAMILY_FRIENDSHIP if (a.npc_name in b.parents or b.npc_name in a.parents) else 30.0)
@@ -73,7 +76,9 @@ static func die(c: Node2D) -> void:
 	c.visible = false
 	c.remove_from_group("characters")
 	if c.controlled:  # no game over: you carry on as someone else in your household
-		c.get_tree().get_first_node_in_group("controller").on_death(c)
+		var ctl: Node = c.get_tree().get_first_node_in_group("game").controller_of(c)
+		if ctl:
+			ctl.on_death(c)
 	c.set_process(false)
 	var spot: Vector2i = c.world.random_walkable_near(c.world.door_outside(c.home) + Vector2i(2, 2) if c.home >= 0 else c.cell(), 0, 3)
 	var grave: Node2D = load("res://scripts/smart_object.gd").new().setup("Grave of " + c.npc_name, Vector2(spot), {}, 0.0,

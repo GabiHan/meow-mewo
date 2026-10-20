@@ -71,6 +71,17 @@ const MOODLETS := {
 	"Burnt food": {"emotion": "Uncomfortable", "strength": 1, "hours": 2},
 	"Stomach ache": {"emotion": "Uncomfortable", "strength": 3, "hours": 4},
 	"Caffeinated": {"emotion": "Energized", "strength": 2, "hours": 3},
+	# The body (body.gd)
+	"Tripped": {"emotion": "Embarrassed", "strength": 2, "hours": 2},
+	"Passed out": {"emotion": "Uncomfortable", "strength": 2, "hours": 3},
+	"Fainted": {"emotion": "Uncomfortable", "strength": 3, "hours": 3},
+	"Had an accident": {"emotion": "Embarrassed", "strength": 4, "hours": 4},
+	"Threw up": {"emotion": "Uncomfortable", "strength": 3, "hours": 2},
+	"Grossed out": {"emotion": "Uncomfortable", "strength": 1, "hours": 1},
+	"Farted": {"emotion": "Embarrassed", "strength": 1, "hours": 1},
+	"Funny fart": {"emotion": "Playful", "strength": 1, "hours": 1},
+	"Feeling better": {"emotion": "Happy", "strength": 2, "hours": 4},
+	"Sick": {"emotion": "Uncomfortable", "strength": 3, "hours": 0},
 	# Activities (objects' "moodlet" in main.gd OBJECTS)
 	"Well rested": {"emotion": "Energized", "strength": 2, "hours": 4},
 	"Freshened up": {"emotion": "Happy", "strength": 1, "hours": 2},

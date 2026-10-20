@@ -19,7 +19,7 @@ const SAVE_FIELDS := ["npc_name", "body_color", "grid_pos", "floor", "home", "ho
 	"last_social", "work_log", "learned", "age_days", "sex", "parents", "pregnant_until", "baby_father", "death_years",
 	"romance", "lover", "lover_status", "original_home", "last_romance", "money", "job", "job_level", "performance",
 	"shift_day", "missed_day", "warned", "degree", "college_days", "look", "auto_mode", "caught_peeks", "knock_cooldown",
-	"reminded_day"]
+	"reminded_day", "illness", "ill_until", "next_symptom", "next_fart", "last_meal"]
 
 
 static func path(slot: String) -> String:
@@ -28,29 +28,43 @@ static func path(slot: String) -> String:
 
 # --- Writing ---
 
-static func capture(main: Node2D) -> Dictionary:
-	var world: Node2D = main.world
-	var people := []
-	for c in main.get_tree().get_nodes_in_group("characters"):
-		var person := {}
-		for field in SAVE_FIELDS:
-			person[field] = c.get(field)
-		people.append(person)
-	var objects := []
-	for o in main.get_tree().get_nodes_in_group("smart_objects"):
-		objects.append({"name": o.object_name, "building": o.building, "floor": o.floor, "pos": o.grid_pos,
-			"ads": o.advertisements, "duration": o.duration, "color": o.color, "height": o.box_height,
-			"extras": {"verb": o.verb, "skill": o.skill, "moodlet": o.moodlet, "sprite": o.sprite, "facing": o.facing},
-			"catalog_id": o.catalog_id, "items": o.items})
+# One person, one object, one prop as plain data (also what online mode sends: net.gd).
+static func capture_person(c: Node2D) -> Dictionary:
+	var person := {}
+	for field in SAVE_FIELDS:
+		person[field] = c.get(field)
+	return person
+
+
+static func capture_object(o: Node2D) -> Dictionary:
+	return {"name": o.object_name, "building": o.building, "floor": o.floor, "pos": o.grid_pos,
+		"ads": o.advertisements, "duration": o.duration, "color": o.color, "height": o.box_height,
+		"extras": {"verb": o.verb, "skill": o.skill, "moodlet": o.moodlet, "sprite": o.sprite, "facing": o.facing},
+		"catalog_id": o.catalog_id, "items": o.items, "net_id": o.net_id}
+
+
+static func capture_props(world: Node2D) -> Array:
 	var props := []
 	for b in world.floor_nodes.size():
 		for f in world.floor_nodes[b].size():
 			for n in world.floor_nodes[b][f].get_children():
 				if "flat" in n:
 					props.append({"sprite": n.sprite, "cell": n.cell, "flat": n.flat, "catalog_id": n.catalog_id,
-						"rotation": n.rotation_index, "building": b, "floor": f})
-	var log := Social.event_log.map(func(e): return [e.text, e.a.npc_name if is_instance_valid(e.a) else e.get("a_name", ""),
+						"rotation": n.rotation_index, "building": b, "floor": f, "wall": n.wall})
+	return props
+
+
+static func capture_log() -> Array:
+	return Social.event_log.map(func(e): return [e.text, e.a.npc_name if is_instance_valid(e.a) else e.get("a_name", ""),
 		e.b.npc_name if is_instance_valid(e.b) else e.get("b_name", "")])
+
+
+static func capture(main: Node2D) -> Dictionary:
+	var world: Node2D = main.world
+	var people: Array = main.get_tree().get_nodes_in_group("characters").map(capture_person)
+	var objects: Array = main.get_tree().get_nodes_in_group("smart_objects").map(capture_object)
+	var props := capture_props(world)
+	var log := capture_log()
 	var t: float = world.now()
 	var home: int = main.player.home
 	return {
@@ -60,7 +74,7 @@ static func capture(main: Node2D) -> Dictionary:
 			"date": "%s, %s" % [GameTime.weekday(t), GameTime.date_text(t)], "time": GameTime.clock_text(t).substr(0, 5),
 			"saved_at": Time.get_datetime_string_from_system(false, true), "saved_unix": Time.get_unix_time_from_system(),
 			"money": main.player.money},
-		"world": {"clock": world.clock, "kitchens": world.kitchens, "guests": world.guests, "speed": main.speed,
+		"world": {"clock": world.clock, "weather": world.weather, "weather_until": world.weather_until, "buildings": world.building_state(), "kitchens": world.kitchens, "guests": world.guests, "speed": main.speed,
 			"controlled": main.player.npc_name, "household": main.household_name, "next_item_id": Kitchen.next_id, "log": log},
 		"people": people, "objects": objects, "props": props,
 	}
@@ -131,29 +145,19 @@ static func restore(main: Node2D, data: Dictionary) -> Node2D:
 	world.day = GameTime.day_index(world.now())
 	world.kitchens = data.world.kitchens
 	world.guests = data.world.guests
+	world.weather = data.world.get("weather", "Clear")
+	world.weather_until = data.world.get("weather_until", 0.0)
+	world.apply_building_state(data.world.get("buildings", []))  # built stairs and upper floors, before what's on them
 	main.household_name = data.world.household
 	Kitchen.next_id = data.world.next_item_id
 	for o in data.objects:
-		var obj: Node2D = SmartObject.new().setup(o.name, o.pos, o.ads, o.duration, o.color, o.height)
-		var extras: Dictionary = o.extras.duplicate()
-		if extras.sprite == "":
-			extras.erase("sprite")
-		obj.with_extras(extras)
-		obj.catalog_id = o.catalog_id
-		obj.items = o.items
-		world.add_object(obj, o.building, o.floor)
+		make_object(world, o)
 	for p in data.props:
-		var prop: Node2D = Prop.new().setup(p.sprite, p.cell, p.flat)
-		prop.catalog_id = p.catalog_id
-		prop.rotation_index = p.rotation
-		world.add_prop(prop, p.building, p.floor)
+		make_prop(world, p)
 	var controlled: Node2D = null
 	var by_name := {}
 	for person in data.people:
-		var c: Node2D = Npc.new().setup(person.npc_name, person.grid_pos, person.body_color, person.home, [], {})
-		for field in SAVE_FIELDS:
-			c.set(field, person[field])
-		main.add_child(c)
+		var c := make_person(main, person)
 		by_name[c.npc_name] = c
 		if c.npc_name == data.world.controlled:
 			controlled = c
@@ -162,3 +166,32 @@ static func restore(main: Node2D, data: Dictionary) -> Node2D:
 		Social.event_log.append({"text": e[0], "a": by_name.get(e[1]), "b": by_name.get(e[2]), "a_name": e[1], "b_name": e[2]})
 	main.speed = data.world.speed
 	return controlled
+
+
+static func make_object(world: Node2D, o: Dictionary) -> Node2D:
+	var obj: Node2D = SmartObject.new().setup(o.name, o.pos, o.ads, o.duration, o.color, o.height)
+	var extras: Dictionary = o.extras.duplicate()
+	if extras.sprite == "":
+		extras.erase("sprite")
+	obj.with_extras(extras)
+	obj.catalog_id = o.catalog_id
+	obj.items = o.items
+	obj.net_id = o.get("net_id", 0)  # older saves: a new one is given by add_object
+	world.add_object(obj, o.building, o.floor)
+	return obj
+
+
+static func make_prop(world: Node2D, p: Dictionary) -> Node2D:
+	var prop: Node2D = Prop.new().setup(p.sprite, p.cell, p.flat, p.get("wall", false))
+	prop.catalog_id = p.catalog_id
+	prop.rotation_index = p.rotation
+	world.add_prop(prop, p.building, p.floor)
+	return prop
+
+
+static func make_person(main: Node2D, person: Dictionary) -> Node2D:
+	var c: Node2D = Npc.new().setup(person.npc_name, person.grid_pos, person.body_color, person.home, [], {})
+	for field in SAVE_FIELDS:
+		c.set(field, person[field])
+	main.add_child(c)
+	return c

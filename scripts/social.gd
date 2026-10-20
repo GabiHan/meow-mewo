@@ -6,7 +6,8 @@
 #   1. Initiator picks a partner + interaction (AI: choose_interaction, player: click menu).
 #   2. Partner stops and waits ("waiting"); initiator walks next to them.
 #   3. On arrival, begin() rolls accept_chance(). Accepted -> both "talking" and the initiator says a
-#      line. Rejected -> small friendship hit, initiator feels "Rejected", partner remembers it.
+#      line (near you, llm.gd may replace it with a written one, and the partner replies).
+#      Rejected -> small friendship hit, initiator feels "Rejected", partner remembers it.
 #   4. After the duration, finish() applies effects to BOTH characters: needs, friendship, moodlets,
 #      skill xp (initiator), memories, and logs it. A joke can fall flat (Skills.joke_chance).
 const Emotions = preload("res://scripts/emotions.gd")
@@ -378,7 +379,11 @@ static func begin(a: Node2D, b: Node2D, i: Dictionary) -> void:
 		a.activity_with = b
 		b.activity = i.verb + " {who}"
 		b.activity_with = a
-		a.show_emote("\"%s\"" % line_for(a, b, i), b)
+		var line := line_for(a, b, i)
+		a.show_emote("\"%s\"" % line, b)
+		var llm := a.get_tree().get_first_node_in_group("llm")
+		if llm:  # near you, the language model rewrites the line and adds a reply (llm.gd)
+			llm.conversation(a, b, i, line)
 	else:
 		change_friendship(a, b, REJECT_FRIENDSHIP)
 		change_friendship(b, a, REJECT_FRIENDSHIP)

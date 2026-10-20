@@ -46,7 +46,7 @@ static func knock(knocker: Node2D, b: int) -> void:
 		return  # nobody comes; the knocker gives up after KNOCK_WAIT
 	var you: Array = hosts.filter(func(h): return h.controlled and not h.auto_mode)
 	if not you.is_empty():  # your home and you're there in Manual: you decide
-		knocker.get_tree().get_first_node_in_group("controller").ask_at_door(you[0], knocker, b)
+		knocker.get_tree().get_first_node_in_group("game").controller_of(you[0]).ask_at_door(you[0], knocker, b)
 		return
 	hosts.sort_custom(func(x, y): return Social.friendship(x, knocker) > Social.friendship(y, knocker))
 	var host: Node2D = hosts[0]  # the resident who likes them most comes to the door

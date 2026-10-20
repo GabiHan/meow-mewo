@@ -1,11 +1,12 @@
 # The open world: a SIZE×SIZE tile map (1 tile = 1 m, so about 1 km across) with a road grid, trees
 # and buildings. Owns pathfinding, terrain streaming and deciding what the player can see.
 #
-# What you see (update_view, every frame):
-#   inside a building -> only the floor you're on: its floor tiles, walls, objects and the people on it.
-#                        Other floors and the outside are hidden.
-#   outside           -> terrain, trees, outdoor objects, house exteriors and people outside within
-#                        VIEW_RADIUS tiles. Interiors stay hidden.
+# What you see (update_view, every frame), Project Zomboid style: the whole neighbourhood is always there,
+# and vision.gd decides what your sim can actually see (walls, light, weather, which way they face):
+#   the house you're in -> opens up: the floor you're on (tiles, cut-down walls, furniture), no roof
+#   other houses        -> seen from outside (their exterior); people inside them are hidden
+#   people              -> only shown while your sim can see them (vision.gd sees())
+#   everything else     -> veiled where you can't see it now, darker where you've never been (vision.gd)
 # Terrain is streamed: CHUNK×CHUNK pieces around the player exist as nodes; the rest are freed.
 #
 #   peeking           -> outside view, but the house you're peeking into shows its ground floor
@@ -25,6 +26,8 @@ const Ground = preload("res://scripts/ground.gd")
 const GameTime = preload("res://scripts/game_time.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Life = preload("res://scripts/life.gd")
+const Vision = preload("res://scripts/vision.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 const SIZE := 1024
 const CHUNK := 16
@@ -46,7 +49,9 @@ const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: laven
 
 # rect includes the outer walls. door is on floor 0 and must be on the bottom (+y) or right (+x)
 # wall so it faces the camera. stairs (optional) is one interior cell shared by every floor.
-const BUILDINGS := [
+# These are the houses at the start; BUILDINGS is this game's copy, which build mode can change
+# (stairs add an upper floor: add_upper_floor / remove_upper_floor; "built_stairs" marks those).
+const START_BUILDINGS := [
 	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(487, 508),
 		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665)},
 	{"name": "Alex's house", "rect": Rect2i(498, 499, 10, 10), "floors": 1, "door": Vector2i(502, 508),
@@ -56,6 +61,8 @@ const BUILDINGS := [
 	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 522),
 		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681)},  # for new households (Play → Create)
 ]
+
+static var BUILDINGS: Array = START_BUILDINGS.duplicate(true)  # static: fresh for every game (_ready)
 
 var player: Node2D
 var trees := {}  # Vector2i -> true (floor 0 only)
@@ -76,6 +83,11 @@ var floor_nodes := []  # per building: one Node2D per floor (floor tiles, walls,
 var floor_grounds := []  # per building: the Ground node of each floor (dimmed while peeking)
 var peek_sight := {}  # cells in sight of the window the player is peeking through
 var last_chunk := Vector2i(-1, -1)
+var next_net_id := 0  # last object net_id given out (add_object)
+var puppet := false  # online, joined someone's town: the host runs the days (net.gd), this only shows them
+var vision: Node2D  # what your sim can see (vision.gd)
+var weather := "Clear"  # weather.gd; outdoors sight and looks
+var weather_until := 0.0  # game time of the next change
 
 
 func _ready() -> void:
@@ -87,9 +99,12 @@ func _ready() -> void:
 	daylight = CanvasModulate.new()
 	add_child(daylight)
 	season = ""  # set (and roofs coloured) on the first frame
+	BUILDINGS = START_BUILDINGS.duplicate(true)
 	plant_trees()
 	for i in BUILDINGS.size():
 		build(i)
+	vision = Vision.new()
+	add_child(vision)
 
 
 # A child that y-sorts its children together with everything else in the scene.
@@ -111,43 +126,115 @@ func plant_trees() -> void:
 
 
 func build(i: int) -> void:
+	floor_nodes.append([])
+	floor_grounds.append([])
+	exteriors.append(null)
+	for f in BUILDINGS[i].floors:
+		build_floor(i, f)
+	build_exterior(i)
+
+
+# One floor of building i: floor tiles, the outer walls (cut down), and the stairs if there are any.
+func build_floor(i: int, f: int) -> void:
 	var b: Dictionary = BUILDINGS[i]
 	var r: Rect2i = b.rect
-	var floors := []
-	var grounds := []
-	for f in b.floors:
-		var blocked: Dictionary = solid.get_or_add(f, {})
-		var wall_cells: Dictionary = walls.get_or_add(f, {})
-		var node := sorted_node()
-		var tiles := []
-		for x in range(r.position.x, r.end.x):
-			for y in range(r.position.y, r.end.y):
-				var c := Vector2i(x, y)
-				if f == 0 and c == b.door:
-					tiles.append([c, WOOD_COLOR.lightened(0.3)])
-				elif is_edge(r, c):
-					blocked[c] = true
-					wall_cells[c] = true
-					node.add_child(Block.new().setup("box", c, INNER_WALL_HEIGHT, INNER_WALL_COLOR))
-				else:
-					tiles.append([c, WOOD_COLOR.darkened(0.04 if (x + y) % 2 == 0 else 0.0)])
-		var ground: Node2D = Ground.new().setup(tiles)
-		node.add_child(ground)
-		grounds.append(ground)
-		if b.has("stairs"):
-			node.add_child(Block.new().setup("stairs", b.stairs, 0.0, WOOD_COLOR.darkened(0.15)))
-		floors.append(node)
-	floor_nodes.append(floors)
-	floor_grounds.append(grounds)
+	var blocked: Dictionary = solid.get_or_add(f, {})
+	var wall_cells: Dictionary = walls.get_or_add(f, {})
+	var node := sorted_node()
+	var tiles := []
+	for x in range(r.position.x, r.end.x):
+		for y in range(r.position.y, r.end.y):
+			var c := Vector2i(x, y)
+			if f == 0 and c == b.door:
+				tiles.append([c, WOOD_COLOR.lightened(0.3)])
+			elif is_edge(r, c):
+				blocked[c] = true
+				wall_cells[c] = true
+				node.add_child(Block.new().setup("box", c, INNER_WALL_HEIGHT, INNER_WALL_COLOR))
+			else:
+				tiles.append([c, WOOD_COLOR.darkened(0.04 if (x + y) % 2 == 0 else 0.0)])
+	var ground: Node2D = Ground.new().setup(tiles)
+	node.add_child(ground)
+	if b.has("stairs"):
+		node.add_child(Block.new().setup("stairs", b.stairs, 0.0, WOOD_COLOR.darkened(0.15)))
+	floor_nodes[i].append(node)
+	floor_grounds[i].append(ground)
 
-	# Exterior: one full-height box per tile, y-sorted so people walking past are drawn correctly.
+
+# Build mode: stairs at `cell` and a new, empty upper floor (the house grows a storey outside).
+func add_upper_floor(i: int, cell: Vector2i) -> void:
+	var b: Dictionary = BUILDINGS[i]
+	b.stairs = cell
+	b.floors = 2
+	b.built_stairs = true
+	floor_nodes[i][0].add_child(Block.new().setup("stairs", cell, 0.0, WOOD_COLOR.darkened(0.15)))
+	build_floor(i, 1)
+	build_exterior(i)
+	update_view()
+
+
+# Build mode: take the stairs and the (empty) upper floor away again.
+func remove_upper_floor(i: int) -> void:
+	var b: Dictionary = BUILDINGS[i]
+	var r: Rect2i = b.rect
+	floor_nodes[i][1].queue_free()
+	floor_nodes[i].resize(1)
+	floor_grounds[i].resize(1)
+	for n in floor_nodes[i][0].get_children():
+		if n.get("kind") == "stairs":
+			n.queue_free()
+	for x in range(r.position.x, r.end.x):
+		for y in range(r.position.y, r.end.y):
+			solid.get(1, {}).erase(Vector2i(x, y))
+			walls.get(1, {}).erase(Vector2i(x, y))
+	b.erase("stairs")
+	b.erase("built_stairs")
+	b.floors = 1
+	build_exterior(i)
+	update_view()
+
+
+# Can the upper floor of building i go (nothing and nobody on it)?
+func upper_floor_empty(i: int) -> bool:
+	if BUILDINGS[i].floors < 2:
+		return false
+	var things: Array = floor_nodes[i][1].get_children().filter(func(n): return ("flat" in n or "advertisements" in n) and not n.is_queued_for_deletion())
+	var people := get_tree().get_nodes_in_group("characters").filter(func(c): return c.building == i and c.floor == 1)
+	return things.is_empty() and people.is_empty()
+
+
+# What changed in the houses since the start (saves and online games): floors and built stairs.
+func building_state() -> Array:
+	return BUILDINGS.map(func(b): return {"floors": b.floors, "stairs": b.get("stairs", Vector2i(-1, -1)),
+		"built_stairs": b.get("built_stairs", false)})
+
+
+func apply_building_state(state: Array) -> void:
+	for i in mini(state.size(), BUILDINGS.size()):
+		var s: Dictionary = state[i]
+		if s.built_stairs and BUILDINGS[i].floors < s.floors:
+			add_upper_floor(i, s.stairs)
+		elif not s.built_stairs and BUILDINGS[i].get("built_stairs", false):
+			remove_upper_floor(i)
+
+
+# Exterior: one full-height box per tile, y-sorted so people walking past are drawn correctly.
+# Rebuilt when the house gets or loses a storey.
+func build_exterior(i: int) -> void:
+	var b: Dictionary = BUILDINGS[i]
+	var r: Rect2i = b.rect
+	if exteriors[i]:
+		exteriors[i].queue_free()
+		for c in windows.keys():
+			if windows[c].building == i:
+				windows.erase(c)
 	var ext := sorted_node()
 	for x in range(r.position.x, r.end.x):
 		for y in range(r.position.y, r.end.y):
 			var c := Vector2i(x, y)
 			var blk: Node2D = Block.new().setup("box", c, STOREY_HEIGHT * b.floors, b.color)
-			blk.top_color = b.get("roof", ROOF_COLOR)
-			blk.set_meta("roof", blk.top_color)
+			blk.set_meta("roof", b.get("roof", ROOF_COLOR))
+			blk.top_color = SNOW_ROOF_COLOR if season == "Winter" else blk.get_meta("roof")
 			blk.storeys = b.floors
 			blk.storey_height = STOREY_HEIGHT
 			var face := ""
@@ -161,7 +248,7 @@ func build(i: int) -> void:
 				blk.window_faces = [face]
 				windows[c] = {"building": i, "dir": face_dir(face), "block": blk, "closed_until": 0.0}
 			ext.add_child(blk)
-	exteriors.append(ext)
+	exteriors[i] = ext
 
 
 # The outward direction of a wall face: "left" faces +y, "right" faces +x.
@@ -388,10 +475,17 @@ func free_neighbor(c: Vector2i, f: int, from: Vector2i) -> Vector2i:
 func add_prop(prop: Node2D, b: int, f: int) -> void:
 	if not prop.flat:
 		solid.get_or_add(f, {})[prop.cell] = true
+	if prop.wall:  # walls also block sight
+		walls.get_or_add(f, {})[prop.cell] = true
 	(outdoors if b < 0 else floor_nodes[b][f]).add_child(prop)
 
 
 func add_object(obj: Node2D, b: int, f: int) -> void:
+	if obj.net_id == 0:  # an id every computer agrees on (online mode, net.gd)
+		next_net_id += 1
+		obj.net_id = next_net_id
+	else:
+		next_net_id = maxi(next_net_id, obj.net_id)
 	obj.building = b
 	obj.floor = f
 	if not obj.is_seat():  # you sit on seats, so their tile stays walkable
@@ -404,10 +498,14 @@ func add_object(obj: Node2D, b: int, f: int) -> void:
 func _process(delta: float) -> void:
 	clock += delta
 	var t := now()
+	if not puppet and t >= weather_until:  # a new spell of weather (online, the host's comes with the updates)
+		weather = Weather.next(GameTime.season(t), GameTime.hours(t)) if weather_until > 0.0 else weather
+		weather_until = t + Weather.duration_seconds()
 	if GameTime.day_index(t) != day:
 		day = GameTime.day_index(t)
-		Jobs.new_day(self, day)
-		Life.new_day(self)
+		if not puppet:
+			Jobs.new_day(self, day)
+			Life.new_day(self)
 	if GameTime.season(t) != season:  # new season: rebuild the terrain in its colours
 		season = GameTime.season(t)
 		for k in chunks:
@@ -428,7 +526,7 @@ func _process(delta: float) -> void:
 	update_view()
 
 
-func update_view() -> void:
+func update_view(force := false) -> void:
 	if player == null:
 		return
 	var here: Vector2 = player.grid_pos
@@ -442,10 +540,12 @@ func update_view() -> void:
 		peek = windows[player.peek_window].building
 		peek_sight = cells_in_sight(player.cell(), peek, 0)
 
-	chunk_root.visible = outside
-	outdoors.visible = outside
+	stream_chunks(Vector2i(here.round()))
+	vision.update(force)
+	chunk_root.visible = true  # the neighbourhood is always there, inside or out
+	outdoors.visible = true
 	for i in BUILDINGS.size():
-		exteriors[i].visible = outside and i != peek
+		exteriors[i].visible = i != inside and i != peek  # the house you're in opens up
 		for f in floor_nodes[i].size():
 			floor_nodes[i][f].visible = (i == inside and f == player.floor) or (i == peek and f == 0)
 			floor_grounds[i][f].set_lit(peek_sight, i == peek)
@@ -457,16 +557,14 @@ func update_view() -> void:
 	for c in get_tree().get_nodes_in_group("characters"):
 		if c == player:
 			c.visible = not c.at_work
-			continue
-		if c.at_work:
+		elif c.at_work:
 			c.visible = false
-		elif outside:
-			c.visible = (c.building < 0 and here.distance_to(c.grid_pos) <= VIEW_RADIUS) \
-				or (c.building == peek and c.floor == 0 and peek_sight.has(c.cell()))
+		elif c.building == peek and peek >= 0:
+			c.visible = c.floor == 0 and peek_sight.has(c.cell())
+		elif c.building >= 0 and c.building != inside:
+			c.visible = false  # inside another house: you only see in by peeking
 		else:
-			c.visible = c.building == inside and c.floor == player.floor
-	if outside:
-		stream_chunks(Vector2i(here.round()))
+			c.visible = vision.sees(c.cell(), c.floor)
 
 
 # Keep the chunks around `cell` loaded and free the rest.

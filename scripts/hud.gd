@@ -1,16 +1,19 @@
-# Screen-space UI:
-#   footer band  full-width bar along the bottom: your feeling (colour per emotion, with reasons), your money and
-#                the 7 need bars with values (red → amber → green; the value turns red below 25)
-#   top-left     mode button, Relationships button (R), where you are, game speed, job, skills
-#   left panel   a baby or toddler you clicked: their needs, feeling, parents and care buttons
-#   household    (top-left, first row) everyone who lives in your home: click a name to control them
-#                (babies and toddlers open their needs panel instead); the one you control is green
-#   right drawer Relationships (toggle with the button or R): everyone you know of, with a friendship
-#                bar, how they feel, where they are, traits (once met), invitations and memories of you
-#   bottom-left  recent social events (Social.event_log), just above the footer
-#   top-right    clock (hh:mm:ss), weekday, part of day, season / day / year, speed buttons
-#   top-centre   "PAUSED" banner while paused
-#   bottom-right controls cheat sheet, just above the footer
+# Screen-space UI, kept light (like the mockup): only the bottom row is always there.
+#   bottom-left   household: everyone who lives in your home (click to control them; babies and toddlers
+#                 open their needs panel), then your money
+#   bottom-centre clock and weekday, pause / speeds, Build mode
+#   bottom-right  ☰ menu: Relationships, Controls, Settings (volume, music, fullscreen), save, exit, quit
+#   left tab  >   TODAY: what you're doing now (and how long it takes), the next steps of the task, your next
+#                 shift or school day, and what you feel like doing (AI). Hidden until you click the tab.
+#   right tab <   PASSPORT: you at a glance: portrait, name, mood line and word, skills, the 7 needs, age, job,
+#                 Manual/Auto, and what you're doing with a progress bar. Hidden until you click the tab.
+#   above the household row: chat feed (what people you know say and think near you, see heard()) and new
+#                 social events of your household; hidden when there's nothing new. Strangers stay a mystery.
+#   left panel    a baby or toddler you clicked: their needs, feeling, parents and care buttons
+#   right drawer  Relationships (☰ menu or R): everyone you know of, with a friendship bar, how they feel,
+#                 where they are, traits (once met), invitations and memories of you
+#   top-centre    "PAUSED" banner while paused; toasts
+#   bottom-centre talking to someone in your own words (talk_panel.gd), above the bottom row
 extends CanvasLayer
 
 const Social = preload("res://scripts/social.gd")
@@ -21,31 +24,44 @@ const Traits = preload("res://scripts/traits.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Ages = preload("res://scripts/ages.gd")
 const Mind = preload("res://scripts/mind.gd")
+const Looks = preload("res://scripts/looks.gd")
+const Llm = preload("res://scripts/llm.gd")
+const TalkPanel = preload("res://scripts/talk_panel.gd")
+const Net = preload("res://scripts/net.gd")
+const SettingsPanel = preload("res://scripts/settings_panel.gd")
+const Weather = preload("res://scripts/weather.gd")
 const DRAWER_WIDTH := 320
 const NEEDS := ["hunger", "thirst", "energy", "fun", "bladder", "hygiene", "social"]
-const FOOTER_HEIGHT := 64
+const BAR_HEIGHT := 56  # the bottom row
+const MARGIN := 16
+const PASSPORT_WIDTH := 560
+const TODAY_WIDTH := 250
+const TODAY_ITEMS := 6
+const FEED_EVENTS := 3  # newest social events shown above the household row...
+const EVENT_SECONDS := 20.0  # ...for this long after something new happens
 const UiTheme = preload("res://scripts/ui_theme.gd")
-const FOOTER_COLOR := Color(0.97, 0.96, 0.99, 0.95)
-const FOOTER_ACCENT := Color("#f5ccd4")
-const BAR_BACK := Color(0.893, 0.893, 0.940)
-const LOW := Color(0.98, 0.5, 0.58)
-const MID := Color(1.0, 0.78, 0.45)
-const HIGH := Color(0.5, 0.84, 0.66)
-const EMOTION_COLORS := {
-	"Fine": Color(0.55, 0.5, 0.65), "Happy": Color(0.35, 0.72, 0.45), "Sad": Color(0.45, 0.6, 0.95),
-	"Angry": Color(0.95, 0.35, 0.3), "Embarrassed": Color(0.95, 0.55, 0.75), "Uncomfortable": Color(0.75, 0.65, 0.45),
-	"Energized": Color(1.0, 0.6, 0.25), "Playful": Color(0.9, 0.7, 0.2), "Bored": Color(0.6, 0.6, 0.68),
-	"Confident": Color(0.3, 0.8, 0.9), "Flirty": Color(1.0, 0.5, 0.7), "Focused": Color(0.6, 0.5, 0.95), "Tense": Color(0.85, 0.45, 0.6),
-}
+const PANEL_COLOR := UiTheme.PAPER_GLASS
+const ACCENT := UiTheme.ACCENT  # Today's dots, the mood line, chips, the activity bar (ui_theme.gd ACCENTS)
+const BAR_BACK := UiTheme.LINE
+const LOW := UiTheme.ROSE  # a need under 25, money below $0, disliking you
+const MID := Color("#d8c2ff")  # a need around half
+const HIGH := UiTheme.ACCENT  # a full need, liking you
+const SPEED_LABELS := ["||", "▶", "▶▶ ×2", "▶▶ ×3", "▶▶ ×4"]
+const CONTROLS := "Click floor: walk\nClick object: use it\nClick person: interact (Talk… to type)\nClick door: enter / knock\n" \
+	+ "Click stairs: change floor\nTab: Manual / Auto\nB: build mode\nR: relationships\nP / Space / 0: pause\n1-4: speed\n" \
+	+ "Mouse wheel: zoom\nF3: NPC details\n< and > tabs: Today and Passport"
+
+# Whether Today and Passport are open; static so it stays when you switch person or load a game.
+static var show_today := false
+static var show_passport := false
 
 var player: Node2D
 var game: Node2D  # main.gd (speed and pause)
 var speed_buttons := []  # [pause, normal, fast, faster, ultra]
 var paused_label: Label
-var bars := {}
+var bars := {}  # passport need bars
 var fills := {}
 var values := {}  # need -> Label with the number
-var feeling_label: Label
 var drawer: PanelContainer
 var drawer_list: VBoxContainer
 var drawer_refresh_at := 0  # real-time msec of the next refresh
@@ -60,13 +76,68 @@ var child_bars := {}
 var child_buttons := {}
 var household_row: HBoxContainer
 var household_key := ""  # who's in the bar now, to rebuild it only when that changes
-var reasons_label: Label
 var money_label: Label
 var mode_button: Button
-var info_label: Label
-var events_label: Label
+var info_label: Label  # passport: age, job, where, mind, AI, online
 var time_label: Label
 var date_label: Label
+var today_panel: PanelContainer
+var today_list: VBoxContainer
+var today_date: Label
+var today_tab: Button
+var today_refresh_at := 0
+var passport: PanelContainer
+var passport_tab: Button
+var portrait: TextureRect
+var name_label: Label
+var mood_line: Control
+var mood_word: Label
+var reasons_label: Label
+var skills_row: HFlowContainer
+var skills_key := ""
+var activity_label: Label
+var activity_pct: Label
+var activity_bar: ProgressBar
+var feed_panel: PanelContainer
+var events_label: Label
+var last_event := ""
+var events_until := 0
+var talk: PanelContainer  # talking to someone in your own words (talk_panel.gd)
+const CHAT_LINES := 6
+const CHAT_SECONDS := 60.0  # real seconds a line stays in the chat feed
+const HEAR_RADIUS := 25.0  # tiles: you hear people on your floor who are on screen within this
+var chat := []  # what you heard, newest last: {who, text, with, at (msec)}
+var chat_label: Label
+
+
+# The passport's mood: a line from low to high with a diamond where you are.
+class MoodLine:
+	extends Control
+	var value := 0.5
+	func _draw() -> void:
+		var y := size.y / 2.0
+		var x := size.x * clampf(value, 0.0, 1.0)
+		draw_line(Vector2(0, y), Vector2(size.x, y), UiTheme.LINE, 2.0)
+		draw_line(Vector2(0, y), Vector2(x, y), UiTheme.ACCENT, 2.0)
+		var d := 5.0
+		var diamond := PackedVector2Array([Vector2(x, y - d), Vector2(x + d, y), Vector2(x, y + d), Vector2(x - d, y)])
+		draw_colored_polygon(diamond, Color.WHITE)
+		diamond.append(diamond[0])
+		draw_polyline(diamond, UiTheme.ACCENT, 1.5)
+
+
+# A box with a dashed lilac border (the passport's skills).
+class DashedBox:
+	extends PanelContainer
+	func _ready() -> void:
+		var margins := StyleBoxEmpty.new()
+		margins.set_content_margin_all(8)
+		add_theme_stylebox_override("panel", margins)
+	func _draw() -> void:
+		var r := Rect2(Vector2.ONE, size - Vector2.ONE * 2.0)
+		var corners := [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y), r.position]
+		for n in 4:
+			draw_dashed_line(corners[n], corners[n + 1], UiTheme.ACCENT_SOFT, 1.0, 4.0)
 
 
 func setup(p_player: Node2D, p_game: Node2D) -> CanvasLayer:
@@ -77,74 +148,14 @@ func setup(p_player: Node2D, p_game: Node2D) -> CanvasLayer:
 
 func _ready() -> void:
 	add_to_group("hud")
-	build_footer()
+	build_bottom_row()
+	build_today()
+	build_passport()
+	build_feed()
 	build_child_panel()
-	apply_theme.call_deferred()
-	var vbox := add_panel(Vector2(16, 16))
-	household_row = HBoxContainer.new()
-	vbox.add_child(household_row)
-
-	mode_button = Button.new()
-	mode_button.focus_mode = Control.FOCUS_NONE  # keep Tab free for the shortcut
-	mode_button.pressed.connect(func(): player.toggle_mode())
-	vbox.add_child(mode_button)
-	var build_button := Button.new()
-	build_button.text = "Build  (B)"
-	build_button.focus_mode = Control.FOCUS_NONE
-	build_button.pressed.connect(func(): game.build.toggle())
-	vbox.add_child(build_button)
-	var rel_button := Button.new()
-	rel_button.text = "Relationships  (R)"
-	rel_button.focus_mode = Control.FOCUS_NONE
-	rel_button.pressed.connect(toggle_relationships)
-	vbox.add_child(rel_button)
 	build_drawer()
-
-	info_label = Label.new()
-	info_label.add_theme_font_size_override("font_size", 12)
-	vbox.add_child(info_label)
-
-	events_label = Label.new()
-	events_label.add_theme_font_size_override("font_size", 12)
-	var events_box := add_panel(Vector2.ZERO)
-	var events_panel: Control = events_box.get_parent().get_parent()
-	events_panel.anchor_top = 1.0
-	events_panel.anchor_bottom = 1.0
-	events_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN  # grows upward as events come in
-	events_panel.offset_left = 16
-	events_panel.offset_bottom = -FOOTER_HEIGHT - 10
-	events_box.add_child(events_label)
-
-	var time_panel := PanelContainer.new()
-	time_panel.anchor_left = 1.0
-	time_panel.anchor_right = 1.0
-	time_panel.offset_left = -250
-	time_panel.offset_right = -16
-	time_panel.offset_top = 16
-	time_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	add_child(time_panel)
-	var margin := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 10)
-	time_panel.add_child(margin)
-	var time_box := VBoxContainer.new()
-	margin.add_child(time_box)
-	time_label = Label.new()
-	time_label.add_theme_font_size_override("font_size", 22)
-	time_box.add_child(time_label)
-	date_label = Label.new()
-	date_label.add_theme_font_size_override("font_size", 12)
-	time_box.add_child(date_label)
-	var speed_row := HBoxContainer.new()
-	time_box.add_child(speed_row)
-	var game_menu := MenuButton.new()
-	game_menu.text = "Menu  ▾"
-	game_menu.flat = false
-	game_menu.focus_mode = Control.FOCUS_NONE
-	for item in ["Save game", "Save as a new game", "Save and exit to main menu", "Exit to main menu", "Quit game"]:
-		game_menu.get_popup().add_item(item)
-	game_menu.get_popup().id_pressed.connect(on_game_menu)
-	time_box.add_child(game_menu)
+	talk = TalkPanel.new()
+	add_child(talk)
 	toast = Label.new()
 	toast.anchor_left = 0.5
 	toast.anchor_right = 0.5
@@ -157,17 +168,6 @@ func _ready() -> void:
 	toast.add_theme_color_override("font_outline_color", Color.WHITE)
 	toast.add_theme_constant_override("outline_size", 8)
 	add_child(toast)
-	for n in 5:  # pause, then one button per speed
-		var b := Button.new()
-		b.text = ["||", ">", ">>", ">>>", ">>>>"][n]
-		b.tooltip_text = ["Pause (P / Space / 0)", "Normal 1x (1)", "Fast 5x (2)", "Faster 20x (3)", "Ultra 60x (4)"][n]
-		b.focus_mode = Control.FOCUS_NONE  # keep Space for pausing
-		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(40, 0)
-		b.pressed.connect(game.toggle_pause if n == 0 else game.set_speed.bind(n - 1))
-		speed_row.add_child(b)
-		speed_buttons.append(b)
-
 	paused_label = Label.new()
 	paused_label.text = "PAUSED"
 	paused_label.add_theme_font_size_override("font_size", 32)
@@ -179,23 +179,455 @@ func _ready() -> void:
 	paused_label.offset_left = -70
 	paused_label.offset_top = 20
 	add_child(paused_label)
+	apply_theme.call_deferred()
+	set_today(show_today)
+	set_passport(show_passport)
 
-	var help := Label.new()
-	help.add_theme_font_size_override("font_size", 11)
-	help.modulate = Color(1, 1, 1, 0.75)
-	help.add_theme_constant_override("outline_size", 4)
-	help.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.8))
-	help.text = "Click floor: walk   Click object: use   Click person: interact   Click door: enter/knock   Click stairs: change floor\nTab: Manual/Auto   B: build   R: relationships   P/Space: pause   1-4: speed   Wheel: zoom   F3: NPC details"
-	help.anchor_left = 1.0
-	help.anchor_right = 1.0
-	help.anchor_top = 1.0
-	help.anchor_bottom = 1.0
-	help.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	help.offset_right = -16
-	help.offset_bottom = -FOOTER_HEIGHT - 8
-	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	add_child(help)
+
+# A rounded light card (ui_theme.gd box).
+func card(border := Color.TRANSPARENT) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", UiTheme.box(PANEL_COLOR, 10, border))
+	return panel
+
+
+func small(text := "", size := 13, alpha := 0.7, italic := false) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", size)
+	label.modulate = Color(1, 1, 1, alpha)
+	if italic:
+		label.add_theme_font_override("font", UiTheme.font(true))
+	return label
+
+
+func flat_button(text: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE  # keep Tab and Space for the shortcuts
+	b.pressed.connect(action)
+	return b
+
+
+# Anchor a control to the bottom of the screen at the bottom-row height.
+func on_bottom_row(c: Control, h_anchor: float) -> void:
+	c.anchor_left = h_anchor
+	c.anchor_right = h_anchor
+	c.anchor_top = 1.0
+	c.anchor_bottom = 1.0
+	c.offset_top = -BAR_HEIGHT - MARGIN
+	c.offset_bottom = -MARGIN
+	c.grow_vertical = Control.GROW_DIRECTION_BEGIN
+
+
+func build_bottom_row() -> void:
+	var left := HBoxContainer.new()
+	on_bottom_row(left, 0.0)
+	left.offset_left = MARGIN
+	left.add_theme_constant_override("separation", 10)
+	add_child(left)
+	household_row = HBoxContainer.new()
+	household_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	left.add_child(household_row)
+	var wallet := card()
+	wallet.tooltip_text = "Your money"
+	left.add_child(wallet)
+	money_label = Label.new()
+	money_label.add_theme_font_size_override("font_size", 18)
+	money_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	wallet.add_child(money_label)
+
+	var center := card()
+	on_bottom_row(center, 0.5)
+	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	add_child(center)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	center.add_child(row)
+	var clock := VBoxContainer.new()
+	clock.add_theme_constant_override("separation", -4)
+	clock.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(clock)
+	time_label = Label.new()
+	time_label.add_theme_font_size_override("font_size", 24)
+	time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	time_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	clock.add_child(time_label)
+	date_label = small("", 11)
+	date_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	clock.add_child(date_label)
+	row.add_child(VSeparator.new())
+	for n in 5:  # pause, then one button per speed
+		var b := flat_button(SPEED_LABELS[n], game.toggle_pause if n == 0 else game.set_speed.bind(n - 1))
+		b.tooltip_text = ["Pause (P / Space / 0)", "Normal 1x (1)", "Fast 5x (2)", "Faster 20x (3)", "Ultra 60x (4)"][n]
+		b.toggle_mode = true
+		row.add_child(b)
+		speed_buttons.append(b)
+	row.add_child(VSeparator.new())
+	row.add_child(flat_button("Build mode", func(): game.build.toggle()))
+
+	var game_menu := MenuButton.new()
+	game_menu.text = "☰"
+	game_menu.flat = false
+	game_menu.focus_mode = Control.FOCUS_NONE
+	game_menu.add_theme_font_size_override("font_size", 20)
+	on_bottom_row(game_menu, 1.0)
+	game_menu.offset_right = -MARGIN
+	game_menu.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	var popup := game_menu.get_popup()
+	popup.add_item("Relationships  (R)", 10)
+	popup.add_item("Controls", 11)
+	popup.add_item("Settings", 12)
+	popup.add_separator()
+	for item in ["Save game", "Save as a new game", "Save and exit to main menu", "Exit to main menu", "Quit game"]:
+		popup.add_item(item, ["Save game", "Save as a new game", "Save and exit to main menu", "Exit to main menu", "Quit game"].find(item))
+	popup.id_pressed.connect(on_game_menu)
+	add_child(game_menu)
+
+
+# --- Today (left tab) ---
+
+func build_today() -> void:
+	today_panel = card()
+	var paper := UiTheme.box(PANEL_COLOR, 4)
+	paper.border_color = ACCENT
+	paper.border_width_top = 2  # the accent line along the top, like a planner page
+	today_panel.add_theme_stylebox_override("panel", paper)
+	today_panel.position = Vector2(MARGIN, MARGIN)
+	today_panel.custom_minimum_size = Vector2(TODAY_WIDTH, 0)
+	add_child(today_panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 6)
+	today_panel.add_child(column)
+	var head := HBoxContainer.new()
+	column.add_child(head)
+	var title := Label.new()
+	title.text = "Today"
+	title.add_theme_font_size_override("font_size", 22)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	today_date = small("", 12, 0.7, true)
+	head.add_child(today_date)
+	today_list = VBoxContainer.new()
+	today_list.add_theme_constant_override("separation", 0)
+	column.add_child(today_list)
+	today_tab = flat_button(">", func(): set_today(not today_panel.visible))
+	today_tab.tooltip_text = "Today"
+	add_child(today_tab)
+
+
+func set_today(on: bool) -> void:
+	show_today = on
+	today_panel.visible = on
+	today_tab.text = "<" if on else ">"
+	today_refresh_at = 0
+
+
+# What's on today for `c`, in order: {title, sub, now}.
+func today_items(c: Node2D) -> Array:
+	var items := []
+	var where: String = c.target_object.object_name if c.target_object else c.world.location_name(c)
+	if c.state == "using" and c.step.get("seconds", 0.0) > 0.0:
+		items.append({"title": c.shown_activity(c), "sub": "%s · %d min" % [where, ceili(c.use_timer)], "now": true})
+	elif c.at_work:
+		items.append({"title": c.shown_activity(c), "sub": c.world.location_name(c), "now": true})
+	else:
+		items.append({"title": c.shown_activity(c) if c.activity != "Idle" else "Free time", "sub": where, "now": true})
+	for n in c.steps.size():
+		var s: Dictionary = c.steps[n]
+		items.append({"title": s.get("verb", "Next step"), "sub": "%s · %s" % [s.object.object_name if s.get("object") else "", "Next" if n == 0 else "Then"],
+			"now": false})
+	var t: float = c.world.now()
+	if c.job != "" and not c.at_work:
+		var school := Jobs.is_school(c.job)
+		var what := "School (%s)" % c.job if school else "Work at the %s" % c.job
+		if Jobs.should_work(c, t):
+			items.append({"title": what, "sub": "Bus stop · now!", "now": false})
+		else:
+			var next := Jobs.next_shift(c, t)
+			if next >= 0.0:
+				var day := "" if GameTime.day_index(next) == GameTime.day_index(t) else GameTime.weekday(next).substr(0, 3) + " "
+				items.append({"title": what, "sub": "Bus stop · %s%s" % [day, GameTime.clock_text(next).substr(0, 5)], "now": false})
+	if Llm.wish_text(c) != "":
+		items.append({"title": "Feels like it: " + Llm.wish_text(c).get_slice(" (", 0), "sub": Llm.wish_text(c).get_slice(" (", 1).trim_suffix(")"),
+			"now": false})
+	return items.slice(0, TODAY_ITEMS)
+
+
+func fill_today() -> void:
+	for n in today_list.get_children():
+		n.queue_free()
+	var t: float = player.world.now()
+	today_date.text = "%s · %s" % [GameTime.weekday(t).substr(0, 3), GameTime.part_of_day(t)]
+	var items := today_items(player)
+	for n in items.size():
+		var item: Dictionary = items[n]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		today_list.add_child(row)
+		var rail := VBoxContainer.new()  # a dot, and a thin line down to the next one
+		rail.add_theme_constant_override("separation", 0)
+		rail.custom_minimum_size = Vector2(12, 0)
+		row.add_child(rail)
+		var dot := Label.new()
+		dot.text = "●" if item.now else "○"
+		dot.add_theme_font_size_override("font_size", 12)
+		dot.add_theme_color_override("font_color", ACCENT)
+		dot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rail.add_child(dot)
+		var stem := ColorRect.new()
+		stem.color = UiTheme.ACCENT_SOFT if n < items.size() - 1 else Color.TRANSPARENT
+		stem.custom_minimum_size = Vector2(1, 0)
+		stem.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		stem.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		rail.add_child(stem)
+		var text := VBoxContainer.new()
+		text.add_theme_constant_override("separation", -3)
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(text)
+		var title := Label.new()
+		title.text = item.title
+		title.add_theme_font_size_override("font_size", 16)
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		title.custom_minimum_size = Vector2(TODAY_WIDTH - 54, 0)
+		text.add_child(title)
+		text.add_child(small(item.sub, 12, 0.65, true) if item.sub != "" else Control.new())
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(0, 8)
+		text.add_child(gap)
+
+
+# --- Passport (right tab) ---
+
+func build_passport() -> void:
+	passport = card()
+	passport.anchor_left = 1.0
+	passport.anchor_right = 1.0
+	passport.offset_left = -PASSPORT_WIDTH - MARGIN
+	passport.offset_right = -MARGIN
+	passport.offset_top = MARGIN
+	passport.grow_horizontal = Control.GROW_DIRECTION_BEGIN  # wider content grows leftwards, not off screen
+	add_child(passport)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	passport.add_child(column)
+
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	column.add_child(top)
+	var frame := PanelContainer.new()
+	var frame_style := UiTheme.flat(UiTheme.ACCENTS[9].lerp(Color.WHITE, 0.6), UiTheme.ACCENT_SOFT)
+	frame_style.set_content_margin_all(2)
+	frame.add_theme_stylebox_override("panel", frame_style)
+	frame.custom_minimum_size = Vector2(64, 64)
+	top.add_child(frame)
+	portrait = TextureRect.new()
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.custom_minimum_size = Vector2(60, 60)
+	frame.add_child(portrait)
+	var who := VBoxContainer.new()
+	who.alignment = BoxContainer.ALIGNMENT_CENTER
+	who.custom_minimum_size = Vector2(170, 0)
+	top.add_child(who)
+	name_label = Label.new()
+	name_label.add_theme_font_size_override("font_size", 28)
+	who.add_child(name_label)
+	mode_button = flat_button("", func(): Net.order(game, "mode", []))
+	mode_button.tooltip_text = "Manual: only your orders · Auto: they live on their own (Tab)"
+	mode_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	who.add_child(mode_button)
+	top.add_child(VSeparator.new())
+	var mood := VBoxContainer.new()
+	mood.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mood.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.add_child(mood)
+	var mood_head := HBoxContainer.new()
+	mood.add_child(mood_head)
+	var mood_title := small("Mood", 13)
+	mood_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mood_head.add_child(mood_title)
+	mood_word = Label.new()
+	mood_word.add_theme_font_size_override("font_size", 15)
+	mood_word.add_theme_font_override("font", UiTheme.font(true))
+	mood_head.add_child(mood_word)
+	mood_line = MoodLine.new()
+	mood_line.custom_minimum_size = Vector2(0, 14)
+	mood.add_child(mood_line)
+	reasons_label = small("", 12, 0.65, true)
+	reasons_label.clip_text = true
+	mood.add_child(reasons_label)
+
+	var skills_box := DashedBox.new()
+	column.add_child(skills_box)
+	skills_row = HFlowContainer.new()
+	skills_row.add_theme_constant_override("h_separation", 6)
+	skills_row.add_theme_constant_override("v_separation", 6)
+	skills_box.add_child(skills_row)
+
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 6)
+	column.add_child(grid)
+	for need in NEEDS:
+		var cell := VBoxContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_theme_constant_override("separation", 1)
+		grid.add_child(cell)
+		var head := HBoxContainer.new()
+		cell.add_child(head)
+		var label := small(need.capitalize(), 13, 0.85)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(label)
+		values[need] = small("", 13, 0.85)
+		head.add_child(values[need])
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(110, 8)
+		bar.show_percentage = false
+		var back := StyleBoxFlat.new()
+		back.bg_color = BAR_BACK
+		back.set_corner_radius_all(4)
+		bar.add_theme_stylebox_override("background", back)
+		var fill := StyleBoxFlat.new()
+		fill.set_corner_radius_all(4)
+		bar.add_theme_stylebox_override("fill", fill)
+		cell.add_child(bar)
+		bars[need] = bar
+		fills[need] = fill
+
+	info_label = small("", 13, 0.75)
+	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(info_label)
+	var activity := HBoxContainer.new()
+	column.add_child(activity)
+	activity_label = small("", 13, 0.85, true)
+	activity_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	activity_label.clip_text = true
+	activity.add_child(activity_label)
+	activity_pct = small("", 13, 0.85)
+	activity.add_child(activity_pct)
+	activity_bar = ProgressBar.new()
+	activity_bar.custom_minimum_size = Vector2(0, 4)
+	activity_bar.show_percentage = false
+	var track := StyleBoxFlat.new()
+	track.bg_color = BAR_BACK
+	activity_bar.add_theme_stylebox_override("background", track)
+	var done := StyleBoxFlat.new()
+	done.bg_color = ACCENT
+	activity_bar.add_theme_stylebox_override("fill", done)
+	column.add_child(activity_bar)
+
+	passport_tab = flat_button("<", func(): set_passport(not passport.visible))
+	passport_tab.tooltip_text = "Passport"
+	add_child(passport_tab)
+
+
+func set_passport(on: bool) -> void:
+	show_passport = on
+	passport.visible = on
+	passport_tab.text = ">" if on else "<"
+
+
+func update_passport() -> void:
+	name_label.text = player.npc_name
+	if portrait.get_meta("look", "") != player.look:
+		portrait.set_meta("look", player.look)
+		portrait.texture = Looks.face(player.look)  # just the head
+	mode_button.text = "%s  (Tab)" % ("Auto" if player.auto_mode else "Manual")
+	var emotion := Emotions.describe(player)
+	mood_word.text = emotion
+	mood_line.value = Social.mood(player) / 100.0
+	mood_line.queue_redraw()
+	reasons_label.text = Emotions.reasons(player, 3) if not player.moodlets.is_empty() else "Nothing special"
+	var key := Skills.summary(player)
+	if key != skills_key:
+		skills_key = key
+		for n in skills_row.get_children():
+			n.queue_free()
+		for skill in player.skills:
+			if Skills.level(player, skill) <= 0:
+				continue
+			var chip := PanelContainer.new()
+			var style := UiTheme.flat(Color.WHITE, ACCENT)
+			style.content_margin_left = 8
+			style.content_margin_right = 8
+			style.content_margin_top = 1
+			style.content_margin_bottom = 1
+			chip.add_theme_stylebox_override("panel", style)
+			var label := Label.new()
+			label.text = "%s  %d" % [skill, Skills.level(player, skill)]
+			label.add_theme_font_size_override("font_size", 14)
+			chip.add_child(label)
+			skills_row.add_child(chip)
+	for need in NEEDS:
+		var value: float = player.needs[need]
+		bars[need].value = value
+		fills[need].bg_color = need_color(value)
+		values[need].text = str(int(value))
+		values[need].modulate = LOW if value < 25.0 else Color(1, 1, 1, 0.85)
+	var lines := ["%s%s%s · %s" % [Ages.describe(player), " · pregnant" if player.pregnant_until >= 0.0 else "",
+		" · degree" if player.degree else "", player.world.location_name(player)], job_text()]
+	if not Mind.states(player).is_empty():
+		lines.append("Mind: " + ", ".join(Mind.states(player)))
+	var net := Net.find(get_tree())
+	if net and net.role != "":
+		lines.append(net.status_text())
+	info_label.text = "\n".join(lines)
+	activity_label.text = player.shown_activity(player)
+	var using: bool = player.state == "using" and player.step.get("seconds", 0.0) > 0.0
+	var progress := clampf(1.0 - player.use_timer / player.step.seconds, 0.0, 1.0) if using else 0.0
+	activity_pct.text = "%d%%" % int(progress * 100.0) if using else ""
+	activity_bar.value = progress * 100.0
+	activity_bar.visible = using
+
+
+# The tabs sit at the screen edge when closed and next to their panel when open.
+func place_tabs() -> void:
+	var screen := get_viewport().get_visible_rect().size
+	today_tab.position = Vector2(today_panel.position.x + today_panel.size.x + 6 if today_panel.visible else 4, MARGIN + 8)
+	var right: float = passport.position.x - passport_tab.size.x - 6 if passport.visible else screen.x - passport_tab.size.x - 4
+	passport_tab.position = Vector2(right, MARGIN + 8)
+
+
+# --- Chat feed and new events (above the household row) ---
+
+func build_feed() -> void:
+	feed_panel = card()
+	feed_panel.anchor_top = 1.0
+	feed_panel.anchor_bottom = 1.0
+	feed_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN  # grows upward as lines come in
+	feed_panel.offset_left = MARGIN
+	feed_panel.offset_bottom = -BAR_HEIGHT - MARGIN - 10
+	feed_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(feed_panel)
+	var column := VBoxContainer.new()
+	feed_panel.add_child(column)
+	chat_label = Label.new()
+	chat_label.add_theme_font_size_override("font_size", 15)
+	chat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	chat_label.custom_minimum_size = Vector2(380, 0)
+	column.add_child(chat_label)
+	events_label = small("", 13, 0.7, true)
+	events_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	events_label.custom_minimum_size = Vector2(380, 0)
+	column.add_child(events_label)
+
+
+func update_feed() -> void:
+	var now := Time.get_ticks_msec()
+	chat = chat.filter(func(e): return now - e.at < CHAT_SECONDS * 1000.0)
+	chat_label.visible = not chat.is_empty()
+	chat_label.text = "\n".join(chat.map(chat_text))
+	var ours := Social.event_log.filter(ours_event)  # only what happens to your household
+	var newest: String = Social.format_event(ours[-1], player) if not ours.is_empty() else ""
+	if newest != last_event:
+		last_event = newest
+		events_until = now + int(EVENT_SECONDS * 1000.0)
+	var recent := ours.slice(maxi(0, ours.size() - FEED_EVENTS))
+	events_label.text = "\n".join(recent.map(func(e): return Social.format_event(e, player)))
+	events_label.visible = newest != "" and now < events_until
+	feed_panel.visible = chat_label.visible or events_label.visible
 
 
 # Right-hand drawer listing your relationships. Hidden until opened.
@@ -206,12 +638,12 @@ func build_drawer() -> void:
 	drawer.anchor_bottom = 1.0
 	drawer.offset_left = -DRAWER_WIDTH - 16
 	drawer.offset_right = -16
-	drawer.offset_top = 160  # below the clock
-	drawer.offset_bottom = -FOOTER_HEIGHT - 50  # above the controls text
+	drawer.offset_top = MARGIN
+	drawer.offset_bottom = -BAR_HEIGHT - MARGIN * 2  # above the bottom row
 	var style := StyleBoxFlat.new()
-	style.bg_color = FOOTER_COLOR
+	style.bg_color = PANEL_COLOR
 	style.border_width_left = 2
-	style.border_color = FOOTER_ACCENT
+	style.border_color = ACCENT
 	style.set_corner_radius_all(6)
 	style.content_margin_left = 14
 	style.content_margin_right = 14
@@ -258,12 +690,21 @@ func update_household() -> void:
 	for c in people:
 		var b := Button.new()
 		b.text = c.npc_name
+		b.custom_minimum_size = Vector2(0, BAR_HEIGHT)
 		b.focus_mode = Control.FOCUS_NONE
 		b.tooltip_text = "%s · %s" % [Ages.describe(c), "you control them" if c == player else "click to control"]
-		if c == player:
-			b.modulate = Color("#c9def4") * 1.2
+		if c == player:  # who you are: a double lilac border, like the mockup
+			var on := UiTheme.flat(UiTheme.ACTIVE_FILL, ACCENT, 2)
+			on.expand_margin_left = 2
+			on.expand_margin_right = 2
+			on.expand_margin_top = 2
+			on.expand_margin_bottom = 2
+			on.shadow_color = UiTheme.ACCENTS[8]
+			on.shadow_size = 3
+			for state in ["normal", "hover", "pressed"]:
+				b.add_theme_stylebox_override(state, on)
 		elif Ages.stage(c) <= Ages.TODDLER:
-			b.modulate = Color(0.95, 0.75, 0.85)
+			b.modulate = Color(1, 1, 1, 0.75)
 			b.tooltip_text = "%s · not playable: click to see their needs" % Ages.describe(c)
 		b.pressed.connect(pick_household.bind(c))
 		household_row.add_child(b)
@@ -273,7 +714,7 @@ func pick_household(c: Node2D) -> void:
 	if Ages.stage(c) <= Ages.TODDLER:
 		show_child(c)
 	elif c != player:
-		get_tree().get_first_node_in_group("controller").take_control(c)
+		Net.order(game, "control", [c.npc_name])
 
 
 # --- Babies and toddlers (not playable: you see their needs and look after them) ---
@@ -281,10 +722,10 @@ func pick_household(c: Node2D) -> void:
 func build_child_panel() -> void:
 	child_panel = PanelContainer.new()
 	child_panel.offset_left = 16
-	child_panel.offset_top = 230
+	child_panel.offset_top = 300  # below Today
 	child_panel.custom_minimum_size = Vector2(300, 0)
 	var style := StyleBoxFlat.new()
-	style.bg_color = FOOTER_COLOR
+	style.bg_color = PANEL_COLOR
 	style.border_width_right = 2
 	style.border_color = Color(0.95, 0.7, 0.8)
 	style.set_corner_radius_all(6)
@@ -352,9 +793,7 @@ func show_child(c: Node2D) -> void:
 func care(action: String) -> void:
 	if child == null:
 		return
-	for i in Social.INTERACTIONS:
-		if i.name == action:
-			player.order_interaction(child, i)
+	Net.order(game, "care", [child.npc_name, action])
 
 
 func update_child_panel() -> void:
@@ -425,9 +864,10 @@ func fill_drawer() -> void:
 		bar.add_theme_stylebox_override("fill", fill)
 		card.add_child(bar)
 
-		var lines := ["Feeling %s · %s" % [Emotions.describe(c).to_lower(), where(c, met)]]
-		lines.append("Their view of you: %s (%+d)" % [Social.relationship_word(Social.friendship(c, player)), Social.friendship(c, player)])
-		if met:
+		var lines := []
+		if met:  # strangers: nothing about what they're doing or how they feel
+			lines.append("Feeling %s · %s" % [Emotions.describe(c).to_lower(), where(c, met)])
+			lines.append("Their view of you: %s (%+d)" % [Social.relationship_word(Social.friendship(c, player)), Social.friendship(c, player)])
 			lines.append(Ages.describe(c))
 			var work := "unemployed"
 			if Jobs.is_school(c.job):
@@ -460,15 +900,15 @@ func fill_drawer() -> void:
 
 func job_text() -> String:
 	if player.job == "":
-		return "Job: none (get one at the Bus stop)"
+		return "No job yet (get one at the Bus stop)" if Ages.is_grown_up(player) else "No school"
 	var t: float = player.world.now()
 	var when := "at work now" if player.at_work else "WORK TIME: go to the Bus stop" if Jobs.should_work(player, t) else ""
 	if when == "":
 		var next := Jobs.next_shift(player, t)
 		when = "next shift %s %s" % [GameTime.weekday(next).substr(0, 3), GameTime.clock_text(next).substr(0, 5)] if next >= 0.0 else ""
 	if Jobs.is_school(player.job):
-		return "School: %s · %s\nGrade %s" % [player.job, when.replace("work", "school").replace("shift", "class"), Jobs.grade(player.performance)]
-	return "Job: %s at the %s, $%d/h · %s\nPerformance %d%%%s" % [Jobs.title(player), player.job, Jobs.hourly(player), when,
+		return "%s · %s · grade %s" % [player.job, when.replace("work", "school").replace("shift", "class"), Jobs.grade(player.performance)]
+	return "%s at the %s, $%d/h · %s · performance %d%%%s" % [Jobs.title(player), player.job, Jobs.hourly(player), when,
 		player.performance, " · WARNING: one more bad shift and you're fired" if player.warned else ""]
 
 
@@ -491,156 +931,82 @@ static func hours_text(seconds: float) -> String:
 	return "%dh %02dm" % [int(seconds) / 3600, int(seconds) / 60 % 60]
 
 
-# The band along the bottom: feeling on the left, then one cell per need.
-func build_footer() -> void:
-	var footer := PanelContainer.new()
-	footer.anchor_left = 0.0
-	footer.anchor_right = 1.0
-	footer.anchor_top = 1.0
-	footer.anchor_bottom = 1.0
-	footer.offset_top = -FOOTER_HEIGHT
-	var style := StyleBoxFlat.new()
-	style.bg_color = FOOTER_COLOR
-	style.border_width_top = 2
-	style.border_color = FOOTER_ACCENT
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	footer.add_theme_stylebox_override("panel", style)
-	add_child(footer)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
-	footer.add_child(row)
-
-	var feeling := VBoxContainer.new()
-	feeling.custom_minimum_size = Vector2(170, 0)
-	feeling.add_theme_constant_override("separation", 0)
-	row.add_child(feeling)
-	feeling_label = Label.new()
-	feeling_label.add_theme_font_size_override("font_size", 20)
-	feeling.add_child(feeling_label)
-	reasons_label = Label.new()
-	reasons_label.add_theme_font_size_override("font_size", 10)
-	reasons_label.modulate = Color(1, 1, 1, 0.6)
-	reasons_label.clip_text = true
-	reasons_label.custom_minimum_size = Vector2(170, 0)
-	feeling.add_child(reasons_label)
-	row.add_child(VSeparator.new())
-	var wallet := VBoxContainer.new()
-	wallet.custom_minimum_size = Vector2(80, 0)
-	wallet.add_theme_constant_override("separation", 0)
-	row.add_child(wallet)
-	var wallet_title := Label.new()
-	wallet_title.text = "Money"
-	wallet_title.add_theme_font_size_override("font_size", 10)
-	wallet_title.modulate = Color(1, 1, 1, 0.6)
-	wallet.add_child(wallet_title)
-	money_label = Label.new()
-	money_label.add_theme_font_size_override("font_size", 20)
-	wallet.add_child(money_label)
-	row.add_child(VSeparator.new())
-
-	for need in NEEDS:
-		var cell := VBoxContainer.new()
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cell.alignment = BoxContainer.ALIGNMENT_CENTER
-		cell.add_theme_constant_override("separation", 3)
-		row.add_child(cell)
-		var head := HBoxContainer.new()
-		cell.add_child(head)
-		var name_label := Label.new()
-		name_label.text = need.capitalize()
-		name_label.add_theme_font_size_override("font_size", 12)
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		head.add_child(name_label)
-		var value_label := Label.new()
-		value_label.add_theme_font_size_override("font_size", 12)
-		head.add_child(value_label)
-		values[need] = value_label
-
-		var bar := ProgressBar.new()
-		bar.custom_minimum_size = Vector2(0, 12)
-		bar.show_percentage = false
-		var back := StyleBoxFlat.new()
-		back.bg_color = BAR_BACK
-		back.set_corner_radius_all(4)
-		bar.add_theme_stylebox_override("background", back)
-		var fill := StyleBoxFlat.new()
-		fill.set_corner_radius_all(4)
-		bar.add_theme_stylebox_override("fill", fill)
-		cell.add_child(bar)
-		bars[need] = bar
-		fills[need] = fill
-
-
 # Smooth red → amber → green.
 static func need_color(value: float) -> Color:
-	if value < 50.0:
-		return LOW.lerp(MID, clampf((value - 15.0) / 35.0, 0.0, 1.0))
-	return MID.lerp(HIGH, clampf((value - 50.0) / 25.0, 0.0, 1.0))
-
-
-func add_panel(pos: Vector2) -> VBoxContainer:
-	var panel := PanelContainer.new()
-	panel.position = pos
-	add_child(panel)
-	var margin := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 10)
-	panel.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
-	return vbox
+	if value < 25.0:
+		return LOW
+	return MID.lerp(HIGH, clampf((value - 25.0) / 60.0, 0.0, 1.0))
 
 
 func _process(_delta: float) -> void:
-	for need in NEEDS:
-		var value: float = player.needs[need]
-		bars[need].value = value
-		fills[need].bg_color = need_color(value)
-		values[need].text = str(int(value))
-		values[need].modulate = LOW if value < 25.0 else Color(1, 1, 1, 0.8)
-	var emotion := Emotions.emotion(player)
-	feeling_label.text = Emotions.describe(player)
-	feeling_label.modulate = EMOTION_COLORS.get(emotion, Color.WHITE)
-	reasons_label.text = Emotions.reasons(player, 3) if not player.moodlets.is_empty() else "Nothing special"
-	money_label.text = "$%d" % player.money
-	money_label.modulate = LOW if player.money < 0 else Color(0.3, 0.65, 0.45)
-
 	update_household()
+	money_label.text = "$ %d" % player.money
+	money_label.modulate = LOW.darkened(0.2) if player.money < 0 else Color.WHITE
 	toast.visible = Time.get_ticks_msec() < toast_until
 	if child_panel.visible:
 		update_child_panel()
 	var t: float = player.world.now()
-	time_label.text = "%s  %s" % [GameTime.weekday(t).substr(0, 3), GameTime.clock_text(t)]
-	date_label.text = "%s\n%s" % [GameTime.part_of_day(t), GameTime.date_text(t)]
-
+	time_label.text = GameTime.clock_text(t).substr(0, 5)
+	date_label.text = "%s  %s" % [GameTime.weekday(t).to_upper(), Weather.icon(player.world.weather)]
+	time_label.tooltip_text = "%s · %s · %s · %s" % [GameTime.part_of_day(t), player.world.weather, GameTime.date_text(t), game.speed_text()]
 	paused_label.visible = game.paused
 	for n in speed_buttons.size():
 		var active: bool = game.paused if n == 0 else (not game.paused and not game.sleep_boost and game.speed == n - 1) \
 			or (n == 4 and game.sleep_boost and not game.paused)
 		speed_buttons[n].set_pressed_no_signal(active)
-		speed_buttons[n].modulate = Color(0.749, 0.827, 0.909) * 1.25 if active else Color.WHITE
-
-	mode_button.text = "Mode: %s  (Tab)" % ("Auto" if player.auto_mode else "Manual")
-
-	var lines := [player.world.location_name(player),
-		"Speed: " + game.speed_text(),
-		"You: " + Ages.describe(player) + (" · pregnant" if player.pregnant_until >= 0.0 else "") + (" · college degree" if player.degree else ""),
-		job_text(),
-		"Skills: " + Skills.summary(player),
-		"Mind: " + (", ".join(Mind.states(player)) if not Mind.states(player).is_empty() else "doing okay")]
-	info_label.text = "\n".join(lines)
-
+		speed_buttons[n].disabled = Net.is_client(get_tree())  # joined: the host decides the speed
+	if passport.visible:
+		update_passport()
+	if today_panel.visible and Time.get_ticks_msec() >= today_refresh_at:  # twice a second
+		today_refresh_at = Time.get_ticks_msec() + 500
+		fill_today()
+	place_tabs()
 	if drawer.visible and Time.get_ticks_msec() >= drawer_refresh_at:  # twice a second, even when paused
 		drawer_refresh_at = Time.get_ticks_msec() + 500
 		fill_drawer()
+	update_feed()
 
-	var events := Social.event_log.map(func(e): return Social.format_event(e, player))
-	events_label.text = "\n".join(events) if not events.is_empty() else "No social events yet"
+
+# --- Chat feed ---
+
+# Someone said (or thought, or did) something: npc.gd show_emote(). Goes in the feed if you can hear it.
+func heard(c: Node2D, text: String, with: Node2D) -> void:
+	if player == null or not hears(c, with):
+		return
+	var now := Time.get_ticks_msec()
+	if chat.any(func(e): return e.who == c and e.text == text and now - e.at < 10000):
+		return  # a crying baby doesn't fill the feed
+	chat.append({"who": c, "text": text, "with": with, "at": now})
+	if chat.size() > CHAT_LINES:
+		chat.pop_front()
+
+
+# A social event that involves someone in your household (you see nothing about other households).
+func ours_event(e: Dictionary) -> bool:
+	for who in [e.get("a"), e.get("b")]:
+		if who and is_instance_valid(who) and who.home == player.home and player.home >= 0:
+			return true
+	return false
+
+
+# You hear what's said near you, but not strangers talking among themselves (only to you).
+func hears(c: Node2D, with: Node2D) -> bool:
+	if c == player or with == player:
+		return true
+	if not player.known.has(c.npc_name):
+		return false
+	return c.is_visible_in_tree() and c.building == player.building and c.floor == player.floor \
+		and c.grid_pos.distance_to(player.grid_pos) <= HEAR_RADIUS
+
+
+# One feed line, with names as you know them: "Sam: Good morning, you!", "Unknown thinks: ...".
+func chat_text(e: Dictionary) -> String:
+	var name := "Someone" if not is_instance_valid(e.who) else "You" if e.who == player else Social.display_name(player, e.who)
+	var who := "" if e.with == null or not is_instance_valid(e.with) else "you" if e.with == player else Social.display_name(player, e.with)
+	var text: String = e.text.replace("{who}", who)
+	if text.begins_with("~ ") and text.ends_with(" ~"):
+		return "%s thinks: %s" % [name, text.substr(2, text.length() - 4)]
+	return "%s: %s" % [name, text]
 
 
 # The pastel look (ui_theme.gd) on every panel, button and label of the HUD.
@@ -650,13 +1016,32 @@ func apply_theme() -> void:
 			child.theme = UiTheme.get_theme()
 
 
-# --- Game menu (Menu ▾ under the clock) ---
+# --- Game menu (☰, bottom right) ---
 
 const SaveGame = preload("res://scripts/save_game.gd")
 const Session = preload("res://scripts/session.gd")
 
 
 func on_game_menu(id: int) -> void:
+	if id == 10:
+		toggle_relationships()
+		return
+	if id == 11:
+		var dialog := AcceptDialog.new()
+		dialog.title = "Controls"
+		dialog.dialog_text = CONTROLS
+		dialog.theme = UiTheme.get_theme()
+		dialog.confirmed.connect(dialog.queue_free)
+		dialog.canceled.connect(dialog.queue_free)
+		add_child(dialog)
+		dialog.popup_centered()
+		return
+	if id == 12:
+		open_settings()
+		return
+	if Net.is_client(get_tree()) and id in [0, 1, 2]:
+		show_toast("Only the host can save this town")
+		return
 	match id:
 		0:
 			save_game(false)
@@ -669,6 +1054,32 @@ func on_game_menu(id: int) -> void:
 			exit_to_menu()
 		4:
 			get_tree().quit()
+
+
+# Settings (☰ → Settings): volumes, mute, fullscreen, in a small window in the middle of the screen.
+func open_settings() -> void:
+	var window := PanelContainer.new()
+	window.add_theme_stylebox_override("panel", UiTheme.box(UiTheme.PAPER, 4, UiTheme.LINE))
+	window.anchor_left = 0.5
+	window.anchor_right = 0.5
+	window.anchor_top = 0.5
+	window.anchor_bottom = 0.5
+	window.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	window.grow_vertical = Control.GROW_DIRECTION_BOTH
+	window.theme = UiTheme.get_theme()
+	add_child(window)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 12)
+	window.add_child(column)
+	var head := HBoxContainer.new()
+	column.add_child(head)
+	var title := Label.new()
+	title.text = "Settings"
+	title.add_theme_font_size_override("font_size", 24)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	head.add_child(flat_button("x", window.queue_free))
+	SettingsPanel.build(column)
 
 
 func save_game(as_new: bool) -> bool:
@@ -686,4 +1097,6 @@ func show_toast(text: String) -> void:
 
 func exit_to_menu() -> void:
 	Engine.time_scale = 1.0
+	if Net.find(get_tree()):
+		Net.find(get_tree()).leave()  # hosting: the town closes for everyone
 	get_tree().change_scene_to_file("res://scenes/menu.tscn")

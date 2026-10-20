@@ -22,6 +22,7 @@
 #   talking  -> in a conversation; the initiator's talk_timer ends it via Social.finish()
 #   knocking -> at someone's door waiting for an answer (ownership.gd)
 #   working  -> away at their job (hidden; jobs.gd). They walk to the Bus stop first ("pending_work").
+#   down     -> on the floor or bent over (body.gd: tripped, passed out, fainted, throwing up) until pose_until
 #
 # Tasks are lists of steps (run_steps). A step is {object, verb, seconds, ads?, start?, done?}:
 # walk to the object, call start, spend `seconds` there gaining `ads`, call done, next step.
@@ -37,6 +38,9 @@
 #
 # Perception (perception.gd): every LOOK_INTERVAL the character looks around; `seen` lists who is in
 # sight, and notice() reacts to anything interesting (e.g. someone peeking in through the window).
+#
+# AI words (llm.gd): with the local language model on, `thought` is their latest private thought and
+# `wish` what they feel like doing (until `wish_until`): choose_action() scores that option ×Llm.WISH_BOOST.
 extends Node2D
 
 const Iso = preload("res://scripts/iso.gd")
@@ -54,6 +58,9 @@ const Life = preload("res://scripts/life.gd")
 const Mind = preload("res://scripts/mind.gd")
 const Actions = preload("res://scripts/actions.gd")
 const Looks = preload("res://scripts/looks.gd")
+const Llm = preload("res://scripts/llm.gd")
+const UiTheme = preload("res://scripts/ui_theme.gd")
+const Body = preload("res://scripts/body.gd")
 
 const ACT_THRESHOLD := 5.0  # below this score nothing is worth doing, so wander
 const NEEDS := ["hunger", "thirst", "energy", "fun", "bladder", "hygiene", "social"]
@@ -83,6 +90,11 @@ const QUEUE_TIMEOUT := 15.0  # seconds to wait for a busy object before giving u
 
 # Toggled with F3 in main.gd: shows every need value above each NPC.
 static var show_details := false
+# Online, in someone else's town (net.gd): nobody thinks or lives here, the host sends what everyone
+# does; people only glide to `net_target` and animate (puppet_update).
+static var puppet := false
+var net_target := Vector2.ZERO
+var human := false  # joined: someone (a real person) is playing them (the host sends it)
 
 var npc_name := "Sam"
 var body_color := Color(0.95, 0.65, 0.35)
@@ -107,6 +119,23 @@ var next_sample := 0.0
 var last_social := 0.0  # game time of the last completed interaction
 var work_log := []  # [game time, hours] per shift (Mind: burn-out)
 var learned := {}  # Mind: activity -> how much they've come to like it (×0.5..1.6)
+var thought := ""  # Llm: their latest private thought, and when they had it (game time)
+var thought_at := -100000.0
+var wish := ""  # Llm: what they feel like doing (object name, "cooking", "social") until wish_until
+var wish_why := ""
+var wish_until := -1.0
+
+# The body (body.gd)
+var pose := ""  # "" standing, "down" on the floor, "bent" bent over
+var pose_reason := ""  # tripped, passed out, fainted, throwing up
+var pose_until := 0.0  # game time they get up
+var running := false
+var run_order := false  # you Shift+clicked: run there
+var illness := ""  # "", "Cold", "Flu", "Food poisoning"
+var ill_until := -1.0
+var next_symptom := 0.0
+var next_fart := 0.0
+var last_meal := -100000.0
 
 var state := "idle"
 var target_object: Node2D = null
@@ -229,7 +258,8 @@ func _ready() -> void:
 	world = get_tree().get_first_node_in_group("world")
 	building = world.building_at(cell(), floor)
 	label = Label.new()
-	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_font_override("font", UiTheme.font())
+	label.add_theme_font_size_override("font_size", 14)
 	label.position = Vector2(-45, -95)
 	label.add_theme_constant_override("outline_size", 5)
 	label.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.9))
@@ -259,11 +289,14 @@ func cell() -> Vector2i:
 func _process(delta: float) -> void:
 	if dead:
 		return
+	if puppet:
+		puppet_update(delta)
+		return
 	var fx: Dictionary = Ages.EFFECTS[Ages.stage(self)]
 	for need in needs:
 		var rate: float = decay[need] * fx.get("decay", {}).get(need, 1.0)
 		if need == "energy":
-			rate *= Mind.multiplier(self, "energy_decay") * (1.3 if pregnant_until >= 0.0 else 1.0)
+			rate *= Mind.multiplier(self, "energy_decay") * (1.3 if pregnant_until >= 0.0 else 1.0) * Body.energy_decay(self)
 		needs[need] = maxf(0.0, needs[need] - rate * delta)
 	if Ages.stage(self) == Ages.BABY:
 		baby_update(delta)
@@ -279,6 +312,13 @@ func _process(delta: float) -> void:
 		look_timer = Perception.LOOK_INTERVAL
 		look_around()
 
+	if Body.update(self, delta):  # down on the floor or bent over: nothing else until they're up
+		building = world.building_at(cell(), floor)
+		position = Iso.to_screen(grid_pos)
+		animate(delta)
+		label.text = label_text()
+		queue_redraw()
+		return
 	update_work(delta)
 	match state:
 		"idle":
@@ -340,6 +380,20 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
+# Joined someone's town: follow what the host sends (net.gd fast()) smoothly, and animate.
+func puppet_update(delta: float) -> void:
+	emote_timer -= delta / maxf(Engine.time_scale, 1.0)
+	var before := grid_pos
+	grid_pos = grid_pos.move_toward(net_target, maxf(walk_speed(), 1.0) * 1.5 * delta)
+	if grid_pos != before:
+		last_move = grid_pos - before
+	building = world.building_at(cell(), floor)
+	position = Iso.to_screen(grid_pos)
+	animate(delta)
+	label.text = label_text()
+	queue_redraw()
+
+
 # --- Movement ---
 
 # Plan a route to `target` on floor `f` and start walking. False (and nothing changes) if unreachable.
@@ -349,13 +403,14 @@ func walk_to(target: Vector2i, f: int) -> bool:
 		return false
 	path = new_path
 	walk_target = Vector2(target)
+	running = Body.wants_to_run(self)
 	state = "walking"
 	return true
 
 
 # Tiles per second: base speed × Fitness × life stage (toddlers waddle, old people slow down).
 func walk_speed() -> float:
-	return speed * Skills.speed_multiplier(self) * Ages.EFFECTS[Ages.stage(self)].speed
+	return speed * Skills.speed_multiplier(self) * Ages.EFFECTS[Ages.stage(self)].speed * Body.speed(self)
 
 
 func follow_path(delta: float) -> void:
@@ -373,6 +428,8 @@ func follow_path(delta: float) -> void:
 			grid_pos = Vector2(p.x, p.y)
 			budget -= to.length()
 			path.pop_front()
+			if running and Body.maybe_trip(self):
+				return  # flat on the floor
 		else:
 			grid_pos += to.normalized() * budget
 			budget = 0.0
@@ -381,6 +438,8 @@ func follow_path(delta: float) -> void:
 
 
 func arrive() -> void:
+	running = false
+	run_order = false
 	if pending_peek != NO_WINDOW:
 		start_peeking(pending_peek)
 	elif pending_work:
@@ -424,19 +483,23 @@ func think() -> void:
 	choose_action()
 
 
+# Above their head: just "Name - Mood", and nothing at all for people you haven't talked to yet (what they
+# say goes to the HUD chat feed, see show_emote).
+# F3 adds what they're doing and everything behind it.
 func label_text() -> String:
-	if controlled:
-		return "%s (%s) — %s" % [npc_name, "Auto" if auto_mode else "Manual", shown_activity(self)]
 	var viewer := get_tree().get_first_node_in_group("player")
-	var text := "%s — %s" % [Social.display_name(viewer, self), shown_activity(viewer)]
-	if emote_timer > 0.0:
-		var who := "" if emote_with == null else "you" if emote_with == viewer else Social.display_name(viewer, emote_with)
-		text += "\n" + emote.replace("{who}", who)
-	text += "\nFeeling: " + Emotions.describe(self)
+	var met: bool = viewer == null or viewer == self or viewer.known.has(npc_name)
+	if not met and not show_details:
+		return ""  # a stranger: nothing over their head until you've talked
+	var text := "%s - %s" % [Social.display_name(viewer, self), Emotions.describe(self)]
 	if show_details:
-		text += " (%s)" % Emotions.reasons(self, 3)
+		text += " (%s)\n%s" % [Emotions.reasons(self, 3), shown_activity(viewer)]
+		if controlled:
+			text += " · " + ("Auto" if auto_mode else "Manual")
 		text += "\n%s\nTraits: %s\nSkills: %s" % [Ages.describe(self), ", ".join(traits), Skills.summary(self)]
 		text += "\nMind: %s · learned: %s" % [", ".join(Mind.states(self)) if not Mind.states(self).is_empty() else "ok", Mind.tastes(self)]
+		if Llm.wish_text(self) != "":
+			text += "\nWants to: " + Llm.wish_text(self)
 		text += "\nHun %d Thi %d Ene %d Fun %d\nBla %d Hyg %d Soc %d" % [
 			needs.hunger, needs.thirst, needs.energy, needs.fun, needs.bladder, needs.hygiene, needs.social]
 		text += "\nSees: " + (", ".join(seen.map(func(c): return Social.display_name(viewer, c))) if not seen.is_empty() else "nobody")
@@ -460,17 +523,27 @@ func messy_home() -> bool:
 	return dirty >= Traits.mess_tolerance(self)
 
 
-func show_emote(text: String, with: Node2D) -> void:
+# Say something (or a reaction like "*glares*", a thought "~ ... ~"). It isn't drawn over the head:
+# the HUD chat feed shows it if you can hear it (hud.gd heard()).
+func show_emote(text: String, with: Node2D, seconds := EMOTE_SECONDS) -> void:
 	emote = text
 	emote_with = with
-	emote_timer = EMOTE_SECONDS
+	emote_timer = seconds
+	if not is_inside_tree():
+		return
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.heard(self, text, with)
+	var net := get_tree().root.get_node_or_null("Net")
+	if net and net.role == "host":  # everyone who joined hears it too
+		net.said(self, text, with, seconds)
 
 
 # --- Perception ---
 
 func look_around() -> void:
 	Emotions.update(self, {"Messy home": messy_home(), "Broke": money < 0 and Ages.is_grown_up(self),
-		"Pregnant": pregnant_until >= 0.0, "In a relationship": lover != "", "Crying": is_crying()})
+		"Pregnant": pregnant_until >= 0.0, "In a relationship": lover != "", "Crying": is_crying(), "Sick": illness != ""})
 	if is_crying() and emote_timer <= 0.0:
 		show_emote("Waaah!", null)
 	seen = []
@@ -513,7 +586,7 @@ func choose_action() -> void:
 			continue
 		for action in Actions.for_object(obj):  # each thing you can do with it (actions.gd)
 			var score := advertisement_score(action.ads) / distance_factor(d) * time_factor(action) * Traits.like(self, obj.object_name) \
-				* Mind.learned(self, obj.object_name) * randf_range(0.85, 1.15)  # a little variety (Pee or Poo...)
+				* Mind.learned(self, obj.object_name) * Llm.wish_factor(self, obj.object_name) * randf_range(0.85, 1.15)  # a little variety (Pee or Poo...)
 			if score > best_score:
 				best_score = score
 				best_object = obj
@@ -528,7 +601,7 @@ func choose_action() -> void:
 		# Longer tasks are a bit less attractive; the random factor gives some variety in meals.
 		var score: float = advertisement_score(option.ads) / distance_factor(d) / (1.0 + option.seconds / 60.0) * randf_range(0.85, 1.15)
 		if option.get("cooking", false):
-			score *= Traits.like(self, "cooking") * Mind.learned(self, "cooking")
+			score *= Traits.like(self, "cooking") * Mind.learned(self, "cooking") * Llm.wish_factor(self, "cooking")
 		if score > best_score:
 			best_score = score
 			best_steps = option.steps
@@ -547,7 +620,7 @@ func choose_action() -> void:
 		var i := Social.choose_interaction(self, other)
 		if i.is_empty():
 			continue
-		var score := Social.interaction_score(self, other, i) / distance_factor(d) * Traits.like(self, "social") * Mind.learned(self, "social")
+		var score := Social.interaction_score(self, other, i) / distance_factor(d) * Traits.like(self, "social") * Mind.learned(self, "social") * Llm.wish_factor(self, "social")
 		if behind_door:
 			score *= 0.7  # knocking first is more effort
 		if score > best_score:
@@ -797,6 +870,8 @@ func release_object() -> void:
 
 # Can someone start a conversation with us right now? (Wandering counts as available.)
 func is_available() -> bool:
+	if pose != "":
+		return false  # on the floor
 	if controlled and not auto_mode:  # NPCs only approach you when you stand still, so they never cancel your orders
 		return partner == null and target_object == null and state == "idle"
 	return partner == null and target_object == null and steps.is_empty() and state in ["idle", "walking"]
@@ -893,10 +968,12 @@ func draw_overlay(canvas: Node2D) -> void:
 			canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-# Pick the sheet frame: walking (4-step cycle, facing the way they move), sitting on seats and the
-# toilet, lying in bed (or napping on the couch), facing who they talk to, standing otherwise.
+# Pick the sheet frame: walking or running (4-step cycles, facing the way they move), sitting on seats and
+# the toilet, lying in bed (or napping on the couch), down on the floor or bent over (body.gd), facing who
+# they talk to, standing otherwise.
 func animate(delta: float) -> void:
 	overlay.queue_redraw()
+	label.position.y = -45.0 if pose == "down" else -95.0  # lying on the floor: the name sits lower too
 	if body_sprite == null:
 		return
 	var stage := Ages.stage(self)
@@ -904,7 +981,16 @@ func animate(delta: float) -> void:
 	body_sprite.scale = Vector2.ONE * BODY_SCALE[stage]
 	body_sprite.position = Vector2.ZERO
 	var frame := Looks.IDLE
-	if state == "walking":
+	if pose == "down":  # on the floor (body.gd); the frame is baked raised, so lower it
+		frame = Looks.DOWN
+		body_sprite.position = Vector2(0, Looks.DOWN_DROP * BODY_SCALE[stage])
+	elif pose == "bent":
+		frame = Looks.BENT
+	elif state == "walking" and running:
+		anim_time += delta
+		facing_dir = Looks.direction(last_move)
+		frame = Looks.RUN + int(anim_time * 9.0) % 4
+	elif state == "walking":
 		anim_time += delta
 		facing_dir = Looks.direction(last_move)
 		frame = Looks.WALK + int(anim_time * 6.0) % 4
@@ -1009,6 +1095,8 @@ func order_interaction(other: Node2D, i: Dictionary) -> void:
 
 # Drop whatever you were doing and stand still.
 func cancel_current() -> void:
+	if pose != "":
+		return  # they have to get up first (body.gd)
 	if partner:
 		end_social()
 	drop_task()

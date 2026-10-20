@@ -36,10 +36,13 @@ Each person has a **look** (body, skin, hair, clothes; README *Character art*).
 Like The Sims 4, emotions come from **moodlets**: feelings with a reason and a duration, e.g.
 *Argued* = Angry, strength 3, for 3 game hours. Strengths of the same emotion add up, and **the
 emotion with the highest total is how the character feels**. With no moodlets they feel **Fine**,
-and a total of 5 or more reads as "Very angry". Labels show `Feeling: Angry`; press F3 to see the
+and a total of 5 or more reads as "Very angry". Labels show `Name - Angry`; press F3 to see the
 reasons, and the HUD shows yours.
 
 ### Moodlets
+
+The body (body.gd, see *The body*): Tripped, Passed out, Fainted, Had an accident, Threw up, Grossed out,
+Farted, Funny fart, Feeling better, Sick (while ill).
 
 | Moodlet | Emotion | Strength | Lasts | Comes from |
 |---|---|---|---|---|
@@ -109,6 +112,28 @@ Some interactions need a feeling: you can only **Argue** when Angry, Tense or Un
 for that skill.
 
 ---
+
+## The body (`body.gd`)
+
+People are only human. Everything here also shows on the character (new sprite frames: running, bent over,
+down on the floor) and in your chat feed.
+
+| What | When | What happens |
+|---|---|---|
+| **Running** | A need under 15 (bladder, hunger, thirst), late for work, or you **Shift+click** where to go. Not toddlers, old people or anyone with the flu | ×1.8 speed with a running animation |
+| **Tripping** | While running: 1.2% per tile (×2 under 25 energy, ×0.5 for Active people) | Flat on the floor for 3 min, *Tripped* (Embarrassed). Goofballs and hot-heads who see it laugh (*Had a laugh*), friends ask "Are you okay?!" |
+| **Passing out** | Energy hits 0 when not in bed | Down on the floor for 2.5 h, sleeping it off (+35 energy), *Passed out* |
+| **Fainting** | Hunger hits 0 | Down for 45 min, *Fainted*; wakes up at 12 hunger (go eat!) |
+| **Accident** | Bladder hits 0 | Bladder 100, hygiene −50, *Had an accident* (Embarrassed 4); witnesses are *Grossed out* |
+| **Farting** | About every 9 game hours (×0.4–1.6), twice as often for 3 h after a meal | Goofballs, slobs and children: *Funny fart*. Others: *Farted* (Embarrassed) if someone heard. People within 4 tiles laugh (goofballs, children) or are *Grossed out* |
+| **Cold** | Hygiene under 20: 3% per game hour; or from someone sick close by | 30 h: energy ×1.3, speed ×0.9, "*achoo!*" every ~1.5 h |
+| **Flu** | Only from someone who has it | 54 h: energy ×1.7, speed ×0.75, coughing; 25% of symptoms are throwing up; no running |
+| **Food poisoning** | Eating stale (25%) or spoiled (85%) food | 12 h: energy ×1.4, speed ×0.85; 60% of symptoms are throwing up |
+| **Throwing up** | A symptom of the flu or food poisoning | Bent over for 2 min: hunger −25, thirst −15, hygiene −25, *Threw up*; witnesses *Grossed out* |
+
+While sick they feel *Sick* (Uncomfortable 3); sleeping makes illness pass twice as fast; when it's over:
+*Feeling better*. Coughing and sneezing on someone within 3 tiles can pass it on (cold 12%, flu 15%).
+While on the floor or bent over (`state` "down") they don't think, walk, talk or take orders.
 
 ## Mind: lasting mental states (`mind.gd`)
 
@@ -197,7 +222,7 @@ is −3). Peeking, rejections and flat jokes are remembered too.
 
 ## Social interactions
 
-The initiator walks over, says a line out loud (shown above their head), and the partner accepts
+The initiator walks over, says a line out loud (in your chat feed if you're near), and the partner accepts
 or not. Effects apply to both when it ends. The initiator practises the listed skill.
 
 | Interaction | Needs | Social | Fun | Friendship | Minutes | Skill | Moodlets (initiator / partner) |

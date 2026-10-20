@@ -5,6 +5,13 @@
 # Speed: 1/2/3/4 = Normal/Fast/Faster/Ultra (SPEEDS), P/Space/0 = pause (resumes at the chosen speed).
 # Pausing sets Engine.time_scale to 0, so nothing moves, but you can still click to give orders.
 # While your character sleeps or is at work, time runs at Ultra automatically and returns to your speed after.
+#
+# Online (net.gd, docs/ONLINE.md): hosting, this is the real town and others join it; joined, the town
+# comes from the host's snapshot and only shows what the host sends (people are puppets), and the host
+# decides the game speed. Sleeping doesn't speed time up online (others are still awake).
+#
+# Music (music.gd): the build-mode song while building, the at-home song inside your own home, the outside
+# song anywhere else.
 extends Node2D
 
 const World = preload("res://scripts/world.gd")
@@ -30,6 +37,11 @@ const STAGE_YEARS := {"Child": 8.0, "Teen": 15.0, "Young adult": 21.0, "Adult": 
 const PLAYER_NAME := "Jo"  # your character's name: change it here
 const Hud = preload("res://scripts/hud.gd")
 const Life = preload("res://scripts/life.gd")
+const Llm = preload("res://scripts/llm.gd")
+const Net = preload("res://scripts/net.gd")
+const UiTheme = preload("res://scripts/ui_theme.gd")
+const Music = preload("res://scripts/music.gd")
+const WeatherFx = preload("res://scripts/weather_fx.gd")
 
 const SPEEDS := [1.0, 5.0, 20.0, 60.0]  # time multipliers: a game day lasts 24 min / 4.8 min / 72 s / 24 s
 const SPEED_NAMES := ["Normal", "Fast", "Faster", "Ultra"]
@@ -141,11 +153,16 @@ var camera: Camera2D
 var player: Node2D  # the character you control right now (controller.gd keeps this up to date)
 var controller: Node
 var build: CanvasLayer  # build mode (B)
+var llm: Node  # the local language model (llm.gd): written lines, thoughts, wishes, talking
 var household_name := "Jo & Sam"  # shown in saves
 var speed := 0  # index into SPEEDS chosen by the player
 var paused := false
 var sleep_boost := false  # time is at Ultra because you're asleep
-var auto_sleep_speed := true  # whether sleeping speeds time up (the tests turn it off)
+var auto_sleep_speed := true  # whether sleeping speeds time up (the tests and online games turn it off)
+var hud: CanvasLayer
+var home_names := {}  # building -> household name, for households other than the built-in ones
+var online_players := 1  # joined: how many people are in the town (net.gd)
+var backdrop: TextureRect  # the soft gradient behind the world, dimmed with the daylight
 
 
 func _ready() -> void:
@@ -153,12 +170,25 @@ func _ready() -> void:
 	y_sort_enabled = true  # things lower on screen draw in front
 	Social.event_log.clear()  # static: would otherwise carry over from a previous game
 	Engine.time_scale = 1.0
+	add_to_group("game")
+	UiTheme.get_theme()  # the serif font for every label, before anything is built
+	var sky := CanvasLayer.new()  # the atmosphere gradient behind the world (ui_theme.gd PALETTE)
+	sky.layer = -10
+	backdrop = UiTheme.backdrop()
+	sky.add_child(backdrop)
+	add_child(sky)
+	var joined: bool = Session.online == "client" and Net.is_client(get_tree())
+	Npc.puppet = joined  # static: reset for every game
 
 	world = World.new()
 	add_child(world)
 	var you: Node2D
+	world.puppet = joined
 	if Session.mode == "load" and not Session.save_data.is_empty():
 		you = SaveGame.restore(self, Session.save_data)
+		if joined:  # the snapshot is the host's game: you're the household you picked
+			household_name = Session.online_household
+			you = get_tree().get_nodes_in_group("characters").filter(func(c): return c.npc_name == Session.controlled).front()
 	else:
 		place_furniture()
 		var jo := spawn_residents()
@@ -176,10 +206,53 @@ func _ready() -> void:
 	controller = Controller.new().setup(self, camera)
 	add_child(controller)
 	controller.take_control(you)  # the camera follows whoever you control
-	add_child(Hud.new().setup(player, self))
+	llm = Llm.new()
+	llm.remote = joined  # the host's model writes the words
+	add_child(llm)
+	add_child(WeatherFx.new().setup(world))  # rain and fog on screen, under the HUD
+	hud = Hud.new().setup(player, self)
+	add_child(hud)
 	build = BuildMode.new().setup(self)
 	add_child(build)
 	apply_speed()
+	if joined:
+		auto_sleep_speed = false
+		Net.find(get_tree()).attach(self)
+	elif Session.online == "host":
+		auto_sleep_speed = false
+		start_hosting.call_deferred()  # the root is still busy adding this scene
+	elif Net.find(get_tree()):
+		Net.find(get_tree()).leave()  # left over from an earlier online game
+
+
+func start_hosting() -> void:
+	var net: Node = Net.create(get_tree())
+	if not net.host(self):
+		net.leave()
+		hud.show_toast("Couldn't open the town online (is another game hosting?)")
+
+
+func is_online() -> bool:
+	return Net.is_online(get_tree())
+
+
+# Whoever controls `c`: you, or (hosting) the controller of the player who joined as them.
+func controller_of(c: Node2D) -> Node:
+	if controller.body == c:
+		return controller
+	var net: Node = Net.find(get_tree())
+	return net.controller_of(c) if net and net.role == "host" else null
+
+
+func home_name(h: int) -> String:
+	for household in HOUSEHOLDS:
+		if household.home == h:
+			return household.name
+	if home_names.has(h):
+		return home_names[h]
+	if player and player.home == h:
+		return household_name
+	return World.BUILDINGS[h].name
 
 
 func place_furniture() -> void:
@@ -221,8 +294,10 @@ func spawn_residents() -> Node2D:
 # A household made on the home screen moves into the starter house. Returns who you'll control.
 # spec: {name, members: [{name, sex, stage, look, traits}]}. Grown-ups share STARTING_FUNDS; children
 # get the grown-ups as parents.
-func spawn_household(spec: Dictionary) -> Node2D:
-	household_name = spec.name
+func spawn_household(spec: Dictionary, yours := true) -> Node2D:
+	if yours:
+		household_name = spec.name
+	home_names[STARTER_HOUSE] = spec.name
 	var grown: Array = spec.members.filter(func(m): return STAGE_YEARS[m.stage] >= 18)
 	var adults: Array = grown.map(func(m): return m.name).slice(0, 2)
 	var first: Node2D = null
@@ -258,12 +333,16 @@ func _unhandled_input(event: InputEvent) -> void:
 # --- Game speed ---
 
 func set_speed(i: int) -> void:
+	if Net.is_client(get_tree()):
+		return  # the host decides
 	speed = i
 	paused = false
 	apply_speed()
 
 
 func toggle_pause() -> void:
+	if Net.is_client(get_tree()):
+		return
 	paused = not paused
 	apply_speed()
 
@@ -277,7 +356,16 @@ func is_sleeping(c: Node2D) -> bool:
 	return c.at_work or (c.state == "using" and c.step.get("asleep", false))
 
 
+func _exit_tree() -> void:
+	UiTheme.release()
+
+
 func _process(_delta: float) -> void:
+	backdrop.modulate = world.daylight.color
+	var track := "build" if build.active else "home" if player.home >= 0 and player.building == player.home else "outside"
+	Music.play(get_tree(), track)
+	if Npc.puppet:
+		return  # joined: the host sends the speed
 	if (auto_sleep_speed and is_sleeping(player)) != sleep_boost:
 		sleep_boost = not sleep_boost
 		apply_speed()

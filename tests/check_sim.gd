@@ -21,6 +21,10 @@ const Mind = preload("res://scripts/mind.gd")
 const Catalog = preload("res://scripts/catalog.gd")
 const Actions = preload("res://scripts/actions.gd")
 const Looks = preload("res://scripts/looks.gd")
+const Llm = preload("res://scripts/llm.gd")
+const Talk = preload("res://scripts/talk.gd")
+const Body = preload("res://scripts/body.gd")
+const BuildMode = preload("res://scripts/build_mode.gd")
 const SaveGame = preload("res://scripts/save_game.gd")
 const Session = preload("res://scripts/session.gd")
 const DAY := 24 * 60.0  # real seconds (world.clock) per game day
@@ -103,13 +107,14 @@ func check_world() -> void:
 # Everything on screen must belong where the player is (checked every frame).
 func check_view() -> void:
 	var inside: int = player.building
-	for c in npcs():
-		if c.visible and (c.building != inside or (inside >= 0 and c.floor != player.floor)):
+	var vision: Node2D = main.world.vision
+	for c in npcs():  # people only when your sim sees them, never inside another house
+		if c.visible and (not vision.sees(c.cell(), c.floor) or (c.building >= 0 and c.building != inside)):
 			view_errors += 1
-	for o in main.get_tree().get_nodes_in_group("smart_objects"):
-		if o.is_visible_in_tree() and (o.building != inside or (inside >= 0 and o.floor != player.floor)):
+	for o in main.get_tree().get_nodes_in_group("smart_objects"):  # no furniture of other houses or floors
+		if o.building >= 0 and o.is_visible_in_tree() and (o.building != inside or o.floor != player.floor):
 			view_errors += 1
-	if main.world.chunk_root.visible != (inside < 0):
+	if not main.world.chunk_root.visible:  # the neighbourhood is always there
 		view_errors += 1
 
 
@@ -526,7 +531,7 @@ func check_everyday() -> void:
 	check(Social.choose_interaction(sam, baby).name in ["Feed", "Hug", "Play with", "Change & clean", "Rock to sleep"],
 		"what Sam does with the baby is a caring thing")
 
-	var hud: CanvasLayer = main.get_children().filter(func(n): return n is CanvasLayer)[0]
+	var hud: CanvasLayer = main.hud
 	hud.show_child(baby)
 	hud.update_child_panel()
 	check(hud.child_panel.visible and not hud.child_buttons["Feed"].disabled and absf(hud.child_bars["hunger"][0].value - baby.needs.hunger) < 1.0,
@@ -624,6 +629,31 @@ func check_build() -> void:
 	var bookshelf := Catalog.place(player, "bookshelf", Vector2i(484, 505), 1, 0)
 	check(bookshelf != null and bookshelf.use_cell() == Vector2i(485, 505) and bookshelf.skill == "Logic",
 		"a bought bookshelf works like the others (reading, Logic)")
+	# Walls and stairs (Build category).
+	var wall: Node2D = Catalog.place(player, "wall", Vector2i(490, 502), 0, 0)
+	check(wall != null and wall.wall and not w.is_walkable(Vector2i(490, 502), 0) and w.blocks_sight(Vector2i(490, 502), 0),
+		"building a wall: it blocks the tile and the view")
+	check(Catalog.sell(player, wall) > 0 and w.is_walkable(Vector2i(490, 502), 0) and not w.blocks_sight(Vector2i(490, 502), 0),
+		"selling the wall frees the tile and the view")
+	check(Catalog.why_not(player, "stairs", Vector2i(490, 502), 0, 0) == "This house already has an upper floor",
+		"no second stairs in a house that has an upper floor")
+	var alex := person("Alex")
+	alex.money = 2000
+	var stair_cell := Vector2i(505, 507)
+	check(w.BUILDINGS[1].floors == 1 and Catalog.place(alex, "stairs", stair_cell, 0, 0) != null and w.BUILDINGS[1].floors == 2
+		and w.floor_nodes[1].size() == 2 and alex.money == 500, "building stairs in Alex's one-storey house adds an upper floor ($1500)")
+	check(not w.find_path(w.door_inside(1), 0, Vector2i(504, 502), 1, alex).is_empty(), "the new upper floor can be reached by the stairs")
+	var saved: Array = w.building_state()
+	var upstairs_plant: Node2D = Catalog.place(alex, "plant_fern", Vector2i(504, 502), 0, 1)
+	check(Catalog.remove_stairs(alex) == -1, "the stairs can't be removed while something is upstairs")
+	Catalog.remove(alex, upstairs_plant)
+	check(Catalog.remove_stairs(alex) == 1125 and w.BUILDINGS[1].floors == 1 and w.floor_nodes[1].size() == 1,
+		"once upstairs is empty, the stairs come out again (75% back)")
+	w.apply_building_state(saved)
+	check(w.BUILDINGS[1].floors == 2 and w.BUILDINGS[1].stairs == stair_cell, "a saved house gets its built stairs back")
+	w.apply_building_state(World.START_BUILDINGS.map(func(b): return {"floors": b.floors, "stairs": b.get("stairs", Vector2i(-1, -1)), "built_stairs": false}))
+	check(w.BUILDINGS[1].floors == 1, "and loses them again with the start state")
+
 	var toilet := object_named("Toilet", 0)
 	check(Actions.for_object(toilet).map(func(a): return a.name) == ["Pee", "Poo"]
 		and Actions.for_object(object_named("Bed", 0)).map(func(a): return a.name) == ["Sleep", "Nap", "Relax in bed"],
@@ -952,7 +982,7 @@ func check_ownership() -> void:
 	check(asked and riley.state == "idle" and riley.activity == "Turned away" and Emotions.has(riley, "Rejected"),
 		"an NPC knocks on your door: you're asked, and turning them away hurts")
 
-	var hud: CanvasLayer = main.get_children().filter(func(n): return n is CanvasLayer)[0]
+	var hud: CanvasLayer = main.hud
 	hud.toggle_relationships()
 	hud.fill_drawer()
 	check(hud.drawer.visible and hud.drawer_list.get_child_count() == npcs().size(), "the relationships drawer lists everyone (%d)" % hud.drawer_list.get_child_count())
@@ -1104,6 +1134,291 @@ func check_kitchen() -> void:
 
 
 # Doors, windows, peeking, line of sight and NPC reactions, around Alex's house.
+# The language model (llm.gd) with a fake server: written lines, thoughts, wishes, typing to someone.
+# Headless runs never contact a real server, so `fake` answers every request.
+var llm_requests := []
+
+
+func fake_llm(request: Dictionary) -> String:
+	llm_requests.append(request)
+	var props: Dictionary = request.schema.get("properties", {})
+	if props.has("line"):
+		return '{"line": "Rough day, huh? Want some tea?", "reply": "Tea fixes everything."}'
+	if props.has("choice"):
+		return JSON.stringify({"choice": "TV" if "TV" in props.choice.enum else props.choice.enum[0], "why": "Too tired for anything else"})
+	if props.has("reply"):
+		return '{"reply": "Hey you! Nice to see a friendly face.", "tone": "nice"}'
+	return "<think></think>\"I really need a nap.\""
+
+
+func check_llm() -> void:
+	var llm: Node = main.llm
+	var sam := person("Sam")
+	var alex := person("Alex")
+	reset(sam, Vector2(484, 503))
+	player.cancel_current()
+	player.floor = 0
+	player.grid_pos = Vector2(485, 503)
+	player.building = main.world.building_at(player.cell(), 0)
+	main.world.update_view()
+	var chat := interaction("Chat")
+
+	check(not llm.online and llm.status_text().begins_with("AI: off"), "AI: offline in tests until a fake server is set")
+	check(not llm.ask([], 10, {}, func(_t): pass), "AI offline: requests are refused, so the scripted lines stay")
+	llm.online = true
+	llm.fake = fake_llm
+
+	check(Llm.clean_line("Sam: \"Hi there!\"\n") == "Hi there!" and Llm.strip_thinking("<think>hm</think>Yo") == "Yo",
+		"AI: model text is cleaned (no name prefix, quotes, thinking)")
+	player.known.erase("Alex")
+	var stranger := Llm.who(alex, player)
+	check(stranger.begins_with("a stranger") and not "Alex" in stranger and "Alex" in Llm.who(alex),
+		"AI: a stranger's name isn't given to the model (%s)" % stranger.substr(0, 40))
+	check("Outgoing" in Llm.who(sam) and "sees Jo as" in Llm.relation(sam, player), "AI: prompts carry traits and how they see each other")
+
+	# A conversation near you gets a written line and a reply.
+	for pair in [[sam, player], [player, sam]]:
+		pair[0].partner = pair[1]
+		pair[0].state = "talking"
+	sam.is_initiator = true
+	sam.interaction = chat
+	sam.talk_timer = chat.duration
+	llm.conversation(sam, player, chat, "How's your day going?")
+	llm.pump()
+	check(sam.emote.begins_with("\"Rough day") and sam.emote_with == player, "AI: Sam says the written line (%s)" % sam.emote.replace("\n", " "))
+	llm.replied(player, sam, "Tea fixes everything.")
+	check(player.emote == "\"Tea fixes everything.\"", "AI: the partner replies with the written reply")
+	sam.end_social()
+	sam.emote = ""
+	llm.said(sam, player, {"line": "Too late", "reply": ""})
+	check(sam.emote == "", "AI: a line that arrives after the conversation ended is dropped")
+	var fast := chat.duplicate()
+	fast.duration = 2.0
+	var before := llm_requests.size()
+	llm.conversation(sam, player, fast, "Hi")
+	check(llm_requests.size() == before and llm.queue.is_empty(), "AI: conversations too short for a line to arrive aren't sent")
+
+	# Thoughts and wishes.
+	sam.emote_timer = 0.0
+	main.world.update_view(true)  # sight is worked out every 150 ms of real time: now
+	check(llm.think(sam), "AI: asked for Sam's thought")
+	llm.pump()
+	check(sam.thought == "I really need a nap." and sam.emote.begins_with("~ I really"), "AI: Sam thinks (%s)" % sam.thought)
+	check(llm.wish(sam), "AI: asked what Sam feels like doing")
+	llm.pump()
+	var options: Array = llm_requests[-1].schema.properties.choice.enum
+	check("social" in options and not "Fridge" in options and not "Bus stop" in options and sam.wish in options and Llm.wish_factor(sam, sam.wish) == Llm.WISH_BOOST
+		and Llm.wish_factor(sam, "nothing") == 1.0, "AI: Sam wants to %s (×%.1f): one of %s" % [Llm.wish_text(sam), Llm.WISH_BOOST, options])
+	sam.wish_until = main.world.now() - 1.0
+	check(Llm.wish_factor(sam, sam.wish) == 1.0 and Llm.wish_text(sam) == "", "AI: wishes wear off after %d hours" % Llm.WISH_HOURS)
+	llm.wished(sam, {"choice": "Rocket ship", "why": ""}, {"TV": ""})
+	check(sam.wish_until < main.world.now(), "AI: a choice that isn't one of the options is ignored")
+
+	# Typing to someone.
+	reset(alex, Vector2(486, 503))
+	alex.known.erase(player.npc_name)
+	player.known.erase("Alex")
+	alex.relationships[player.npc_name] = 0.0
+	alex.memories.clear()
+	var hud: CanvasLayer = main.hud
+	check(Llm.can_talk(player, alex) and not Llm.can_talk(player, person("Lily")), "AI: you can talk to Alex next to you, not to a far-away toddler")
+	hud.talk.open(player, alex)
+	check(hud.talk.visible and alex.state == "talking" and alex.partner == player and player.partner == alex,
+		"talk panel: you and Alex stop to talk")
+	hud.talk.send("Hi! I just moved in next door.")
+	llm.pump()
+	check(llm_requests[-1].messages[-1].content == "Hi! I just moved in next door." and not "Jo" in llm_requests[-1].messages[0].content.get_slice("The other person:", 1),
+		"talk panel: your words are sent, and Alex doesn't know your name yet")
+	check(Social.friendship(alex, player) == Llm.TONE.nice and hud.talk.history.size() == 2 and alex.emote.begins_with("\"Hey you!"),
+		"talk panel: Alex answers, and a nice message raises friendship (%d)" % Social.friendship(alex, player))
+	hud.talk.close()
+	check(not hud.talk.visible and alex.state == "idle" and player.partner == null and player.known.has("Alex")
+		and Social.memories_of(alex, player).any(func(m): return m.text == "talked with me" and m.feeling > 0),
+		"talk panel: closing it, you've met, and Alex remembers a nice talk")
+	check(Social.event_log[-1].text == "{a} talked with {b}", "talk panel: the talk is logged")
+
+	# The HUD: Today (left tab) and Passport (right tab) are hidden until you open them.
+	check(not hud.today_panel.visible and not hud.passport.visible and hud.today_tab.text == ">" and hud.passport_tab.text == "<",
+		"HUD: Today and Passport start hidden behind their tabs")
+	hud.today_tab.pressed.emit()
+	hud.passport_tab.pressed.emit()
+	var tv: Node2D = object_named("TV", 0)
+	player.use_object(tv)
+	player.state = "using"
+	player.target_object = tv
+	player.step = {"object": tv, "verb": "Watching TV", "seconds": 30.0}
+	player.use_timer = 12.0
+	player.activity = "Watching TV"
+	var today: Array = hud.today_items(player)
+	hud.update_passport()
+	check(hud.today_panel.visible and hud.passport.visible and today[0].now and today[0].title == "Watching TV" and today[0].sub == "TV · 12 min",
+		"HUD: the tabs open them; Today starts with what you're doing (%s, %s)" % [today[0].title, today[0].sub])
+	check(hud.name_label.text == player.npc_name and hud.activity_pct.text == "60%" and hud.bars.size() == 7,
+		"HUD: the passport shows you, your needs and how far along you are (%s)" % hud.activity_pct.text)
+	hud.today_tab.pressed.emit()
+	hud.passport_tab.pressed.emit()
+	check(not hud.today_panel.visible and not hud.passport.visible, "HUD: clicking the tabs again hides them")
+	player.cancel_current()
+
+	# Talking to a real person (online: another player): no AI, your words are passed on.
+	reset(alex, Vector2(486, 503))
+	alex.controlled = true  # pretend someone is playing Alex
+	var asked := llm_requests.size()
+	var before_f := Social.friendship(alex, player)
+	check(Talk.open(player, alex) and alex.partner == player, "talk with a real person: you both stop to talk")
+	Talk.say(player, "Hey neighbour!", [{"you": true, "text": "Hey neighbour!"}])
+	check(llm_requests.size() == asked and Social.friendship(alex, player) == before_f + Llm.TONE[Talk.HUMAN_TONE],
+		"talk with a real person: no AI answer, a little friendship")
+	Talk.close(player)
+	alex.controlled = false
+	check(alex.partner == null and player.partner == null and Social.memories_of(alex, player)[-1].text == "talked with me",
+		"talk with a real person: closing ends it and they remember it")
+
+	# Labels show only "Name - Mood"; what people say goes to the chat feed.
+	check(alex.label_text() == "Alex - " + Emotions.describe(alex) and player.label_text() == "Jo - " + Emotions.describe(player),
+		"labels: only name and mood (%s)" % alex.label_text())
+	alex.known.erase(player.npc_name)
+	player.known.erase("Alex")
+	check(alex.label_text() == "", "labels: nothing over a stranger's head")
+	check(not hud.ours_event({"a": alex, "b": person("Riley")}) and hud.ours_event({"a": alex, "b": player}),
+		"events: only those involving your household show")
+	hud.chat.clear()
+	main.world.update_view(true)
+	alex.show_emote("Good morning, {who}!", player)
+	alex.show_emote("Good morning, {who}!", player)
+	sam.show_emote("~ I really need a nap. ~", null)
+	var far := person("Lily")
+	far.show_emote("Waaah!", null)
+	check(hud.chat.size() == 2 and hud.chat_text(hud.chat[0]) == "Unknown: Good morning, you!"
+		and hud.chat_text(hud.chat[1]) == "Sam thinks: I really need a nap.",
+		"chat feed: what you hear, once, names as you know them (%s)" % [hud.chat.map(hud.chat_text)])
+	llm.fake = Callable()
+	llm.online = false
+
+
+# Seeing like your sim (vision.gd): walls, the cone, the dark, lamps, fog.
+func check_vision() -> void:
+	var w: Node2D = main.world
+	var v: Node2D = w.vision
+	w.weather = "Clear"
+	w.weather_until = w.now() + 99999.0
+	set_time(2, 12.0)
+	reset(player, Vector2(488, 504))  # in the living room, facing the back wall (-y, no windows there)
+	player.facing_dir = 4
+	w.update_view(true)
+	check(v.sees(Vector2i(488, 501), 0) and v.sees(Vector2i(488, 499), 0) and not v.sees(Vector2i(488, 497), 0),
+		"vision: you see your room and its wall, not through the wall")
+	check(v.sees(Vector2i(488, 502), 0) and v.remembers(Vector2i(488, 502), 0), "vision: what you see is remembered")
+	reset(player, Vector2(492, 514))  # outside on the road, facing along it (+x)
+	player.facing_dir = 2
+	w.update_view(true)
+	check(v.sees(Vector2i(512, 514), 0), "vision: by day you see far down the road")
+	check(v.sees(Vector2i(490, 514), 0) and not v.sees(Vector2i(480, 514), 0), "vision: behind you, only close by")
+	w.weather = "Fog"
+	w.update_view(true)
+	check(not v.sees(Vector2i(512, 514), 0) and v.sees(Vector2i(498, 514), 0), "vision: in fog you see much less (%.0f tiles)" % v.sight_range(true))
+	w.weather = "Clear"
+	set_time(2, 23.5)
+	w.update_view(true)
+	check(not v.sees(Vector2i(500, 514), 0) and v.sees(Vector2i(494, 514), 0), "vision: at night only a few tiles (%.1f)" % v.sight_range(true))
+	var sam := person("Sam")
+	reset(sam, Vector2(502, 514))
+	w.update_view(true)
+	check(not sam.visible, "vision: someone in the dark further away isn't shown")
+	set_time(2, 12.0)
+	w.update_view(true)
+	check(sam.visible, "vision: by day you see them")
+	reset(sam, sam.home_cell)
+	reset(player, Vector2(488, 504))
+	w.update_view(true)
+
+
+# The body (body.gd): running and tripping, passing out, fainting, accidents, farts, illness, throwing up.
+func check_body() -> void:
+	var sam := person("Sam")
+	var riley := person("Riley")
+	for c in [sam, riley]:
+		reset(c, Vector2(486, 503))
+		c.moodlets.clear()
+		set_needs(c, 60.0)
+		c.illness = ""
+		c.next_fart = main.world.now() + 99999.0
+	riley.grid_pos = Vector2(488, 503)
+	riley.building = 0
+	sam.seen = [riley]
+	riley.seen = [sam]
+
+	sam.needs.bladder = 10.0
+	check(Body.wants_to_run(sam) and not Body.wants_to_run(riley), "body: bursting Sam runs, Riley (fine) walks")
+	sam.running = true
+	var run_speed: float = sam.walk_speed()
+	sam.running = false
+	check(is_equal_approx(run_speed, sam.walk_speed() * Body.RUN_SPEED), "body: running is %.1f× faster" % Body.RUN_SPEED)
+	sam.needs.bladder = 60.0
+
+	Body.go_down(sam, "tripped", "Tripped")
+	sam.cancel_current()
+	check(sam.state == "down" and sam.pose == "down" and Emotions.has(sam, "Tripped") and not sam.is_available(),
+		"body: tripping puts you on the floor (embarrassed, busy, orders can't pick you up)")
+	sam.pose_until = main.world.now() - 1.0
+	Body.update(sam, 1.0)
+	check(sam.pose == "" and sam.state == "idle", "body: and you get back up")
+
+	sam.needs.energy = 0.0
+	Body.update(sam, 1.0)
+	check(sam.pose_reason == "passed out", "body: energy at 0: passed out on the floor")
+	Body.update(sam, 60.0)
+	check(sam.needs.energy > 10.0, "body: sleeping it off on the floor brings some energy back (%d)" % sam.needs.energy)
+	Body.get_up(sam)
+	sam.needs.energy = 60.0
+
+	sam.needs.hunger = 0.0
+	Body.update(sam, 1.0)
+	check(sam.pose_reason == "fainted", "body: hunger at 0: fainted")
+	sam.pose_until = main.world.now() - 1.0
+	Body.update(sam, 1.0)
+	check(sam.pose == "" and sam.needs.hunger >= Body.FAINT_HUNGER, "body: wakes up, still hungry (%d)" % sam.needs.hunger)
+
+	riley.moodlets.clear()
+	sam.needs.bladder = 0.0
+	sam.needs.hygiene = 80.0
+	Body.update(sam, 1.0)
+	check(sam.needs.bladder == 100.0 and sam.needs.hygiene <= 30.0 and Emotions.has(sam, "Had an accident") and Emotions.has(riley, "Grossed out"),
+		"body: bladder at 0: an accident (hygiene %d), and Riley saw it" % sam.needs.hygiene)
+
+	riley.moodlets.clear()
+	riley.grid_pos = Vector2(487, 503)
+	Body.fart(sam)  # Sam is a Goofball: finds it funny
+	check(Emotions.has(sam, "Funny fart") and Emotions.has(riley, "Grossed out") and sam.next_fart > main.world.now(),
+		"body: Goofball Sam farts and laughs; Riley is grossed out; the next one is planned")
+
+	for n in 50:
+		Body.ate(riley, "Spoiled")
+	check(riley.illness == "Food poisoning" and riley.ill_until > main.world.now(), "body: spoiled food: food poisoning")
+	var hunger_before: float = riley.needs.hunger
+	Body.throw_up(riley)
+	check(riley.pose == "bent" and riley.needs.hunger < hunger_before and Emotions.has(riley, "Threw up"), "body: throwing up (bent over, hungrier)")
+	Body.get_up(riley)
+	Emotions.update(riley, {"Sick": riley.illness != ""})
+	var sick_speed: float = riley.walk_speed()
+	riley.illness = ""
+	var well_speed: float = riley.walk_speed()
+	riley.illness = "Food poisoning"
+	check(Emotions.has(riley, "Sick") and sick_speed < well_speed and Body.energy_decay(riley) > 1.0,
+		"body: sick: feels Sick, walks slower, tires faster")
+	riley.ill_until = main.world.now() - 1.0
+	Body.illness_update(riley, 1.0, false)
+	check(riley.illness == "" and Emotions.has(riley, "Feeling better"), "body: and gets better")
+	riley.moodlets.clear()
+
+	# Drawing walls: a drag is a straight line along the longer direction.
+	check(BuildMode.line_cells(Vector2i(0, 0), Vector2i(3, 1)) == [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)]
+		and BuildMode.line_cells(Vector2i(2, 5), Vector2i(2, 3)).size() == 3, "build: dragging walls draws a straight line")
+	for c in [sam, riley]:
+		Body.get_up(c)
+		reset(c, c.home_cell)
+
+
 func check_peeking() -> void:
 	var w: Node2D = main.world
 	var alex: Node2D = npcs().filter(func(c): return c.npc_name == "Alex")[0]
@@ -1199,12 +1514,13 @@ func _process(delta: float) -> bool:
 		for c in npcs():
 			var housemate: bool = c.home == player.home
 			var shown: String = c.npc_name if housemate else "Unknown"
-			check(Social.display_name(player, c) == shown and c.label.text.begins_with(shown),
-				"%s shows as %s at the start (%s)" % [c.npc_name, shown, "your housemate" if housemate else "not met yet"])
+			var label_ok: bool = c.label.text.begins_with(shown) if housemate else c.label.text == ""
+			check(Social.display_name(player, c) == shown and label_ok,
+				"%s shows as %s at the start (%s)" % [c.npc_name, shown, "your housemate" if housemate else "not met yet: nothing over their head"])
 		check(object_named("Fridge", 0).is_visible_in_tree() and not object_named("Bed", 0).is_visible_in_tree(),
 			"inside on the ground floor: the Fridge shows, the Bed upstairs doesn't")
-		check(not main.world.exteriors[0].visible and not main.world.chunk_root.visible,
-			"inside: the outside world is hidden")
+		check(not main.world.exteriors[0].visible and main.world.chunk_root.visible and main.world.exteriors[1].visible,
+			"inside: your house opens up, the neighbourhood and the other houses are still there")
 		check(not npcs().filter(func(c): return c.npc_name == "Alex")[0].visible, "Alex (in his own house) is hidden")
 
 	# Every frame: no object claimed twice, and track how long anyone waits for a conversation.
@@ -1280,7 +1596,7 @@ func _process(delta: float) -> bool:
 		check(met_someone, "the player met at least one NPC in 15 minutes")
 		check(conflicts == 0, "no object was ever claimed by two characters (%d conflicts)" % conflicts)
 		check(max_overrun <= 0.05, "nobody waited longer than their wait_limit (worst overrun %.2fs)" % max_overrun)
-		check(view_errors == 0, "nothing was ever visible outside your building/floor (%d errors)" % view_errors)
+		check(view_errors == 0, "people showed only when you could see them; other houses' rooms stayed hidden (%d errors)" % view_errors)
 		check(not went_upstairs.is_empty(), "someone used the stairs: %s" % [went_upstairs.keys()])
 		check(not went_outside.is_empty(), "someone went outside: %s" % [went_outside.keys()])
 		check(not slept.is_empty(), "someone went to sleep: %s" % [slept])
@@ -1323,6 +1639,9 @@ func _process(delta: float) -> bool:
 		check_kitchen()
 		check_streaming()
 		check_peeking()
+		check_llm()
+		check_vision()
+		check_body()
 		check_death()  # you die in it
 		check_saving()  # replaces the game several times: keep it last
 		print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])

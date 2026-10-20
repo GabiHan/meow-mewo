@@ -6,6 +6,7 @@ const Iso = preload("res://scripts/iso.gd")
 const Kitchen = preload("res://scripts/kitchen.gd")
 const Furniture = preload("res://scripts/furniture.gd")
 const Actions = preload("res://scripts/actions.gd")
+const UiTheme = preload("res://scripts/ui_theme.gd")
 
 var object_name := ""
 var grid_pos := Vector2.ZERO
@@ -22,6 +23,7 @@ var moodlet := ""  # moodlet when done (emotions.gd)
 var sprite := ""  # baked furniture sprite (furniture.gd); "" = draw a placeholder box
 var facing := 0  # rotation 0-3: which side its front (use tile) is on: +y, +x, -y, -x
 var catalog_id := ""  # build mode item it was bought as (catalog.gd), "" = part of the house
+var net_id := 0  # the same on every computer in an online game (world.gd add_object, net.gd)
 var sprite_node: Sprite2D
 const FACING := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
 var items := []  # plates/cups sitting on this object (Counter, Table), see kitchen.gd
@@ -62,7 +64,8 @@ func _ready() -> void:
 	position = Iso.to_screen(grid_pos)
 	label = Label.new()
 	label.text = object_name
-	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_font_override("font", UiTheme.font())
+	label.add_theme_font_size_override("font_size", 14)
 	label.position = Vector2(-20, -box_height - 34)
 	label.add_theme_color_override("font_color", Color(0.36, 0.29, 0.48, 0.85))
 	label.add_theme_constant_override("outline_size", 4)
@@ -70,8 +73,13 @@ func _ready() -> void:
 	add_child(label)
 
 
+# The name (and what's on it) only shows while the mouse is over it, so labels don't cover the room.
+const HOVER_RADIUS := 26.0  # pixels around the middle of the object
+
+
 # Items on top: redraw when they change, and refresh the label (with spoil timers) twice a second.
 func _process(delta: float) -> void:
+	label.visible = get_global_mouse_position().distance_to(global_position + Vector2(0, -box_height / 2.0)) < HOVER_RADIUS
 	if items.size() != drawn_items:
 		drawn_items = items.size()
 		queue_redraw()

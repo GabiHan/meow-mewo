@@ -2,6 +2,131 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-10-20 — Zomboid-style sight, light and weather; strangers stay strangers
+- **Strangers:** nothing above the head of someone you haven't talked to (then `Name - Mood`); their menu shows no
+  feeling, traits or thought; the relationships drawer says only "You haven't met yet"; you don't hear them talking
+  among themselves; the events feed shows only your household's events (`hud.ours_event`).
+- **View (Project Zomboid style):** the neighbourhood is always on screen, inside or out; the house you're in opens up,
+  other houses show their exterior. **vision.gd** casts 480 rays from your sim every 150 ms: walls block, windows and
+  doors don't; 180° cone in front (28 tiles by day, 3.5 in the dark), 4.5 behind; lamps and homes with someone awake
+  are lit at night. Out of sight: a soft veil (one pixel per tile on a linear-filtered texture mapped onto the iso grid),
+  light where you remember, thicker where you've never been; trees, exteriors and furniture tinted the same; people
+  only shown when seen. Ground moved to z −2 under the veil (−1).
+- **Weather** (weather.gd, weather_fx.gd): clear / cloudy / rain / fog by season (fog likelier in the morning), 3–8 h
+  spells, shortens outdoor sight; rain falls and fog veils the screen (real time). Saved; online the host sends it.
+  Weather sign next to the weekday.
+- Tests: the old "inside, the outside is hidden" checks became "people only when seen, other houses' rooms hidden,
+  the neighbourhood always there"; new vision checks (walls, memory, far ahead, close behind, fog, night, people in the
+  dark). Tests that move people call `world.update_view(true)`.
+- **Watch out:** a sight update costs ~8 ms; keep RAYS × range modest. Windows let sight through both ways.
+
+## 2026-10-20 — More human bodies, drawn walls, build-mode music
+- **body.gd** (new): running (in a hurry, or Shift+click; ×1.8) with **tripping**, **passing out** at 0 energy,
+  **fainting** at 0 hunger, **accidents** at 0 bladder, **farting** (with reactions), **illness** (cold, flu, food
+  poisoning from stale/spoiled food; contagious, slower, tired, sleep heals faster) and **throwing up**. People who are
+  down are in state "down" with a `pose`; witnesses laugh, worry or are grossed out. 10 new moodlets. Old "Nothing
+  happens at 0" limitation removed.
+- **New sprite frames** (13 per row now): run ×4, bent over, down on the floor (baked raised to fit the cell and
+  lowered by `Looks.DOWN_DROP` in game). All sheets re-baked.
+- **Build mode:** press-drag-release draws a straight line of walls (`line_cells`, a green/red tile preview), and a
+  **Remove walls** tool does the same to take them out. The build-mode song plays while building (music.gd "build").
+- Saved: illness, symptoms, next fart, last meal (`SAVE_FIELDS`). Online: `pose` and `running` are in the fast update.
+- Tests: running, tripping and getting up, passing out (energy back), fainting, accidents, farts and reactions, food
+  poisoning, throwing up, being sick (slower, tired) and recovering; drawing a wall line.
+
+## 2026-10-20 — v0.0.1: home screen, music, settings, walls and stairs
+- **Version 0.0.1** (`application/config/version` in project.godot), shown on the home screen.
+- **Home screen** after the mockup: key art on the left (`key_art.gd`: a little room with the household made of the
+  game's own pieces; pages open there instead), on the right "A life simulation", **Meow *Mewo***, the menu (Play
+  game outlined, Quit as accent text, a small sign on each), "Loading the neighbourhood…" with a bar (the game scene
+  loads in the background with `ResourceLoader.load_threaded_request`) and the version. New **Settings** page.
+- **Music** (`music.gd`, /root/Music): home screen / inside your own home / anywhere else, crossfading over 2 s on
+  real time; game speed and pause don't affect it. **Settings** (`settings.gd`, `settings_panel.gd`): Volume, Music,
+  Sounds, Mute, Fullscreen, saved in user://settings.cfg; on the home screen and in ☰ → Settings.
+- **Build mode: walls and stairs** (new Build category). A wall is a prop with `wall = true` (a cut-down wall block,
+  blocks walking and sight; sell/move like furniture; saved and synced as props). Stairs ($1500) in a one-storey house
+  add an upper floor (`world.add_upper_floor`; the exterior is rebuilt taller); removable while upstairs is empty
+  (`remove_upper_floor`, `Catalog.remove_stairs`). `World.BUILDINGS` is now a per-game copy of `START_BUILDINGS`;
+  `building_state()` is saved (`world.buildings`) and sent with the online `layout`.
+- **Less on screen:** furniture names only show on mouse-over; the "Stairs" label is gone; no AI line in the passport.
+- llama-server is started with `--log-disable` (its log was flooding the terminal).
+- Tests: walls block and free tiles and sight; stairs add an upper floor that can be reached, can't be removed while
+  something's upstairs, come out for 75%, and the building state round-trips.
+- **Watch out:** at exit Godot may report the music's AudioStreamMP3 / playbacks as leaked: stopped playbacks are only
+  dropped by the audio server's next mix, which doesn't come during shutdown (harmless). Build mode pauses time, so
+  scripts that wait in build mode must use real time.
+
+## 2026-10-20 — Cozy planner look: lilac accents, serif, head portraits
+- New `ACCENTS` palette in ui_theme.gd (#9ba9ff → #f4ccff) for the UI accent; `PALETTE` (#c9def4 → #f5ccd4) stays the
+  atmosphere (world, panel paper) and now also fills the space behind the world as a gradient (`UiTheme.backdrop()`
+  on a CanvasLayer at -10, dimmed with the daylight).
+- Theme rewritten after the mockup: flat cards with thin borders and small corners, flat buttons (pressed = lilac
+  fill + periwinkle border), **EB Garamond** (assets/fonts, OFL) with italics for subtitles, also on world labels.
+  The bubbly pill buttons are gone. Today has an accent line on top and a dotted timeline; the passport has a
+  dashed skills box and lilac chips; the person you control has a double-bordered chip; need bars go lilac →
+  periwinkle (rose under 25).
+- **Head portraits:** `tools/bake_characters.gd` renders each look's head close-up (`-- portraits` for only those)
+  → `art/characters/<look>_face.png`, `Looks.face()`; the passport shows it.
+- Chat feed: you only hear people in the same building as you (neighbours' greetings leaked in at the start).
+- Tests found the HUD as "the first CanvasLayer", which became the backdrop: they use `main.hud` now.
+- **Watch out:** don't set `ThemeDB.get_default_theme().default_font`: the renderer then reports the font's glyph
+  textures as leaked at exit. World labels set `UiTheme.font()` on themselves.
+
+## 2026-10-20 — A lighter screen: bottom row, Today and Passport tabs
+- New HUD layout (from a mockup): only a **bottom row** is always on screen: household + money (left), clock and
+  weekday + pause/speeds + Build mode (centre), ☰ menu (right: Relationships, Controls, save/exit/quit). The old
+  footer band, top-left info panel, top-right clock panel and the controls cheat sheet are gone.
+- **Today** (`>` tab, top left): what you're doing (minutes left), the task's next steps, your next shift or school
+  day, your AI wish (`hud.today_items()`). **Passport** (`<` tab, top right): portrait (head and shoulders), name,
+  Manual/Auto, a mood line (`MoodLine`, Social.mood) with the emotion word, skill chips, the 7 needs, info lines,
+  and the current activity with a progress bar. Both hidden until opened; `show_today`/`show_passport` are static
+  so they stay open across games.
+- The chat feed sits above the household row and hides when nothing's new; social events show for 20 s after
+  something happens (`EVENT_SECONDS`). Kept the pastel theme (not the mockup's beige) per the project's look.
+- Tests: tabs start closed, open and close; Today's first item and the passport's progress.
+
+## 2026-10-20 — Online mode (same Wi-Fi), labels are just "Name - Mood"
+- **Labels:** above heads only `Name - Mood` (strangers `Unknown - Mood`); F3 adds the activity and details.
+  Lines, reactions, thoughts and "Level up!" go to a **chat feed** in the HUD (bottom left, above the social
+  events): what's said near you, for a minute, names as you know them (`hud.gd heard()`, from `show_emote()`).
+  `Llm.wrap_line` is gone (nothing is drawn over heads any more).
+- **Online mode** (`net.gd`, docs/ONLINE.md): Play Online → Host a town / Join a town (found on the Wi-Fi by a
+  UDP beacon, or by address). The host runs the simulation; joined games start from `SaveGame.capture` and are
+  puppets (`Npc.puppet`, `world.puppet`, `llm.remote`) fed by `fast` (0.1 s) and `slow` (1 s) updates, `layout`
+  when furniture changes and `heard` for speech. Joined players' clicks are resolved on their screen and run on
+  the host by a Controller per player (`controller.gd peer`); menus are sent back. Up to 4 players.
+- **Talk… between players** (`talk.gd`, split out of talk_panel.gd): your words go to the other player's window,
+  no AI; with NPCs it's the host's model. The talk panel is now only the window.
+- Everything a player does from the UI goes through `Net.order()` (mode, switching household member, care,
+  talking, clicks). Who controls someone: `game.controller_of(c)` (life.gd deaths, ownership.gd knocking).
+- `save_game.gd` split into `capture_person/object/props/log` and `make_person/object/prop` (used by net.gd).
+  Objects get a `net_id` (saved) so every computer agrees which is which.
+- Online the host decides the speed, sleeping doesn't speed time up, build mode is offline only, only the
+  host saves. A player who leaves: their household goes back to the AI. The host leaving closes the town.
+- Tests: `tests/check_online.gd` (+ `tests/online_host.gd`): a real host process joined over 127.0.0.1 (household
+  list, snapshot, puppets, clock, click to walk, host-built menu, Talk… through the host, chat feed).
+  check_sim: labels, chat feed, talking to a real person.
+- **Watch out:** /root/Net must have the same path on both sides (RPCs); main.gd hosts with `call_deferred`
+  (the root is busy adding the scene in `_ready`). `leave()` renames the node so a new one can be made at once.
+
+## 2026-10-20 — AI words: local Qwen3.5 from Hugging Face
+- Asked for Qwen3.8 from Hugging Face, but its smallest model (27B) doesn't fit in this Mac's 8 GB, so the game
+  uses **Qwen3.5 4B** (`unsloth/Qwen3.5-4B-GGUF:Q4_K_M`, ~2.7 GB) through llama.cpp's `llama-server` (`brew install
+  llama.cpp`). With a window, `llm.gd` starts the server on port 8765 (it downloads the model on the first start)
+  and stops it when the game ends. Full details in docs/AI.md.
+- The systems still decide; the model writes words: **conversation lines** near you (replacing the scripted
+  line, plus the partner's reply), **thoughts** (`~ … ~` and in the click menu), **wishes** (what an NPC feels like
+  doing for 3 game hours: ×1.6 in `choose_action()`), and **Talk…** in a person's menu: a panel (talk_panel.gd)
+  where you type and they answer in character; the tone of your words changes their friendship toward you.
+- Prompts are built from traits, emotions, mind, needs, job, partner, friendship, family and memories. Strangers
+  stay "a stranger" in prompts, so the model can't use a name the speaker doesn't know.
+- Without the server nothing changes (scripted lines). The HUD shows AI off / starting… / online.
+- Tests: `check_llm()` with a fake server (`llm.fake`): cleaned text, wrapped rows, stranger names hidden,
+  written line + reply, late lines dropped, short conversations skipped, thoughts, wishes (boost, expiry, invalid
+  choices ignored), the talk panel (stop to talk, friendship by tone, meeting, memory, log).
+- **Watch out:** `show_emote()` takes an optional duration now (written lines stay longer). `wrap()` is a GDScript
+  built-in, hence `Llm.wrap_line()`. Headless runs never contact a server: set `llm.fake` in tests.
+
 ## 2026-10-16 — Outdoor sky through the day
 - Outside, the screen tint now follows a sky gradient (`SKY` + `sky_keys()` in `game_time.gd`): deep night, pink-lilac
   dawn, cool blue morning, bright afternoon, golden hour, pink-coral sunset, violet dusk. Keyframes sit around each

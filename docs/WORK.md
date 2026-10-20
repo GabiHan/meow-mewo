@@ -5,7 +5,7 @@ Code: `scripts/jobs.gd` (tables at the top), with the character side in `npc.gd`
 
 ## Money
 
-Everyone has `money` (in $). It's shown in the footer next to your feeling; it turns red below $0.
+Everyone has `money` (in $). It's shown at the bottom left next to your household; it turns red below $0.
 
 | Who | Starts with | Job |
 |---|---|---|

@@ -9,12 +9,16 @@
 # you're on, on free floor tiles (not walls, the stairs, the doorway or the tile inside the door), and
 # never so that something becomes unreachable (every object's front tile and the stairs must still be
 # reachable from the door).
+#
+# Build category: a **Wall** (a cut-down wall on one tile, blocks movement and sight; build_mode.gd lets you
+# drag to draw a straight line of them), **Remove walls** (a tool: drag over walls you built to sell them) and **Stairs** (only in a one-storey house, on the ground floor: adds an empty upper floor, world.gd
+# add_upper_floor; removable while that floor is empty, refunding SELL_BACK).
 const Furniture = preload("res://scripts/furniture.gd")
 const Actions = preload("res://scripts/actions.gd")
 
 const SELL_BACK := 0.75  # selling refunds this share of the price
 
-const CATEGORIES := ["Seating", "Tables", "Beds", "Kitchen", "Bathroom", "Lighting", "Plants", "Rugs", "Storage", "Fun"]
+const CATEGORIES := ["Build", "Seating", "Tables", "Beds", "Kitchen", "Bathroom", "Lighting", "Plants", "Rugs", "Storage", "Fun"]
 
 const BED := {"name": "Bed", "ads": {"energy": 100}, "minutes": 420.0, "extras": {"verb": "Sleeping", "moodlet": "Well rested"}}
 const COUCH := {"name": "Couch", "ads": {"fun": 20, "energy": 10}, "minutes": 30.0, "extras": {"verb": "Relaxing"}}
@@ -22,6 +26,9 @@ const CHAIR := {"name": "Chair", "ads": {"energy": 5}, "minutes": 10.0}  # what 
 
 # id: {name, category, price, model, flat?, object?}
 const ITEMS := {
+	"wall": {"name": "Wall", "category": "Build", "price": 70, "model": "", "wall": true},
+	"stairs": {"name": "Stairs + upper floor", "category": "Build", "price": 1500, "model": "", "stairs": true},
+	"wall_erase": {"name": "Remove walls", "category": "Build", "price": 0, "model": "", "tool": true},
 	"chair_wood": {"name": "Wooden chair", "category": "Seating", "price": 40, "model": "Chair_1", "object": CHAIR},
 	"chair_modern": {"name": "Modern chair", "category": "Seating", "price": 60, "model": "Chair_2", "object": CHAIR},
 	"chair_arm": {"name": "Dining armchair", "category": "Seating", "price": 75, "model": "Chair_3", "object": CHAIR},
@@ -106,6 +113,11 @@ static func why_not(c: Node2D, id: String, cell: Vector2i, rot: int, f: int) -> 
 	var b: int = c.home
 	if b < 0:
 		return "You have no home"
+	if ITEMS[id].get("stairs", false):
+		if world.BUILDINGS[b].floors > 1:
+			return "This house already has an upper floor"
+		if f != 0:
+			return "Stairs go on the ground floor"
 	if not free_tile(world, b, f, cell):
 		return "Not here"
 	if ITEMS[id].has("object") and not ITEMS[id].object.name in Actions.SEATS and not free_tile(world, b, f, cell + FACING[rot]):
@@ -135,10 +147,18 @@ static func place(c: Node2D, id: String, cell: Vector2i, rot: int, f: int, free 
 	var item: Dictionary = ITEMS[id]
 	if why_not(c, id, cell, rot, f) != "" or (not free and c.money < item.price):
 		return null
+	if item.get("stairs", false):  # the stairs tile stays walkable: nothing gets blocked
+		c.world.add_upper_floor(c.home, cell)
+		c.money -= item.price
+		return c.world.floor_nodes[c.home][0]
 	if not keeps_house_reachable(c.world, c.home, f, cell, item.get("flat", false)):
 		return null
 	var node: Node2D
-	if item.has("object"):
+	if item.get("wall", false):
+		node = load("res://scripts/prop.gd").new().setup("", cell, false, true)
+		node.catalog_id = id
+		c.world.add_prop(node, c.home, f)
+	elif item.has("object"):
 		var o: Dictionary = item.object
 		var extras: Dictionary = o.get("extras", {}).duplicate()
 		if item.model != "":
@@ -196,6 +216,8 @@ static func remove(c: Node2D, thing: Node2D) -> bool:
 	var cell: Vector2i = thing.cell if "flat" in thing else Vector2i(thing.grid_pos)
 	if not ("flat" in thing and thing.flat):
 		c.world.solid.get(f, {}).erase(cell)
+	if "wall" in thing and thing.wall:
+		c.world.walls.get(f, {}).erase(cell)
 	if thing.is_in_group("smart_objects"):
 		thing.remove_from_group("smart_objects")
 	thing.queue_free()
@@ -212,6 +234,16 @@ static func sell(c: Node2D, thing: Node2D) -> int:
 
 # Turn something in place to the next direction. Usable furniture needs its new front tile free,
 # and nothing in the house may become unreachable. Returns false (and leaves it) if not allowed.
+# Built stairs come out again (with their empty upper floor). Returns the refund, or -1 if not allowed.
+static func remove_stairs(c: Node2D) -> int:
+	if c.home < 0 or not c.world.BUILDINGS[c.home].get("built_stairs", false) or not c.world.upper_floor_empty(c.home):
+		return -1
+	c.world.remove_upper_floor(c.home)
+	var refund := int(ITEMS.stairs.price * SELL_BACK)
+	c.money += refund
+	return refund
+
+
 static func rotate(c: Node2D, thing: Node2D) -> bool:
 	if "user" in thing and thing.user != null:
 		return false

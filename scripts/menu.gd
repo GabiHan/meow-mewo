@@ -1,8 +1,14 @@
 # The home screen (scenes/menu.tscn, the game's first scene). Built in code like everything else.
+# Left: the key art (key_art.gd), or the page you opened. Right: "A life simulation", the title, the menu,
+# then "Loading the neighbourhood…" (the game scene loads in the background) and the version (project.godot).
+# The home-screen song plays (music.gd).
 #
-#   Play Game    -> Create a new household (name it, add up to 4 people) | Choose a household
+#   Play Game    -> Create a new household (name it, add up to 4 people) | Choose a household  (offline)
+#   Play Online  -> Host a town (pick or create a household, or continue: others on your Wi-Fi can join)
+#                 | Join a town (towns on the Wi-Fi, or type an address -> pick a free household or move a new one in)
 #   Continue     -> loads the most recent save
 #   Saved Games  -> every save: Load / Delete
+#   Settings     -> volume, music, sounds, mute, fullscreen (settings_panel.gd)
 #   Quit
 # Starting a game fills in session.gd and switches to scenes/main.tscn.
 extends Control
@@ -13,79 +19,215 @@ const Session = preload("res://scripts/session.gd")
 const Looks = preload("res://scripts/looks.gd")
 const Traits = preload("res://scripts/traits.gd")
 const Main = preload("res://scripts/main.gd")
+const Net = preload("res://scripts/net.gd")
+const Music = preload("res://scripts/music.gd")
+const KeyArt = preload("res://scripts/key_art.gd")
+const SettingsPanel = preload("res://scripts/settings_panel.gd")
+const GAME_SCENE := "res://scenes/main.tscn"
+const SIDE_WIDTH := 330
+const MARGIN := 24
 
 const MAX_MEMBERS := 4
 const AGES := ["Child", "Teen", "Young adult", "Adult", "Old"]
 const TAKEN_NAMES := ["Jo", "Sam", "Alex", "Mia", "Lily", "Riley", "Noah", "You"]  # people already on the street
-const PINK := Color(0.653, 0.544, 0.565)  # titles
 
-var page: VBoxContainer  # the centre column, rebuilt for each page
+var page: VBoxContainer  # the page you opened (left side), rebuilt for each page
+var key_art: Control  # the picture on the left when no page is open (key_art.gd)
+var card: ScrollContainer  # holds `page`
+var continue_button: Button
+var notice_label: Label  # e.g. "The host closed the town."
+var loading_label: Label
+var loading_pct: Label
+var loading_bar: ProgressBar
+var loaded := false
 var members := []  # create page: one Dictionary of controls per person
 var household_edit: LineEdit
 var error_label: Label
+var hosting := false  # the household you start will be hosted online
+var joining := false  # the household you create moves into someone else's town
+var status_label: Label  # join pages: connecting, errors
+var towns_box: VBoxContainer
+
+
+func _exit_tree() -> void:
+	UiTheme.release()
 
 
 func _ready() -> void:
 	theme = UiTheme.get_theme()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	RenderingServer.set_default_clear_color(Color("#d8d8e9"))
+	RenderingServer.set_default_clear_color(UiTheme.PAPER)
 	Engine.time_scale = 1.0
-	build_background()
+	Music.play(get_tree(), "menu")
+	ResourceLoader.load_threaded_request(GAME_SCENE)  # "Loading the neighbourhood…" while you choose
+	build_layout()
+	show_title()
+
+
+# Like the mockup: the picture (or the page you opened) on the left, the title and the menu on the right.
+func build_layout() -> void:
+	var paper := ColorRect.new()
+	paper.color = UiTheme.PAPER
+	paper.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(paper)
+
+	var left := Control.new()
+	left.set_anchors_preset(Control.PRESET_FULL_RECT)
+	left.offset_left = MARGIN
+	left.offset_top = MARGIN
+	left.offset_bottom = -MARGIN
+	left.offset_right = -SIDE_WIDTH - MARGIN
+	add_child(left)
+	key_art = KeyArt.new()
+	key_art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	left.add_child(key_art)
+	card = ScrollContainer.new()  # sub-pages show here, over the picture's place
+	card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	card.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(card)
 	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.add_child(center)
 	page = VBoxContainer.new()
 	page.alignment = BoxContainer.ALIGNMENT_CENTER
 	page.add_theme_constant_override("separation", 12)
 	center.add_child(page)
-	show_title()
+
+	var rule := ColorRect.new()  # the thin line between the picture and the menu
+	rule.color = UiTheme.LINE
+	rule.anchor_left = 1.0
+	rule.anchor_right = 1.0
+	rule.anchor_bottom = 1.0
+	rule.offset_left = -SIDE_WIDTH
+	rule.offset_right = -SIDE_WIDTH + 1
+	add_child(rule)
+	var side := VBoxContainer.new()
+	side.anchor_left = 1.0
+	side.anchor_right = 1.0
+	side.anchor_bottom = 1.0
+	side.offset_left = -SIDE_WIDTH + 40
+	side.offset_right = -40
+	side.offset_top = 52
+	side.offset_bottom = -28
+	side.add_theme_constant_override("separation", 10)
+	add_child(side)
+	var kicker := Label.new()
+	kicker.text = "A   L I F E   S I M U L A T I O N"
+	kicker.add_theme_font_size_override("font_size", 12)
+	kicker.add_theme_color_override("font_color", UiTheme.ACCENT)
+	side.add_child(kicker)
+	var title := RichTextLabel.new()
+	title.bbcode_enabled = true
+	title.fit_content = true
+	title.scroll_active = false
+	title.add_theme_font_override("normal_font", UiTheme.font())
+	title.add_theme_font_override("italics_font", UiTheme.font(true))
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.add_theme_font_size_override("normal_font_size", 46)
+	title.add_theme_font_size_override("italics_font_size", 46)
+	title.add_theme_color_override("default_color", UiTheme.INK)
+	title.text = "Meow [i]Mewo[/i]"
+	side.add_child(title)
+	var accent := ColorRect.new()
+	accent.color = UiTheme.ACCENT
+	accent.custom_minimum_size = Vector2(52, 1)
+	accent.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	side.add_child(accent)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 18)
+	side.add_child(gap)
+	nav_button(side, "Play game", "▷", show_play, "primary")
+	nav_button(side, "Play online", "◎", show_online)
+	continue_button = nav_button(side, "Continue", "›", continue_game)
+	nav_button(side, "Saved games", "▤", show_saves)
+	nav_button(side, "Settings", "⚙", show_settings)
+	nav_button(side, "Quit", "↦", func(): get_tree().quit(), "quiet")
+	notice_label = Label.new()
+	notice_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	notice_label.add_theme_font_override("font", UiTheme.font(true))
+	notice_label.add_theme_font_size_override("font_size", 13)
+	notice_label.add_theme_color_override("font_color", UiTheme.ROSE.darkened(0.25))
+	side.add_child(notice_label)
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(fill)
+	var loading_row := HBoxContainer.new()
+	side.add_child(loading_row)
+	loading_label = Label.new()
+	loading_label.add_theme_font_override("font", UiTheme.font(true))
+	loading_label.add_theme_font_size_override("font_size", 13)
+	loading_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	loading_row.add_child(loading_label)
+	loading_pct = Label.new()
+	loading_pct.add_theme_font_size_override("font_size", 13)
+	loading_row.add_child(loading_pct)
+	loading_bar = ProgressBar.new()
+	loading_bar.show_percentage = false
+	loading_bar.custom_minimum_size = Vector2(0, 3)
+	side.add_child(loading_bar)
+	var version := Label.new()
+	version.text = "v " + str(ProjectSettings.get_setting("application/config/version", "0.0.1"))
+	version.add_theme_font_size_override("font_size", 12)
+	version.modulate = Color(1, 1, 1, 0.6)
+	side.add_child(version)
 
 
-# Soft gradient, floating pastel circles, and a few of the characters standing at the bottom.
-func build_background() -> void:
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color("#c9def4"))  # the palette, top to bottom (ui_theme.gd)
-	gradient.set_color(1, Color("#f5ccd4"))
-	for n in range(1, 6):
-		gradient.add_point(n / 6.0, UiTheme.PALETTE[n])
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.fill_to = Vector2(0, 1)
-	var bg := TextureRect.new()
-	bg.texture = texture
-	bg.stretch_mode = TextureRect.STRETCH_SCALE
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 3
-	for n in 14:
-		var bubble := Panel.new()
-		var size := rng.randf_range(40, 160)
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(UiTheme.PALETTE[(n * 3) % 7].lightened(0.35), 0.55)
-		style.set_corner_radius_all(int(size))
-		bubble.add_theme_stylebox_override("panel", style)
-		bubble.position = Vector2(rng.randf_range(0, 1280), rng.randf_range(0, 720)) - Vector2.ONE * size / 2
-		bubble.size = Vector2.ONE * size
-		bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(bubble)
-	var looks := ["alex", "jo", "sam", "mia", "riley"]
-	for n in looks.size():
-		var sheet := Looks.sheet(looks[n])
-		if sheet == null:
-			continue
-		var person := TextureRect.new()
-		person.texture = Looks.portrait(looks[n])
-		person.scale = Vector2.ONE * 1.8
-		person.position = Vector2([70, 230, 920, 1080, 1180][n] - 86, 520)
-		person.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(person)
+# A menu button: the name on the left, a small sign on the right. "primary" is outlined in the
+# accent (Play game), "quiet" is just accent text (Quit).
+func nav_button(parent: Container, text: String, sign: String, action: Callable, kind := "") -> Button:
+	var b := Button.new()
+	b.text = text
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size = Vector2(0, 42)
+	b.add_theme_font_size_override("font_size", 18)
+	b.pressed.connect(action)
+	if kind == "primary":
+		b.add_theme_stylebox_override("normal", UiTheme.flat(UiTheme.PAPER, UiTheme.ACCENT))
+		b.add_theme_color_override("font_color", UiTheme.ACCENT.darkened(0.25))
+	elif kind == "quiet":
+		for state in ["normal", "hover", "pressed"]:
+			var none := StyleBoxEmpty.new()
+			none.content_margin_left = 12
+			b.add_theme_stylebox_override(state, none)
+		b.add_theme_color_override("font_color", UiTheme.ACCENT.darkened(0.25))
+		b.add_theme_color_override("font_hover_color", UiTheme.ACCENT)
+	var mark := Label.new()
+	mark.text = sign
+	mark.anchor_left = 1.0
+	mark.anchor_right = 1.0
+	mark.anchor_bottom = 1.0
+	mark.offset_left = -34
+	mark.offset_right = -12
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.add_theme_color_override("font_color", UiTheme.ACCENT.darkened(0.15) if kind != "" else UiTheme.INK_SOFT)
+	b.add_child(mark)
+	parent.add_child(b)
+	return b
+
+
+func _process(_delta: float) -> void:
+	var progress := []
+	var status := ResourceLoader.load_threaded_get_status(GAME_SCENE, progress)
+	var done := status == ResourceLoader.THREAD_LOAD_LOADED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE \
+		or status == ResourceLoader.THREAD_LOAD_FAILED or loaded
+	if status == ResourceLoader.THREAD_LOAD_LOADED and not loaded:
+		loaded = true
+		ResourceLoader.load_threaded_get(GAME_SCENE)  # collect it (it stays cached for when you start)
+	var k: float = 1.0 if done else (progress[0] if not progress.is_empty() else 0.0)
+	loading_bar.value = k * 100.0
+	loading_pct.text = "%d%%" % int(k * 100.0)
+	loading_label.text = "The neighbourhood is ready ✿" if done else "Loading the neighbourhood…"
 
 
 func clear_page() -> void:
 	for child in page.get_children():
 		child.queue_free()
 	members = []
+	key_art.visible = false  # a page takes the picture's place
+	card.visible = true
 
 
 func title_label(text: String, size: int) -> Label:
@@ -93,9 +235,7 @@ func title_label(text: String, size: int) -> Label:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", PINK)
-	label.add_theme_color_override("font_outline_color", Color.WHITE)
-	label.add_theme_constant_override("outline_size", size / 4)
+	label.add_theme_color_override("font_color", UiTheme.INK)
 	page.add_child(label)
 	return label
 
@@ -123,22 +263,33 @@ func small_label(text: String) -> Label:
 
 func show_title() -> void:
 	clear_page()
-	title_label("Meow Mewo", 72)
-	small_label("a cozy little life sim")
-	page.add_child(Control.new())
-	button("Play Game", show_play)
+	card.visible = false
+	key_art.visible = true
+	hosting = false
+	joining = false
 	var latest := SaveGame.latest()
-	var cont := button("Continue", continue_game)
-	cont.disabled = latest == ""
+	continue_button.disabled = latest == ""
+	continue_button.tooltip_text = ""
 	if latest != "":
 		var meta: Dictionary = SaveGame.read(latest).meta
-		cont.tooltip_text = "%s — %s, %s" % [meta.household, meta.date, meta.time]
-		small_label("%s · %s %s" % [meta.household, meta.date, meta.time])
-	button("Saved Games", show_saves)
-	button("Quit", func(): get_tree().quit())
+		continue_button.tooltip_text = "%s — %s, %s" % [meta.household, meta.date, meta.time]
+	notice_label.text = Session.notice
+	Session.notice = ""
+
+
+func show_settings() -> void:
+	clear_page()
+	title_label("Settings", 40)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 12)
+	page.add_child(box)
+	SettingsPanel.build(box)
+	button("Back", show_title, 200)
 
 
 func show_play() -> void:
+	hosting = false
+	joining = false
 	clear_page()
 	title_label("Play", 44)
 	button("Create a new household", show_create)
@@ -223,7 +374,7 @@ func show_create() -> void:
 	error_label = small_label("")
 	error_label.add_theme_color_override("font_color", Color(0.85, 0.3, 0.45))
 	button("Move in!", move_in)
-	button("Back", show_play, 200)
+	button("Back", show_online if hosting or joining else show_play, 200)
 
 
 func add_member(list: VBoxContainer) -> void:
@@ -320,7 +471,12 @@ func move_in() -> void:
 	var spec := read_household()
 	if spec.is_empty():
 		return
+	if joining:
+		error_label.text = "Moving in…"
+		Net.find(get_tree()).claim.rpc_id(1, -1, spec)
+		return
 	Session.reset()
+	Session.online = "host" if hosting else ""
 	Session.mode = "new"
 	Session.new_household = spec
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
@@ -328,6 +484,7 @@ func move_in() -> void:
 
 func start_household(home: int) -> void:
 	Session.reset()
+	Session.online = "host" if hosting else ""
 	Session.household = home
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
@@ -341,7 +498,138 @@ func load_game(slot: String) -> void:
 	if data.is_empty():
 		return
 	Session.reset()
+	Session.online = "host" if hosting else ""
 	Session.mode = "load"
 	Session.save_data = data
 	Session.slot = slot
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+# --- Online (net.gd, docs/ONLINE.md) ---
+
+func show_online() -> void:
+	hosting = false
+	joining = false
+	var net := Net.find(get_tree())
+	if net:
+		net.leave()
+	clear_page()
+	title_label("Play Online", 44)
+	small_label("Play live with friends on the same Wi-Fi.\nThe host's computer runs the town (and the AI); everyone plays their own household.")
+	button("Host a town", show_host)
+	button("Join a town", show_join)
+	button("Back", show_title, 200)
+
+
+func show_host() -> void:
+	clear_page()
+	hosting = true
+	title_label("Host a town", 40)
+	small_label("Pick the household you'll play. Friends can join once you're in.")
+	button("Choose a household", show_households)
+	button("Create a new household", show_create)
+	var cont := button("Continue your last save", continue_game)
+	cont.disabled = SaveGame.latest() == ""
+	button("Back", show_online, 200)
+
+
+func show_join() -> void:
+	clear_page()
+	var net := Net.create(get_tree())
+	net.listen()
+	if not net.towns_changed.is_connected(fill_towns):
+		net.towns_changed.connect(fill_towns)
+		net.offered.connect(show_join_households)
+		net.failed.connect(show_status)
+		net.joined.connect(func(): get_tree().change_scene_to_file("res://scenes/main.tscn"))
+	title_label("Join a town", 40)
+	small_label("Towns on your Wi-Fi:")
+	towns_box = VBoxContainer.new()
+	page.add_child(towns_box)
+	fill_towns()
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	page.add_child(row)
+	var address := LineEdit.new()
+	address.placeholder_text = "or the host's address (e.g. 192.168.1.20)"
+	address.custom_minimum_size = Vector2(320, 40)
+	row.add_child(address)
+	var go := Button.new()
+	go.text = "Join"
+	go.pressed.connect(func(): join(address.text.strip_edges()))
+	row.add_child(go)
+	status_label = small_label("")
+	button("Back", show_online, 200)
+
+
+func show_status(text: String) -> void:
+	if is_instance_valid(status_label):
+		status_label.text = text
+	if is_instance_valid(error_label):
+		error_label.text = text
+
+
+func fill_towns() -> void:
+	if not is_instance_valid(towns_box):
+		return
+	for child in towns_box.get_children():
+		child.queue_free()
+	var towns: Dictionary = Net.find(get_tree()).towns
+	if towns.is_empty():
+		var none := Label.new()
+		none.text = "Looking… (the host must be in a game they started from Host a town)"
+		none.modulate = Color(1, 1, 1, 0.7)
+		towns_box.add_child(none)
+	for ip in towns:
+		var t: Dictionary = towns[ip]
+		var b := Button.new()
+		b.text = "%s's town · %d/%d players · %s" % [t.name, t.players, t.max, ip]
+		b.custom_minimum_size = Vector2(480, 44)
+		b.disabled = t.players >= t.max
+		b.pressed.connect(join.bind(ip))
+		towns_box.add_child(b)
+
+
+func join(ip: String) -> void:
+	if ip == "":
+		return
+	show_status("Connecting to %s…" % ip)
+	Net.find(get_tree()).join(ip)
+
+
+# The host's households: play a free one, or move a new household into their starter house.
+func show_join_households(households: Array, starter_free: bool) -> void:
+	clear_page()
+	title_label("Pick your household", 40)
+	for h in households:
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(560, 0)
+		page.add_child(card)
+		var row := HBoxContainer.new()
+		card.add_child(row)
+		var info := Label.new()
+		info.text = "%s\n%s" % [h.name, h.members]
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		var play := Button.new()
+		play.text = "Someone's playing" if h.taken else "Play"
+		play.disabled = h.taken
+		play.custom_minimum_size = Vector2(150, 44)
+		play.pressed.connect(claim.bind(h.home))
+		row.add_child(play)
+	var new_household := button("Move a new household in", start_joining_household, 360)
+	new_household.disabled = not starter_free
+	if not starter_free:
+		new_household.tooltip_text = "Someone already lives in the starter house"
+	status_label = small_label("")
+	button("Back", show_online, 200)
+
+
+func claim(home: int) -> void:
+	show_status("Moving in…")
+	Net.find(get_tree()).claim.rpc_id(1, home, {})
+
+
+func start_joining_household() -> void:
+	joining = true
+	show_create()

@@ -2,7 +2,10 @@
 # posed in code (no animations in the free pack), clothes painted on by bone, hair attached to the
 # head bone, rendered at the game's isometric angle in 8 directions × 7 frames.
 #
+# Also a head portrait per look (art/characters/<look>_face.png, FACE × FACE, the HUD passport).
+#
 # Run (needs a window):  godot --path . -s res://tools/bake_characters.gd   then  godot --headless --import
+# Only some looks: add `-- jo sam`. Only the portraits (sheets untouched): `-- portraits` (and optional looks).
 extends SceneTree
 
 const Looks = preload("res://scripts/looks.gd")
@@ -16,6 +19,9 @@ const RENDER := 256  # render square; the cell is cut out around the feet
 const PX_PER_M := 45.25
 const SCALE := 0.85
 const OUT := "res://art/characters/"
+const FACE := 128  # portrait size in pixels
+const FACE_SIZE := 0.3  # metres of head in view (orthographic)
+const FACE_FROM := Vector3(0.35, 0.08, 1.0)  # camera direction from the head: in front, a little to the side and above
 
 # Clothing category per bone name prefix: 0 skin, 1 shirt, 2 pants, 3 shoes
 const CATEGORY := {"pelvis": 2, "spine": 1, "clavicle": 1, "upperarm": 1, "thigh": 2, "calf": 2, "foot": 3, "ball": 3}
@@ -55,6 +61,8 @@ var model: Node3D
 var skeleton: Skeleton3D
 var sheet: Image
 var frames_waited := 0
+var face_viewport: SubViewport
+var face_cam: Camera3D
 
 
 func _initialize() -> void:
@@ -85,12 +93,27 @@ func _initialize() -> void:
 	viewport.add_child(env)
 	holder = Node3D.new()
 	viewport.add_child(holder)
+	face_viewport = SubViewport.new()  # same 3D world, a close-up camera on the head
+	face_viewport.size = Vector2i(FACE, FACE)
+	face_viewport.transparent_bg = true
+	face_viewport.world_3d = viewport.find_world_3d()
+	face_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	face_viewport.msaa_3d = Viewport.MSAA_4X
+	root.add_child(face_viewport)
+	face_cam = Camera3D.new()
+	face_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	face_cam.size = FACE_SIZE
+	face_viewport.add_child(face_cam)
 	var only: Array = OS.get_cmdline_user_args()  # optional: bake only these looks
+	var portraits_only := "portraits" in only
+	only.erase("portraits")
 	for look in Looks.LOOKS:
 		if only.is_empty() or look in only:
-			for d in 8:
-				for f in Looks.FRAMES:
-					jobs.append([look, d, f])
+			if not portraits_only:
+				for d in 8:
+					for f in Looks.FRAMES:
+						jobs.append([look, d, f])
+			jobs.append([look, -1, Looks.IDLE])  # the portrait
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 
 
@@ -105,11 +128,19 @@ func _process(_delta: float) -> bool:
 		if job[0] != current_look:
 			finish_sheet()
 			build(job[0])
-		pose(job[1], job[2])
+		pose(maxi(job[1], 0), job[2])
+		if job[1] < 0:
+			aim_at_head()
 	frames_waited += 1
 	if frames_waited < 3:
 		return false
 	var job: Array = jobs.pop_front()
+	if job[1] < 0:
+		var face := face_viewport.get_texture().get_image()
+		face.adjust_bcs(1.08, 0.9, 0.9)
+		face.save_png(ProjectSettings.globalize_path(OUT + job[0] + "_face.png"))
+		frames_waited = 0
+		return false
 	var image := viewport.get_texture().get_image()
 	image.adjust_bcs(1.08, 0.9, 0.9)  # a softer, pastel finish
 	var cell := Rect2i(int(RENDER / 2.0 - Looks.FEET.x), int(RENDER / 2.0 - Looks.FEET.y), Looks.CELL.x, Looks.CELL.y)
@@ -118,8 +149,16 @@ func _process(_delta: float) -> bool:
 	return false
 
 
+# The close-up camera looks at the head bone from FACE_FROM.
+func aim_at_head() -> void:
+	var head := skeleton.find_bone("Head")
+	var at: Vector3 = (skeleton.global_transform * skeleton.get_bone_global_pose(head)).origin + Vector3(0, 0.1, 0)
+	var eye := at + FACE_FROM.normalized() * 3.0
+	face_cam.transform = Transform3D(Basis.looking_at(at - eye, Vector3.UP), eye)
+
+
 func finish_sheet() -> void:
-	if current_look != "":
+	if current_look != "" and sheet.get_width() > 0 and not "portraits" in OS.get_cmdline_user_args():
 		sheet.save_png(ProjectSettings.globalize_path(OUT + current_look + ".png"))
 		print("  ", current_look)
 
@@ -199,7 +238,7 @@ func turn(bone_name: String, axis: Vector3, angle: float) -> void:
 	skeleton.set_bone_pose_rotation(bone, (parent_global.inverse() * target).get_rotation_quaternion())
 
 
-# Pose for direction d and frame f (see looks.gd: idle, walk ×4, sit, lie).
+# Pose for direction d and frame f (see looks.gd: idle, walk ×4, sit, lie, run ×4, bent over, down).
 func pose(d: int, f: int) -> void:
 	skeleton.reset_bone_poses()
 	model.transform = Transform3D.IDENTITY
@@ -216,6 +255,35 @@ func pose(d: int, f: int) -> void:
 		turn("calf_r", Vector3.RIGHT, maxf(0.0, swing) * 1.2)
 		turn("upperarm_l", Vector3.RIGHT, -swing * 0.8)
 		turn("upperarm_r", Vector3.RIGHT, swing * 0.8)
+	elif f >= Looks.RUN and f < Looks.RUN + 4:  # bigger strides, bent knees and elbows, leaning forward
+		var swing := sin((f - Looks.RUN + 0.5) / 4.0 * TAU) * deg_to_rad(48.0)
+		turn("spine_01", Vector3.RIGHT, deg_to_rad(14.0))
+		turn("thigh_l", Vector3.RIGHT, swing)
+		turn("thigh_r", Vector3.RIGHT, -swing)
+		turn("calf_l", Vector3.RIGHT, maxf(0.0, -swing) * 1.6 + deg_to_rad(15.0))
+		turn("calf_r", Vector3.RIGHT, maxf(0.0, swing) * 1.6 + deg_to_rad(15.0))
+		turn("upperarm_l", Vector3.RIGHT, -swing)
+		turn("upperarm_r", Vector3.RIGHT, swing)
+		turn("lowerarm_l", Vector3.RIGHT, deg_to_rad(-70.0))
+		turn("lowerarm_r", Vector3.RIGHT, deg_to_rad(-70.0))
+	elif f == Looks.BENT:  # hunched over, hands towards the knees
+		turn("spine_01", Vector3.RIGHT, deg_to_rad(35.0))
+		turn("spine_02", Vector3.RIGHT, deg_to_rad(15.0))
+		turn("Head", Vector3.RIGHT, deg_to_rad(20.0))
+		turn("thigh_l", Vector3.RIGHT, deg_to_rad(-12.0))
+		turn("thigh_r", Vector3.RIGHT, deg_to_rad(-12.0))
+		turn("calf_l", Vector3.RIGHT, deg_to_rad(18.0))
+		turn("calf_r", Vector3.RIGHT, deg_to_rad(18.0))
+		turn("upperarm_l", Vector3.RIGHT, deg_to_rad(-35.0))
+		turn("upperarm_r", Vector3.RIGHT, deg_to_rad(-35.0))
+		model.position.y = -0.08
+	elif f == Looks.DOWN:  # face down on the floor, arms out a little
+		turn("upperarm_l", Vector3.FORWARD, deg_to_rad(-40.0))
+		turn("upperarm_r", Vector3.FORWARD, deg_to_rad(40.0))
+		turn("thigh_l", Vector3.FORWARD, deg_to_rad(8.0))
+		turn("thigh_r", Vector3.FORWARD, deg_to_rad(-8.0))
+		# centred on the feet and raised so it fits the cell; the game lowers it again (Looks.DOWN_DROP)
+		model.transform = Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90.0)), Vector3(0, 0.62, -0.85))
 	elif f == Looks.SIT:
 		turn("thigh_l", Vector3.RIGHT, deg_to_rad(-85.0))
 		turn("thigh_r", Vector3.RIGHT, deg_to_rad(-85.0))

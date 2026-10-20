@@ -33,11 +33,15 @@ const LOOKS := {
 		"shirt": Color(0.5, 0.8, 0.9), "pants": Color(0.25, 0.25, 0.28), "shoes": Color(0.95, 0.95, 0.95)},
 }
 
-const FRAMES := 7  # idle, walk ×4, sit, lie
+const FRAMES := 13  # idle, walk ×4, sit, lie, run ×4, bent over, down on the floor
 const IDLE := 0
 const WALK := 1  # 1..4
 const SIT := 5
-const LIE := 6
+const LIE := 6  # in bed
+const RUN := 7  # 7..10
+const BENT := 11  # bent over: throwing up, out of breath (body.gd)
+const DOWN := 12  # face down on the floor: tripped, fainted, passed out (body.gd)
+const DOWN_DROP := 20.0  # pixels: the DOWN frame is baked raised (to fit the cell); draw it this much lower
 const CELL := Vector2i(96, 112)
 const FEET := Vector2(48, 100)
 const DIRS := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(1, -1), Vector2(0, -1), Vector2(-1, -1), Vector2(-1, 0), Vector2(-1, 1)]
@@ -65,6 +69,12 @@ static func sheet(look: String) -> Texture2D:
 # A look for someone born in the game.
 static func random_for(sex: String) -> String:
 	return ["girl_a", "girl_b"].pick_random() if sex == "F" else ["boy_a", "boy_b"].pick_random()
+
+
+# Just the head, from the front (art/characters/<look>_face.png, baked by tools/bake_characters.gd). Null if missing.
+static func face(look: String) -> Texture2D:
+	var path := "res://art/characters/%s_face.png" % look
+	return load(path) if ResourceLoader.exists(path) else null
 
 
 # A single frame of a look (for menus): standing, facing the camera.

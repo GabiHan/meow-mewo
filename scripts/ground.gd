@@ -10,7 +10,7 @@ var lit := {}
 
 func setup(p_tiles: Array) -> Node2D:
 	tiles = p_tiles
-	z_index = -1  # always under walls, objects and people
+	z_index = -2  # always under the sight veil (vision.gd, -1), walls, objects and people
 	return self
 
 
