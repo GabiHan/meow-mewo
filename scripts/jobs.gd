@@ -3,8 +3,9 @@
 # Every character has `money` ($). Money comes from jobs and goes on food (kitchen.gd costs) and
 # weekly bills (BILL every Monday at 00:00, per grown-up resident). Below $0 you feel "Broke" (Tense).
 #
-# Jobs are "rabbit holes", like The Sims: on a workday at the start time the worker walks to the
-# Bus stop (main.gd OBJECTS), disappears to work (state "working", hidden, `at_work`), and comes
+# Jobs are "rabbit holes", like The Sims: on a workday at the start time the worker walks to their home
+# car and drives off (grown-ups with a job, if the car is free: traffic.gd) or to the Bus stop (main.gd
+# OBJECTS), disappears to work (state "working", hidden, `at_work`), and comes
 # back at the end time with the pay: hours worked × pay for their level. NPCs and the player in Auto
 # mode go by themselves; in Manual mode you get a reminder and go via the Bus stop menu.
 #
@@ -126,11 +127,17 @@ static func start_shift(c: Node2D) -> void:
 	c.activity = ("At school (%s)" if is_school(c.job) else "At work (%s)") % c.job
 
 
-# Called every frame while at work: practise the job's skill, and come home at the end time.
+# Called every frame while at work: practise the job's skill, and come home at the end time. Someone who
+# drove (commute_car) comes home when the car has driven back and parked (traffic.gd parked_back).
 static func working(c: Node2D, game_minutes: float) -> void:
+	if c.commute_car and c.commute_car.mode != "away":
+		return  # on the way: driving off, or already driving back
 	c.practice(JOBS[c.job].skill, game_minutes * WORK_PRACTICE)
 	if GameTime.hours(c.world.now()) >= JOBS[c.job].end:
-		finish_shift(c)
+		if c.commute_car:
+			c.world.traffic.come_back(c.commute_car)
+		else:
+			finish_shift(c)
 
 
 static func finish_shift(c: Node2D) -> void:

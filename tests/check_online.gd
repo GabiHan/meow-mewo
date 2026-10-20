@@ -5,6 +5,7 @@
 extends SceneTree
 
 const Net = preload("res://scripts/net.gd")
+const Llm = preload("res://scripts/llm.gd")
 const Session = preload("res://scripts/session.gd")
 const Npc = preload("res://scripts/npc.gd")
 const Ages = preload("res://scripts/ages.gd")
@@ -15,6 +16,7 @@ var main: Node2D
 var t := 0.0
 var phase := "connect"
 var phase_at := 0.0
+var follow_at := 0.0  # "go to Mia": when to walk after her again
 var next_try := 2.0
 var failures := 0
 var offer := []
@@ -103,15 +105,21 @@ func _process(delta: float) -> bool:
 			var mia := person("Mia")
 			Net.order(main, "click", [{"kind": "tile", "cell": main.world.free_neighbor(mia.cell(), mia.floor, person("Alex").cell())}])
 			goto("go to Mia")
-		"go to Mia":
-			if t - phase_at < 4.0:
+		"go to Mia":  # Mia may walk off to use something: keep going after her until close enough to talk
+			var near: bool = person("Alex").grid_pos.distance_to(person("Mia").grid_pos) <= Llm.TALK_RADIUS - 1.0
+			if t - phase_at < 4.0 or (not near and t - phase_at < 20.0):
+				if t - phase_at >= 4.0 and t >= follow_at:
+					follow_at = t + 2.0
+					var m := person("Mia")
+					Net.order(main, "click", [{"kind": "tile", "cell": main.world.free_neighbor(m.cell(), m.floor, person("Alex").cell())}])
 				return false
 			main.hud.talk.open(person("Alex"), person("Mia"))
 			goto("talk")
 		"talk":
 			if t - phase_at < 1.5:
 				return false
-			check(person("Mia").partner == person("Alex") and person("Mia").state == "talking", "Talk…: Mia stops to talk with Alex on the host")
+			check(person("Mia").partner == person("Alex") and (person("Mia").state == "talking" or person("Mia").busy_talk),
+				"Talk…: Mia talks with Alex on the host (stopping, or carrying on with what she's doing: %s)" % person("Mia").state)
 			main.hud.talk.send("Hi sweetie, how was school?")
 			goto("sent")
 		"sent":

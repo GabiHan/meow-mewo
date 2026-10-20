@@ -4,7 +4,7 @@ A lightweight isometric life sim: **The Sims** meets **Project Zomboid**. Charac
 decay over time, decide for themselves what to do about them, and build relationships through
 social interactions. The long-term goal is NPCs that react to you like real people would.
 
-Current state: a 1 km open world (roads, trees) with one street of three houses. Your house has two
+Current state: a 1 km open world (roads with traffic, parked cars, trees) with one street of three houses. Your house has two
 floors. Every house has a working kitchen (cook, eat, wash up, drinks; see [docs/KITCHEN.md](docs/KITCHEN.md)).
 You start as **Jo** (20), sharing a house with Sam. Neighbours: Alex with her daughters Mia (8) and
 Lily (2), and Riley with his son Noah (15). You control anyone in your household (click their name
@@ -177,7 +177,9 @@ scenes/menu.tscn        First scene: the home screen (menu.gd)
 scenes/main.tscn        The game: just a Node2D with main.gd; everything else is built in code
 scripts/
   main.gd               Builds the game (world, OBJECTS table, characters, camera, HUD); speed, F3, zoom
-  world.gd              Map, buildings, floors, pathfinding, terrain streaming, what you can see
+  world.gd              Map, buildings, floors, pathfinding, terrain streaming (roads, parked cars), what you can see
+  traffic.gd            Cars: home cars (driving to work), traffic on the roads, stopping for people
+  car.gd                One car: parked, roaming the roads, or following a route
   block.gd              Tile-sized shapes: walls, house exteriors, trees, stairs
   furniture.gd          Loads baked furniture sprites (art/furniture) and their floor anchors
   looks.gd              What each person looks like (body, skin, hair, clothes) and their sprite sheets
@@ -318,8 +320,9 @@ to your speed when you wake up (`auto_sleep_speed`). It shows as "Ultra (60x) wh
 
 ### The world (`world.gd`)
 **1 tile = 1 m.** The map is 1024×1024 tiles (`SIZE`): a road every 64 tiles (`ROAD_EVERY`), about
-12,000 trees (randomly placed but the same every run), and the houses in `BUILDINGS`, on the street
-around tile (490, 512). The camera follows you.
+12,000 trees and hundreds of cars parked along the roads (randomly placed but the same every run), and the
+houses in `BUILDINGS`, on the street around tile (490, 512). The camera follows you. Each house has a car on
+its front yard; traffic drives around you (see *Cars and roads*).
 
 | Building | Rect (incl. walls) | Floors | Door | Stairs | Who lives there |
 |---|---|---|---|---|---|
@@ -474,10 +477,28 @@ they notice nothing and, for you, time runs at Ultra.
 | Fireplace | Relax by the fire / Warm up | fun +25, social +5 / energy +10, fun +10 | 30 / 15 | |
 | Bench | Sit on the bench | fun +25 | 15 | |
 | Pull-up bar | Work out / Do a few pull-ups | fun +15, energy −10, hygiene −10 / fun +8, energy −3 | 30 / 10 | Fitness |
+| Nightstand, bedside table | Write in a diary / Put on hand cream | fun +15 / hygiene +5 | 20 / 2 | |
+| Coffee table | Do a jigsaw puzzle / Put your feet up | fun +30 / energy +5, fun +10 | 40 / 15 | Logic / – |
+| Desk | Study / Write jokes | fun +5 / fun +15 | 45 / 30 | Logic (Learned something) / Comedy |
+| Kitchen cabinet | Grab a snack / Tidy the cupboard | hunger +15 / fun +5 | 3 / 10 | |
+| Kitchen drawers | Sort the cutlery / Read a recipe card | fun +5 / fun +5 | 10 / 10 | – / Cooking |
+| Washing machine | Do the laundry | hygiene +20, fun −3 | 20 | |
+| Lamp (all four) | Read under the lamp | fun +20 | 30 | Logic |
+| Plant (all four) | Water the plant / Talk to the plant | fun +8 / social +5, fun +3 | 3 / 5 | |
+| Rug (all three) | Do yoga / Stretch | fun +10, energy −5 / energy +3 | 20 / 5 | Fitness / –; on the rug |
+| Shelf (wall, tall) | Browse the shelf / Dust the shelf | fun +10 / hygiene +3 | 10 / 5 | |
+| Dresser (both) | Change clothes / Try on outfits | hygiene +15 / fun +20 | 5 / 20 | |
+| Coat rack | Try on hats | fun +10 | 5 | |
+| Bin (both) | Take out the trash | hygiene +5, fun −2 | 5 | |
+| Radio | Listen to music / Dance to the radio | fun +30 / fun +35, energy −8 | 30 / 15 | – / Fitness |
+| Teddy bear | Cuddle the teddy | fun +15, social +5 | 10 | toddlers too |
 | Fridge, Stove, Counter, Sink, Table | kitchen menus: cook, drinks, leftovers, wash up | | | [docs/KITCHEN.md](docs/KITCHEN.md) |
 
-**Seats** (couch, chair): you sit on the seat itself, so its tile stays walkable; everything else
-you use from the tile in front of it. Your house's chairs, couch and bathroom sinks are usable.
+**All furniture is usable**: every catalog item is a smart object with the actions above (only walls aren't),
+and your house's furnishings (`PROPS` in `main.gd`) are placed as those catalog items. **Seats** (couch, chair):
+you sit on the seat itself, so its tile stays walkable. **Rugs** (`Actions.STAND_ON`): you stand on the rug
+itself, it stays walkable and is drawn flat under people. Everything else you use from the tile in front of it.
+Toddlers use only beds, cribs, the TV and the teddy bear by themselves.
 
 ### Character state machine (`npc.gd`)
 
@@ -514,7 +535,12 @@ Full details and every table: **[docs/PEOPLE.md](docs/PEOPLE.md)**. In short:
 ### Social interactions (`social.gd`)
 1. The initiator picks a partner and an interaction. The AI uses weighted random by score × emotion
    × traits, so NPCs aren't predictable; you use the click menu.
-2. The partner stops and **waits**; the initiator walks to the tile next to them.
+2. The partner stops and **waits**; the initiator walks to the tile next to them. If the partner is **busy**
+   (using something, queueing for it, or on the way to it), they aren't interrupted: they carry on
+   (`busy_talk`), the initiator comes to where they are (the object they're using) and they talk while they
+   keep doing it. If their task ends first they stop and wait or join in; if they walk off with it, the
+   initiator follows a little (`MAX_CHASES`), then gives up ("Couldn't catch …"). Someone **asleep** can't be
+   talked to (Talk… still wakes them, as before).
 3. On arrival the partner **accepts or rejects** (friendship, needs, emotion, your Charisma, their
    traits, grudges; see PEOPLE.md). The initiator **says a line** out loud. Arguing and insulting
    can't be refused.
@@ -548,8 +574,9 @@ All completed and rejected interactions go to `Social.event_log`, which is shown
 ### Money and jobs (`jobs.gd`)
 Full details: **[docs/WORK.md](docs/WORK.md)**. Everyone has money. It comes from **jobs**: 5
 careers (Café, Restaurant, Office, Gym, Comedy club), each with 3 levels, a schedule and hourly pay.
-On a workday the worker walks to the **Bus stop**, is away (hidden) until the shift ends, and comes
-back paid for the hours worked. Performance goes up with good shifts (skill and emotion) and down
+On a workday the worker walks to their **home car** and drives off down the street (grown-ups with a job,
+if the car is home), or to the **Bus stop** (kids, and when the car is out), is away (hidden) until the shift
+ends, and comes back paid for the hours worked: by car, it drives back up the street, parks and they get out. Performance goes up with good shifts (skill and emotion) and down
 for lateness and missed shifts; at 100% with enough skill you're promoted. At 25% or less a bad shift
 earns a **warning**, and the next one gets you **fired**. It goes out on
 **ingredients and drinks** (kitchen) and **$80 bills every Monday** (grown-ups only); below $0 you're *Broke* (Tense).
@@ -640,9 +667,8 @@ Staring or yelling makes **you** Embarrassed, and they **remember** it; a wave m
 ## Build mode
 
 Press **B** at home: time pauses and a catalog of about 50 items in 10 categories opens along the
-bottom. Pick an item, rotate it with R, and click to buy and place it. Usable furniture (chairs,
-sofas, beds, kitchen appliances, toilet, bathtub, sinks, bookshelf, TV, fireplace) works right away
-for everyone in the house. Click furniture with nothing picked to rotate, move or delete (sell) it. You can't build
+bottom. Pick an item, rotate it with R, and click to buy and place it. Everything you buy is usable
+(see *Furniture interactions*) and works right away for everyone in the house. Click furniture with nothing picked to rotate, move or delete (sell) it. You can't build
 in walls, doorways or on the stairs, or block anything. Details and the full catalog:
 **[docs/BUILD.md](docs/BUILD.md)**.
 
@@ -736,12 +762,44 @@ Kenney's **City Kit (Suburban)** (CC0; `assets/kenney/suburban`) gives the house
 * **Trees:** `tree-large` (two in three) and `tree-small`, leaves repainted in each season's `GameTime.LEAVES`
   (`tree_<large|small>_<season>`), shown by `Block.add_sprite()`.
 
+## Cars and roads
+
+`traffic.gd` (a child of the world) and `car.gd`, art from Kenney's **Car Kit** and **City Kit (Roads)** (CC0;
+`assets/kenney/cars`, `assets/kenney/roads`) baked by `tools/bake_neighbourhood.gd`:
+
+* **Roads**: each terrain chunk lays the road kit over its road tiles (`world.road_pieces`): a crossroads piece
+  where roads cross, straight pieces every 3 tiles (one 3 m kit tile covers the 3-tile-wide road), graded to the
+  pastel palette (`ROAD_DARK`/`ROAD_LIGHT`). The tiles underneath keep their colours.
+* **Parked cars**: every house has a **home car** on its front yard (`BUILDINGS` `car`: cell, dir, model; its two
+  tiles are solid). Hundreds more are parked along the roads all over town (`world.park_cars`, seeded), drawn with
+  the chunks; their tiles (`parked_cells`) aren't walkable.
+* **Traffic**: up to 5 cars drive around near you (they appear 18–38 tiles away, out of sight, and go beyond 55),
+  in right-hand lanes 0.55 tiles from the centre line, 5 tiles a second. At each crossroads they go straight on
+  (3 in 5) or turn; at the map's edge they turn round. They **stop for people** in front of them and keep their
+  distance behind the car ahead; at crossroads the lower id goes first (after 3 s anyone goes).
+* **Driving to work**: see *Money and jobs*. The car pulls into the lane and drives 45 tiles down the street,
+  then it's away (hidden) until the shift ends; then it comes back from 40 tiles up the street and parks.
+* Moving cars are shown only where your sim can see (like people); parked ones always (tinted by the veil).
+
+| Sprite | Kit model |
+|---|---|
+| road_straight_x, road_straight_y, road_crossroad | road-straight (turned for x), road-crossroad |
+| car_<model>_r0..r3 | sedan, suv, taxi, van, hatchback-sports, police, delivery |
+
+| House | Home car (cells) |
+|---|---|
+| Your house | sedan, (488,511)–(489,511) |
+| Alex's house | suv, (505,511)–(506,511) |
+| Riley's house | hatchback-sports, (483,516)–(484,516) |
+| Starter house | van, (505,516)–(506,516) |
+
 ## Credits
 
 * Font: EB Garamond (SIL Open Font License, `assets/fonts/OFL.txt`).
 * Music: "Join my server" and "The game" by adrihuwu, "Beautiful lofi" and "Tokyo lofi" by zephiramusic (`assets/music`;
   from the files the owner provided: check each track's licence before publishing the game).
-* Characters, furniture, houses and trees: Kenney (www.kenney.nl), Mini Characters, Furniture Kit and City Kit (Suburban), CC0
+* Characters, furniture, houses, trees, cars and roads: Kenney (www.kenney.nl), Mini Characters, Furniture Kit, City Kit
+  (Suburban), Car Kit and City Kit (Roads), CC0
   (`assets/kenney/*/License.txt`).
 
 ## How to…
@@ -787,7 +845,9 @@ behavior, and add an entry to `docs/DEVLOG.md`.
 * Doors are always open, and houses have no inner walls or rooms yet.
 * Only ground-floor windows on the two camera-facing walls can be peeked through.
 * Doors can't be locked; ownership is enforced by pathfinding, not by a lock.
-* Only one street has houses; the rest of the 1 km map is grass, trees and empty roads.
+* Only one street has houses; the rest of the 1 km map is grass, trees, parked cars and roads.
+* Cars stop for people but people walk through cars that are driving (only parked ones block paths). Online,
+  joined players see their own (cosmetic) traffic, and a host's sim driving to work just disappears there.
 * Seasons change how things look, how long the days are and the weather; there's no temperature yet.
 * NPCs have no daily schedule (work, school) yet; they only prefer to sleep at night.
 * Food costs money but the fridge never runs out (no grocery shopping or stock yet).

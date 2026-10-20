@@ -2,6 +2,33 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-10-20 — Talk while busy, every piece of furniture usable, cars and roads
+- **Talking to someone busy doesn't interrupt them**: if they're using something,
+  queueing or on the way to it, they keep doing it (`busy_talk`); the initiator comes to where they are and talks
+  while they carry on (Social.begin leaves their state alone, end_social doesn't reset it). Task over first: they
+  stop and wait or join in. They walk off: the initiator follows up to `MAX_CHASES` times, and a talk ends
+  ("Never mind") if they get more than `TALK_REACH` + 1 tiles away. Asleep: "is asleep". Talk… (typed) works the same.
+- **Every catalog item is usable**: new `actions.gd` entries for nightstands, coffee table, desk, kitchen cabinet and
+  drawers, washing machine, lamps, plants, rugs, shelves, dressers, coat rack, bins, radio and teddy bear (toddlers may
+  cuddle it). Rugs are `STAND_ON` (used standing on them, walkable, drawn flat). Your house's `PROPS` and props in
+  older saves become their catalog objects (`Catalog.make_object`, `id_for_model`); four of them were turned to face
+  into the room so they can be reached.
+- **Roads** from Kenney's City Kit (Roads): 3×3-tile straight and crossroads pieces per chunk (`world.road_pieces`),
+  graded to pastel. **Cars** from the Car Kit (7 models × 4 headings, `tools/bake_neighbourhood.gd`).
+- **traffic.gd / car.gd** (new): a home car per house (`BUILDINGS` `car`, tiles solid), hundreds of street-parked cars
+  (`park_cars`, `parked_cells`), and up to 5 traffic cars near you in right-hand lanes, turning at crossroads, stopping
+  for people and the car ahead, shown only where you can see. **Driving to work**: grown-ups with a job take the home
+  car if it's there (`go_to_work` → `drive_off`; `Jobs.working` → `come_back`, `parked_back` ends the shift), else the bus.
+- Riley's car sits west of the house (east, it would close the gap between Riley's and the Starter house).
+- Tests: `check_busy_talk`, `check_commute`, `check_traffic`; the work test takes the bus (car marked away); the
+  "NPCs completed social interactions" check now counts over the whole run (the 8-entry log filled up with skill
+  level-ups now that lots of furniture trains skills, so it failed now and then).
+- Online: `busy_talk` is synced (`Net.PERSON_EXTRAS`). `check_online.gd`'s Talk… step now keeps walking Alex after
+  Mia until they're close (she wanders off to use things more now, which made the old 4 s timing fail often), and
+  accepts her talking while busy.
+- **Watch out:** people walk through driving cars (only parked ones block paths). Online, traffic is local and
+  cosmetic on joined games; commutes only show on the host. The asphalt colour is `ROAD_DARK` in the baker.
+
 ## 2026-10-20 — Kenney art: characters, furniture and the neighbourhood's houses
 - **Assets:** the Kenney kits (Mini Characters, Furniture Kit, City Kit (Suburban), CC0) unzipped in `assets/kenney/`;
   only their GLBs are imported (`.gdignore` in the FBX/OBJ/DAE/STL and preview folders). The old Quaternius packs

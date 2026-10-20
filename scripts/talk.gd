@@ -2,9 +2,9 @@
 # is the window you type in. It runs where the simulation runs: offline here, online on the host for
 # everyone (net.gd forwards what joined players do). Static.
 #
-#   open()   you and they stop and face each other ("talking", neither is the initiator, so it lasts
-#            until someone closes it). If they're a real person (another player, online), their
-#            window opens too.
+#   open()   you stop and face them ("talking", neither is the initiator, so it lasts until someone
+#            closes it); they do too, unless they're busy with something: then they carry on while you
+#            talk (npc.gd busy_talk). If they're a real person (another player, online), their window opens too.
 #   say()    what you typed. An NPC answers with the language model (llm.gd): how your words came across
 #            changes their friendship toward you (Llm.TONE). A real person just gets your words and
 #            answers themselves (a little friendship and social each way).
@@ -29,9 +29,12 @@ static func open(you: Node2D, other: Node2D) -> bool:
 	you.cancel_current()
 	for pair in [[you, other], [other, you]]:
 		var me: Node2D = pair[0]
-		me.begin_waiting(pair[1], 0.0)
-		me.state = "talking"
-		me.activity = "Talking with {who}"
+		if me == other and other.has_task() and not (other.state == "using" and other.step.get("asleep", false)):
+			other.join_while_busy(you)
+		else:
+			me.begin_waiting(pair[1], 0.0)
+			me.state = "talking"
+			me.activity = "Talking with {who}"
 		talks[me.npc_name] = {"feeling": 0.0, "said": false}
 	if is_human(other):
 		ui(other, "incoming", [you])

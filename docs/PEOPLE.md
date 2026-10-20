@@ -223,7 +223,9 @@ is −3). Peeking, rejections and flat jokes are remembered too.
 ## Social interactions
 
 The initiator walks over, says a line out loud (in your chat feed if you're near), and the partner accepts
-or not. Effects apply to both when it ends. The initiator practises the listed skill.
+or not. Effects apply to both when it ends. The initiator practises the listed skill. A partner who is busy
+(using something or on the way to it) isn't interrupted: they keep doing it while they talk (`busy_talk`,
+npc.gd); someone asleep can't be talked to.
 
 | Interaction | Needs | Social | Fun | Friendship | Minutes | Skill | Moodlets (initiator / partner) |
 |---|---|---|---|---|---|---|---|

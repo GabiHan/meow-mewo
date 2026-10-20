@@ -29,6 +29,8 @@ const Life = preload("res://scripts/life.gd")
 const Vision = preload("res://scripts/vision.gd")
 const Weather = preload("res://scripts/weather.gd")
 const Furniture = preload("res://scripts/furniture.gd")
+const Traffic = preload("res://scripts/traffic.gd")
+const Car = preload("res://scripts/car.gd")
 
 const SIZE := 1024
 const CHUNK := 16
@@ -36,6 +38,7 @@ const VIEW_RADIUS := 40  # tiles visible around you outside
 const ROAD_EVERY := 64  # a road every 64 tiles in both directions
 const ROAD_WIDTH := 3
 const TREE_COUNT := 12000
+const STREET_CARS := 700  # tries at parking a car along the roads (park_cars)
 const CLEARING := Rect2i(470, 490, 60, 45)  # no trees around the starting street
 const STOREY_HEIGHT := 56.0  # pixels of exterior wall per floor (the click boxes; the house sprite is taller)
 const HOUSE_STRIP := 16  # px: the house sprite is cut into strips this wide, each y-sorted at the front wall below it
@@ -53,23 +56,31 @@ const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: laven
 # wall so it faces the camera. stairs (optional) is one interior cell shared by every floor.
 # models: the Kenney suburban houses it looks like from outside, with one and with two storeys
 # (tools/bake_neighbourhood.gd bakes them; re-bake after changing a rect, colour or model).
+# car: the home car parked on the front yard (traffic.gd): its cell and the next one along dir, facing the road.
 # These are the houses at the start; BUILDINGS is this game's copy, which build mode can change
 # (stairs add an upper floor: add_upper_floor / remove_upper_floor; "built_stairs" marks those).
 const START_BUILDINGS := [
 	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(485, 508),
-		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665), "models": ["building-type-i", "building-type-b"]},
+		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665), "models": ["building-type-i", "building-type-b"],
+		"car": {"cell": Vector2i(488, 511), "dir": Vector2i(1, 0), "model": "sedan"}},
 	{"name": "Alex's house", "rect": Rect2i(498, 499, 10, 10), "floors": 1, "door": Vector2i(502, 508),
-		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765), "models": ["building-type-h", "building-type-e"]},
+		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765), "models": ["building-type-h", "building-type-e"],
+		"car": {"cell": Vector2i(505, 511), "dir": Vector2i(1, 0), "model": "suv"}},
 	{"name": "Riley's house", "rect": Rect2i(486, 518, 10, 9), "floors": 1, "door": Vector2i(495, 522),
-		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697), "models": ["building-type-a", "building-type-o"]},
+		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697), "models": ["building-type-a", "building-type-o"],
+		"car": {"cell": Vector2i(483, 516), "dir": Vector2i(1, 0), "model": "hatchback-sports"}},
 	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 525),
-		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681), "models": ["building-type-g", "building-type-d"]},  # for new households (Play → Create)
+		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681), "models": ["building-type-g", "building-type-d"],
+		"car": {"cell": Vector2i(505, 516), "dir": Vector2i(1, 0), "model": "van"}},  # for new households (Play → Create)
 ]
 
 static var BUILDINGS: Array = START_BUILDINGS.duplicate(true)  # static: fresh for every game (_ready)
 
 var player: Node2D
 var trees := {}  # Vector2i -> true (floor 0 only)
+var street_cars := {}  # chunk -> [[model, first cell, dir]]: cars parked along the roads (park_cars)
+var parked_cells := {}  # Vector2i -> true: the tiles they fill (not walkable)
+var traffic: Node2D  # cars (traffic.gd)
 var solid := {0: {}}  # floor -> {Vector2i: true}: walls and objects
 var walls := {}  # floor -> {Vector2i: true}: walls only (they block sight, objects don't)
 var windows := {}  # ground-floor window cell -> {building, dir (outward), block, closed_until}
@@ -105,10 +116,14 @@ func _ready() -> void:
 	season = ""  # set (and roofs coloured) on the first frame
 	BUILDINGS = START_BUILDINGS.duplicate(true)
 	plant_trees()
+	park_cars()
 	for i in BUILDINGS.size():
 		build(i)
 	vision = Vision.new()
 	add_child(vision)
+	traffic = Traffic.new()
+	add_child(traffic)
+	traffic.setup(self)
 
 
 # A child that y-sorts its children together with everything else in the scene.
@@ -127,6 +142,31 @@ func plant_trees() -> void:
 		if is_road(c) or CLEARING.has_point(c) or building_index_at(c, 2) >= 0:
 			continue
 		trees[c] = true
+
+
+# Cars parked along the roads all over the map, on the verge beside the road, parallel to it (never at
+# crossroads, by houses or on trees). Shown with the terrain chunks; their tiles aren't walkable.
+func park_cars() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	for n in STREET_CARS:
+		var along_x := rng.randf() < 0.5
+		var road := rng.randi_range(1, SIZE / ROAD_EVERY - 1) * ROAD_EVERY
+		var verge := road - 1 if rng.randf() < 0.5 else road + ROAD_WIDTH
+		var at := rng.randi_range(0, SIZE - 2)
+		if at % ROAD_EVERY < ROAD_WIDTH + 3 or at % ROAD_EVERY > ROAD_EVERY - 4:
+			continue  # not by a crossroads
+		var d := Vector2i(1, 0) if along_x else Vector2i(0, 1)
+		var a := Vector2i(at, verge) if along_x else Vector2i(verge, at)
+		var ok := true
+		for c in [a, a + d]:
+			if is_road(c) or CLEARING.has_point(c) or building_index_at(c, 2) >= 0 or trees.has(c) or parked_cells.has(c):
+				ok = false
+		if not ok:
+			continue
+		parked_cells[a] = true
+		parked_cells[a + d] = true
+		street_cars.get_or_add(a / CHUNK, []).append([Traffic.MODELS[rng.randi() % Traffic.MODELS.size()], a, d])
 
 
 func build(i: int) -> void:
@@ -326,7 +366,7 @@ func is_walkable(c: Vector2i, f: int) -> bool:
 	if solid.get(f, {}).has(c):
 		return false
 	if f == 0:
-		return not trees.has(c)
+		return not trees.has(c) and not parked_cells.has(c)
 	return building_at(c, f) >= 0  # upper floors only exist inside buildings
 
 
@@ -530,7 +570,7 @@ func add_object(obj: Node2D, b: int, f: int) -> void:
 		next_net_id = maxi(next_net_id, obj.net_id)
 	obj.building = b
 	obj.floor = f
-	if not obj.is_seat():  # you sit on seats, so their tile stays walkable
+	if not obj.on_tile():  # you sit on seats and stand on rugs, so their tile stays walkable
 		solid.get_or_add(f, {})[Vector2i(obj.grid_pos)] = true
 	(outdoors if b < 0 else floor_nodes[b][f]).add_child(obj)
 
@@ -642,7 +682,38 @@ func make_chunk(k: Vector2i) -> Node2D:
 				var size := "small" if hash(c) % 3 == 0 else "large"
 				node.add_child(Block.new().setup("tree", c, 0.0, GameTime.LEAVES[season]).add_sprite("tree_%s_%s" % [size, season]))
 	node.add_child(Ground.new().setup(tiles))
+	for piece in road_pieces(k):
+		var road: Sprite2D = Furniture.make_sprite(piece[0], Furniture.SCENERY)
+		road.position = Iso.to_screen(piece[1])
+		road.z_index = -2  # on the ground, under the sight veil
+		node.add_child(road)
+	for parked in street_cars.get(k, []):
+		node.add_child(Car.new().setup(parked[0], Vector2.ZERO, Vector2(parked[2])).park_at(parked[1], Vector2(parked[2])))
 	return node
+
+
+# The road sprites (tools/bake_neighbourhood.gd) whose centre is in chunk k: [sprite, centre]. Roads are
+# ROAD_WIDTH (3) tiles wide, so a piece covers 3×3 tiles: a crossroads, then straight pieces every 3 tiles
+# (the last one overlaps, as 61 tiles between crossroads isn't a multiple of 3).
+func road_pieces(k: Vector2i) -> Array:
+	var pieces := []
+	if not Furniture.has("road_crossroad", Furniture.SCENERY):
+		return pieces
+	for x in range(k.x * CHUNK, k.x * CHUNK + CHUNK):
+		for y in range(k.y * CHUNK, k.y * CHUNK + CHUNK):
+			var on_x := y % ROAD_EVERY == 1  # the centre line of a road running along x
+			var on_y := x % ROAD_EVERY == 1
+			if on_x and on_y:
+				pieces.append(["road_crossroad", Vector2(x, y)])
+			elif on_x and is_piece(x % ROAD_EVERY):
+				pieces.append(["road_straight_x", Vector2(x, y)])
+			elif on_y and is_piece(y % ROAD_EVERY):
+				pieces.append(["road_straight_y", Vector2(x, y)])
+	return pieces
+
+
+static func is_piece(along: int) -> bool:
+	return (along >= ROAD_WIDTH + 1 and along <= ROAD_EVERY - 3 and (along - ROAD_WIDTH - 1) % 3 == 0) or along == ROAD_EVERY - 2
 
 
 static func terrain_color(c: Vector2i, p_season: String) -> Color:

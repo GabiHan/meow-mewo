@@ -59,6 +59,10 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   Furniture: `tools/bake_furniture.gd` (sprite ids → kit models in `MODELS`) → art/furniture. Houses and trees:
   `tools/bake_neighbourhood.gd` → art/neighbourhood (`Furniture.*(…, Furniture.SCENERY)`); re-bake after changing a
   building's rect, colours or `models`. All bakers need a window. See README "Furniture art" / "Neighbourhood art".
+- Cars and roads: `traffic.gd` (home cars, traffic, driving to work) and `car.gd`; road pieces and street-parked cars
+  are made with the chunks in `world.gd`. Home cars' tiles are solid; driving cars don't block paths, they stop
+  for people. Scripted tests drive a car with `car.drive(delta, world.traffic)`. See README "Cars and roads".
+- Every catalog item is usable (an `object` + `actions.gd` entry); new furniture needs both. Rugs are `STAND_ON`.
 
 - AI words: `llm.gd` (local Qwen3.5 via llama-server) and `talk_panel.gd`; documented in `docs/AI.md` (keep its
   tables in sync). The model only writes words and nudges (`wish_factor`); systems decide. Everything must still

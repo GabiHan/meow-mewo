@@ -28,8 +28,8 @@ house with one floor; the stairs tile stays walkable. Built stairs and the upper
 * Only inside **your own home** (the home of the person you control), on the floor you're on.
 * Only on a free floor tile: not walls, not the stairs, not the doorway or the tile just inside the
   door, not on other furniture.
-* Usable furniture also needs its **front tile free** (people stand there to use it). Seats (chairs,
-  stools, sofas) don't: you sit on the seat itself, and its tile stays walkable. Its front is
+* Furniture also needs its **front tile free** (people stand there to use it). Seats (chairs,
+  stools, sofas) and rugs don't: you sit or stand on them, and their tile stays walkable. Its front is
   the side it faces: rotation 0 = towards the lower left, then lower right, upper right, upper left.
 * **Nothing may be blocked:** after placing, every object's front tile and the stairs must still be
   reachable from the door (checked with pathfinding). Rugs never block.
@@ -40,8 +40,8 @@ for $20 if it isn't in the catalog). You can't sell or move something someone is
 
 ## The catalog
 
-Usable furniture ("✓") is a real object: people in your home use it on their own (it advertises its
-needs to the AI like everything else). The rest is decoration.
+Everything is usable ("✓") except the Build tools: each item is a real object that people in your home use
+on their own (it advertises its needs to the AI like everything else).
 
 | Category | Item | Price | Usable | Does |
 |---|---|---|---|---|
@@ -51,21 +51,28 @@ needs to the AI like everything else). The rest is decoration.
 | Seating | Wooden chair / Modern chair / Dining armchair / Stool | $40 / $60 / $75 / $25 | ✓ | Sit |
 | Seating | Armchair / Loveseat / Sofa / Corner sofa | $180 / $260 / $350 / $480 | ✓ | Relax, Sit, Nap on the couch |
 | Tables | Round dining table / Large table | $120 / $220 | ✓ | a Table (eat here, put food down) |
-| Tables | Coffee table / Desk / Nightstand / Bedside table | $90 / $150 / $60 / $70 | | |
+| Tables | Coffee table | $90 | ✓ | Do a jigsaw puzzle (Logic), Put your feet up |
+| Tables | Desk | $150 | ✓ | Study (Logic), Write jokes (Comedy) |
+| Tables | Nightstand / Bedside table | $60 / $70 | ✓ | Write in a diary, Put on hand cream |
 | Beds | Single bed / King bed / Bunk bed | $300 / $650 / $420 | ✓ | Sleep (7 h), Nap, Relax in bed |
 | Kitchen | Fridge / Oven / Counter / Kitchen sink | $500 / $400 / $150 / $200 | ✓ | the kitchen objects (docs/KITCHEN.md) |
-| Kitchen | Kitchen cabinet / Kitchen drawers | $110 / $130 | | |
+| Kitchen | Kitchen cabinet | $110 | ✓ | Grab a snack, Tidy the cupboard |
+| Kitchen | Kitchen drawers | $130 | ✓ | Sort the cutlery, Read a recipe card (Cooking) |
 | Bathroom | Toilet | $250 | ✓ | Pee, Poo |
 | Bathroom | Bathtub | $500 | ✓ | Take a shower, Take a bath |
 | Bathroom | Bathroom sink | $120 | ✓ | Wash hands, Brush teeth |
-| Bathroom | Washing machine | $350 | | |
-| Lighting | Floor lamp / Reading lamp / Shade lamp / Standing lamp | $60 / $70 / $90 / $85 | | |
-| Plants | Fern / Cactus / Small palm / Big leafy plant | $25 / $20 / $30 / $45 | | |
-| Rugs | Rug / Dark rug / Round rug | $60 / $70 / $80 | | walkable |
+| Bathroom | Washing machine | $350 | ✓ | Do the laundry |
+| Lighting | Floor lamp / Reading lamp / Shade lamp / Standing lamp | $60 / $70 / $90 / $85 | ✓ | Read under the lamp (Logic) |
+| Plants | Fern / Cactus / Small palm / Big leafy plant | $25 / $20 / $30 / $45 | ✓ | Water the plant, Talk to the plant |
+| Rugs | Rug / Dark rug / Round rug | $60 / $70 / $80 | ✓ | Do yoga (Fitness), Stretch; used standing on it, walkable |
 | Storage | Bookshelf | $250 | ✓ | Read a textbook (Logic), a novel, a cookbook (Cooking) |
-| Storage | Wall shelf / Tall shelf / Dresser / Tall dresser / Coat rack / Bin / Large bin | $50 / $140 / $160 / $190 / $35 / $15 / $30 | | |
+| Storage | Wall shelf / Tall shelf | $50 / $140 | ✓ | Browse the shelf, Dust the shelf |
+| Storage | Dresser / Tall dresser | $160 / $190 | ✓ | Change clothes, Try on outfits |
+| Storage | Coat rack | $35 | ✓ | Try on hats |
+| Storage | Bin / Large bin | $15 / $30 | ✓ | Take out the trash |
 | Fun | TV | $350 | ✓ | Watch comedy / the news / a cooking show |
-| Fun | Radio / Teddy bear | $45 / $20 | | |
+| Fun | Radio | $45 | ✓ | Listen to music, Dance to the radio (Fitness) |
+| Fun | Teddy bear | $20 | ✓ | Cuddle the teddy (toddlers too) |
 | Fun | Fireplace | $800 | ✓ | Relax by the fire, Warm up (placeholder box: no fireplace in the kit) |
 
 What each usable item does in detail is in README, *Furniture interactions* (`actions.gd`).

@@ -53,6 +53,61 @@ const ACTIONS := {
 	"Bench": [
 		{"name": "Sit on the bench", "verb": "Sitting on the bench", "minutes": 15.0, "ads": {"fun": 25}},
 	],
+	"Nightstand": [
+		{"name": "Write in a diary", "verb": "Writing in a diary", "minutes": 20.0, "ads": {"fun": 15}},
+		{"name": "Put on hand cream", "verb": "Putting on hand cream", "minutes": 2.0, "ads": {"hygiene": 5}},
+	],
+	"Coffee table": [
+		{"name": "Do a jigsaw puzzle", "verb": "Doing a jigsaw puzzle", "minutes": 40.0, "ads": {"fun": 30}, "skill": "Logic"},
+		{"name": "Put your feet up", "verb": "Putting their feet up", "minutes": 15.0, "ads": {"energy": 5, "fun": 10}},
+	],
+	"Desk": [
+		{"name": "Study", "verb": "Studying", "minutes": 45.0, "ads": {"fun": 5}, "skill": "Logic", "moodlet": "Learned something"},
+		{"name": "Write jokes", "verb": "Writing jokes", "minutes": 30.0, "ads": {"fun": 15}, "skill": "Comedy"},
+	],
+	"Kitchen cabinet": [
+		{"name": "Grab a snack", "verb": "Snacking", "minutes": 3.0, "ads": {"hunger": 15}},
+		{"name": "Tidy the cupboard", "verb": "Tidying the cupboard", "minutes": 10.0, "ads": {"fun": 5}},
+	],
+	"Kitchen drawers": [
+		{"name": "Sort the cutlery", "verb": "Sorting the cutlery", "minutes": 10.0, "ads": {"fun": 5}},
+		{"name": "Read a recipe card", "verb": "Reading a recipe card", "minutes": 10.0, "ads": {"fun": 5}, "skill": "Cooking"},
+	],
+	"Washing machine": [
+		{"name": "Do the laundry", "verb": "Doing the laundry", "minutes": 20.0, "ads": {"hygiene": 20, "fun": -3}},
+	],
+	"Lamp": [
+		{"name": "Read under the lamp", "verb": "Reading under the lamp", "minutes": 30.0, "ads": {"fun": 20}, "skill": "Logic"},
+	],
+	"Plant": [
+		{"name": "Water the plant", "verb": "Watering the plant", "minutes": 3.0, "ads": {"fun": 8}},
+		{"name": "Talk to the plant", "verb": "Talking to the plant", "minutes": 5.0, "ads": {"social": 5, "fun": 3}},
+	],
+	"Rug": [
+		{"name": "Do yoga", "verb": "Doing yoga", "minutes": 20.0, "ads": {"fun": 10, "energy": -5}, "skill": "Fitness"},
+		{"name": "Stretch", "verb": "Stretching", "minutes": 5.0, "ads": {"energy": 3}},
+	],
+	"Shelf": [
+		{"name": "Browse the shelf", "verb": "Browsing the shelf", "minutes": 10.0, "ads": {"fun": 10}},
+		{"name": "Dust the shelf", "verb": "Dusting the shelf", "minutes": 5.0, "ads": {"hygiene": 3}},
+	],
+	"Dresser": [
+		{"name": "Change clothes", "verb": "Changing clothes", "minutes": 5.0, "ads": {"hygiene": 15}},
+		{"name": "Try on outfits", "verb": "Trying on outfits", "minutes": 20.0, "ads": {"fun": 20}},
+	],
+	"Coat rack": [
+		{"name": "Try on hats", "verb": "Trying on hats", "minutes": 5.0, "ads": {"fun": 10}},
+	],
+	"Bin": [
+		{"name": "Take out the trash", "verb": "Taking out the trash", "minutes": 5.0, "ads": {"hygiene": 5, "fun": -2}},
+	],
+	"Radio": [
+		{"name": "Listen to music", "verb": "Listening to music", "minutes": 30.0, "ads": {"fun": 30}},
+		{"name": "Dance to the radio", "verb": "Dancing to the radio", "minutes": 15.0, "ads": {"fun": 35, "energy": -8}, "skill": "Fitness"},
+	],
+	"Teddy bear": [
+		{"name": "Cuddle the teddy", "verb": "Cuddling the teddy", "minutes": 10.0, "ads": {"fun": 15, "social": 5}},
+	],
 	"Pull-up bar": [
 		{"name": "Work out", "verb": "Working out", "minutes": 30.0, "ads": {"fun": 15, "energy": -10, "hygiene": -10}, "skill": "Fitness", "moodlet": "Pumped"},
 		{"name": "Do a few pull-ups", "verb": "Doing pull-ups", "minutes": 10.0, "ads": {"fun": 8, "energy": -3}, "skill": "Fitness"},
@@ -61,6 +116,8 @@ const ACTIONS := {
 
 # Seats: you sit on the object itself (its tile stays walkable) instead of standing in front of it.
 const SEATS := ["Couch", "Chair"]
+# Used standing on the object itself (its tile stays walkable, drawn flat under people): rugs.
+const STAND_ON := ["Rug"]
 
 
 static func for_object(obj: Node2D) -> Array:

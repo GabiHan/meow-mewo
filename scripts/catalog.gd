@@ -1,9 +1,10 @@
 # Build mode catalog: what you can buy, and the rules for placing, selling and moving it. Static.
 # The UI is build_mode.gd. Full documentation: docs/BUILD.md.
 #
-# An item is decor (a prop: looks nice, blocks its tile unless flat) or usable furniture (a smart
-# object that people use, with `object`: its name, advertisements, minutes and extras like any row
-# of OBJECTS in main.gd). Sprites are baked by tools/bake_furniture.gd in 4 rotations.
+# Every item is usable furniture (a smart object that people use, with `object`: its name, advertisements,
+# minutes and extras like any row of OBJECTS in main.gd; what you can do with it is in actions.gd), except
+# walls. A prop (decor that's only looked at) is what older saves may still have. Sprites are baked by
+# tools/bake_furniture.gd in 4 rotations.
 #
 # Where you can build: inside your own home (the household of the person you control), on the floor
 # you're on, on free floor tiles (not walls, the stairs, the doorway or the tile inside the door), and
@@ -41,10 +42,10 @@ const ITEMS := {
 		"object": {"name": "Table", "ads": {}, "minutes": 0.0}},
 	"table_large": {"name": "Large table", "category": "Tables", "price": 220, "model": "Table_RoundLarge",
 		"object": {"name": "Table", "ads": {}, "minutes": 0.0}},
-	"coffee_table": {"name": "Coffee table", "category": "Tables", "price": 90, "model": "Table_Coffee"},
-	"desk": {"name": "Desk", "category": "Tables", "price": 150, "model": "Desk"},
-	"nightstand": {"name": "Nightstand", "category": "Tables", "price": 60, "model": "NightStand_1"},
-	"nightstand2": {"name": "Bedside table", "category": "Tables", "price": 70, "model": "NightStand_2"},
+	"coffee_table": {"name": "Coffee table", "category": "Tables", "price": 90, "model": "Table_Coffee", "object": {"name": "Coffee table", "ads": {}, "minutes": 0.0}},
+	"desk": {"name": "Desk", "category": "Tables", "price": 150, "model": "Desk", "object": {"name": "Desk", "ads": {}, "minutes": 0.0}},
+	"nightstand": {"name": "Nightstand", "category": "Tables", "price": 60, "model": "NightStand_1", "object": {"name": "Nightstand", "ads": {}, "minutes": 0.0}},
+	"nightstand2": {"name": "Bedside table", "category": "Tables", "price": 70, "model": "NightStand_2", "object": {"name": "Nightstand", "ads": {}, "minutes": 0.0}},
 	"bed_single": {"name": "Single bed", "category": "Beds", "price": 300, "model": "Bed_Single", "object": BED},
 	"bed_king": {"name": "King bed", "category": "Beds", "price": 650, "model": "Bed_King", "object": BED},
 	"bed_bunk": {"name": "Bunk bed", "category": "Beds", "price": 420, "model": "Bed_Bunk", "object": BED},
@@ -52,40 +53,40 @@ const ITEMS := {
 	"oven": {"name": "Oven", "category": "Kitchen", "price": 400, "model": "Kitchen_Oven", "object": {"name": "Stove", "ads": {}, "minutes": 0.0}},
 	"counter": {"name": "Counter", "category": "Kitchen", "price": 150, "model": "Kitchen_2Drawers", "object": {"name": "Counter", "ads": {}, "minutes": 0.0}},
 	"kitchen_sink": {"name": "Kitchen sink", "category": "Kitchen", "price": 200, "model": "Kitchen_Sink", "object": {"name": "Sink", "ads": {}, "minutes": 0.0}},
-	"cabinet": {"name": "Kitchen cabinet", "category": "Kitchen", "price": 110, "model": "Kitchen_Cabinet1"},
-	"drawers3": {"name": "Kitchen drawers", "category": "Kitchen", "price": 130, "model": "Kitchen_3Drawers"},
+	"cabinet": {"name": "Kitchen cabinet", "category": "Kitchen", "price": 110, "model": "Kitchen_Cabinet1", "object": {"name": "Kitchen cabinet", "ads": {}, "minutes": 0.0}},
+	"drawers3": {"name": "Kitchen drawers", "category": "Kitchen", "price": 130, "model": "Kitchen_3Drawers", "object": {"name": "Kitchen drawers", "ads": {}, "minutes": 0.0}},
 	"toilet": {"name": "Toilet", "category": "Bathroom", "price": 250, "model": "Bathroom_Toilet",
 		"object": {"name": "Toilet", "ads": {"bladder": 90}, "minutes": 3.0}},
 	"bathtub": {"name": "Bathtub", "category": "Bathroom", "price": 500, "model": "Bathroom_Bathtub",
 		"object": {"name": "Shower", "ads": {"hygiene": 80}, "minutes": 10.0, "extras": {"verb": "Bathing", "moodlet": "Freshened up"}}},
 	"bath_sink": {"name": "Bathroom sink", "category": "Bathroom", "price": 120, "model": "Bathroom_Sink",
 		"object": {"name": "Bathroom sink", "ads": {"hygiene": 10}, "minutes": 2.0}},
-	"washer": {"name": "Washing machine", "category": "Bathroom", "price": 350, "model": "Bathroom_WashingMachine"},
-	"lamp_floor": {"name": "Floor lamp", "category": "Lighting", "price": 60, "model": "Light_Floor1"},
-	"lamp_reading": {"name": "Reading lamp", "category": "Lighting", "price": 70, "model": "Light_Floor3"},
-	"lamp_shade": {"name": "Shade lamp", "category": "Lighting", "price": 90, "model": "Light_Stand1"},
-	"lamp_stand": {"name": "Standing lamp", "category": "Lighting", "price": 85, "model": "Light_Stand2"},
-	"plant_fern": {"name": "Fern", "category": "Plants", "price": 25, "model": "Houseplant_1"},
-	"plant_cactus": {"name": "Cactus", "category": "Plants", "price": 20, "model": "Houseplant_3"},
-	"plant_palm": {"name": "Small palm", "category": "Plants", "price": 30, "model": "Houseplant_5"},
-	"plant_big": {"name": "Big leafy plant", "category": "Plants", "price": 45, "model": "Houseplant_7"},
-	"rug": {"name": "Rug", "category": "Rugs", "price": 60, "model": "Carpet_1", "flat": true},
-	"rug_dark": {"name": "Dark rug", "category": "Rugs", "price": 70, "model": "Carpet_2", "flat": true},
-	"rug_round": {"name": "Round rug", "category": "Rugs", "price": 80, "model": "Carpet_Round", "flat": true},
+	"washer": {"name": "Washing machine", "category": "Bathroom", "price": 350, "model": "Bathroom_WashingMachine", "object": {"name": "Washing machine", "ads": {}, "minutes": 0.0}},
+	"lamp_floor": {"name": "Floor lamp", "category": "Lighting", "price": 60, "model": "Light_Floor1", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"lamp_reading": {"name": "Reading lamp", "category": "Lighting", "price": 70, "model": "Light_Floor3", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"lamp_shade": {"name": "Shade lamp", "category": "Lighting", "price": 90, "model": "Light_Stand1", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"lamp_stand": {"name": "Standing lamp", "category": "Lighting", "price": 85, "model": "Light_Stand2", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"plant_fern": {"name": "Fern", "category": "Plants", "price": 25, "model": "Houseplant_1", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"plant_cactus": {"name": "Cactus", "category": "Plants", "price": 20, "model": "Houseplant_3", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"plant_palm": {"name": "Small palm", "category": "Plants", "price": 30, "model": "Houseplant_5", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"plant_big": {"name": "Big leafy plant", "category": "Plants", "price": 45, "model": "Houseplant_7", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"rug": {"name": "Rug", "category": "Rugs", "price": 60, "model": "Carpet_1", "flat": true, "object": {"name": "Rug", "ads": {}, "minutes": 0.0}},
+	"rug_dark": {"name": "Dark rug", "category": "Rugs", "price": 70, "model": "Carpet_2", "flat": true, "object": {"name": "Rug", "ads": {}, "minutes": 0.0}},
+	"rug_round": {"name": "Round rug", "category": "Rugs", "price": 80, "model": "Carpet_Round", "flat": true, "object": {"name": "Rug", "ads": {}, "minutes": 0.0}},
 	"bookshelf": {"name": "Bookshelf", "category": "Storage", "price": 250, "model": "Bookshelf",
 		"object": {"name": "Bookshelf", "ads": {"fun": 35}, "minutes": 45.0, "extras": {"verb": "Reading", "skill": "Logic", "moodlet": "Learned something"}}},
-	"shelf_small": {"name": "Wall shelf", "category": "Storage", "price": 50, "model": "Shelf_Small1"},
-	"shelf_large": {"name": "Tall shelf", "category": "Storage", "price": 140, "model": "Shelf_Large"},
-	"dresser": {"name": "Dresser", "category": "Storage", "price": 160, "model": "Drawer_2"},
-	"dresser_tall": {"name": "Tall dresser", "category": "Storage", "price": 190, "model": "Drawer_4"},
-	"coat_rack": {"name": "Coat rack", "category": "Storage", "price": 35, "model": "Coat_Rack"},
-	"bin": {"name": "Bin", "category": "Storage", "price": 15, "model": "Trashcan_Small1"},
-	"bin_large": {"name": "Large bin", "category": "Storage", "price": 30, "model": "Trashcan_Large"},
+	"shelf_small": {"name": "Wall shelf", "category": "Storage", "price": 50, "model": "Shelf_Small1", "object": {"name": "Shelf", "ads": {}, "minutes": 0.0}},
+	"shelf_large": {"name": "Tall shelf", "category": "Storage", "price": 140, "model": "Shelf_Large", "object": {"name": "Shelf", "ads": {}, "minutes": 0.0}},
+	"dresser": {"name": "Dresser", "category": "Storage", "price": 160, "model": "Drawer_2", "object": {"name": "Dresser", "ads": {}, "minutes": 0.0}},
+	"dresser_tall": {"name": "Tall dresser", "category": "Storage", "price": 190, "model": "Drawer_4", "object": {"name": "Dresser", "ads": {}, "minutes": 0.0}},
+	"coat_rack": {"name": "Coat rack", "category": "Storage", "price": 35, "model": "Coat_Rack", "object": {"name": "Coat rack", "ads": {}, "minutes": 0.0}},
+	"bin": {"name": "Bin", "category": "Storage", "price": 15, "model": "Trashcan_Small1", "object": {"name": "Bin", "ads": {}, "minutes": 0.0}},
+	"bin_large": {"name": "Large bin", "category": "Storage", "price": 30, "model": "Trashcan_Large", "object": {"name": "Bin", "ads": {}, "minutes": 0.0}},
 	"tv": {"name": "TV", "category": "Fun", "price": 350, "model": "TV",
 		"object": {"name": "TV", "ads": {"fun": 60}, "minutes": 30.0, "color": Color(0.3, 0.3, 0.35), "height": 28,
 			"extras": {"verb": "Watching TV", "skill": "Comedy"}}},
-	"radio": {"name": "Radio", "category": "Fun", "price": 45, "model": "Radio"},
-	"teddy": {"name": "Teddy bear", "category": "Fun", "price": 20, "model": "Teddy"},
+	"radio": {"name": "Radio", "category": "Fun", "price": 45, "model": "Radio", "object": {"name": "Radio", "ads": {}, "minutes": 0.0}},
+	"teddy": {"name": "Teddy bear", "category": "Fun", "price": 20, "model": "Teddy", "object": {"name": "Teddy bear", "ads": {}, "minutes": 0.0}},
 	"fireplace": {"name": "Fireplace", "category": "Fun", "price": 800, "model": "",  # no fireplace in the kit: a placeholder box
 		"object": {"name": "Fireplace", "ads": {"fun": 25, "social": 5}, "minutes": 30.0, "color": Color(0.78, 0.6, 0.6), "height": 30, "extras": {"verb": "Relaxing by the fire"}}},
 }
@@ -125,7 +126,7 @@ static func why_not(c: Node2D, id: String, cell: Vector2i, rot: int, f: int) -> 
 			return "Stairs go on the ground floor"
 	if not free_tile(world, b, f, cell):
 		return "Not here"
-	if ITEMS[id].has("object") and not ITEMS[id].object.name in Actions.SEATS and not free_tile(world, b, f, cell + FACING[rot]):
+	if ITEMS[id].has("object") and not ITEMS[id].object.name in Actions.SEATS + Actions.STAND_ON and not free_tile(world, b, f, cell + FACING[rot]):
 		return "The front must be free"
 	return ""
 
@@ -164,15 +165,7 @@ static func place(c: Node2D, id: String, cell: Vector2i, rot: int, f: int, free 
 		node.catalog_id = id
 		c.world.add_prop(node, c.home, f)
 	elif item.has("object"):
-		var o: Dictionary = item.object
-		var extras: Dictionary = o.get("extras", {}).duplicate()
-		if item.model != "":
-			extras.sprite = sprite(id, rot)
-		node = load("res://scripts/smart_object.gd").new().setup(o.name, Vector2(cell), o.ads, o.minutes,
-			o.get("color", Color(0.6, 0.6, 0.6)), o.get("height", 24))
-		node.facing = rot
-		node.with_extras(extras)
-		node.catalog_id = id
+		node = make_object(id, cell, rot)
 		c.world.add_object(node, c.home, f)
 	else:
 		node = load("res://scripts/prop.gd").new().setup(sprite(id, rot), cell, item.get("flat", false))
@@ -182,6 +175,29 @@ static func place(c: Node2D, id: String, cell: Vector2i, rot: int, f: int, free 
 	if not free:
 		c.money -= item.price
 	return node
+
+
+# A usable catalog item as a smart object at `cell`, turned to `rot` (not yet in the world: world.add_object).
+static func make_object(id: String, cell: Vector2i, rot: int) -> Node2D:
+	var item: Dictionary = ITEMS[id]
+	var o: Dictionary = item.object
+	var extras: Dictionary = o.get("extras", {}).duplicate()
+	if item.model != "":
+		extras.sprite = sprite(id, rot)
+	var node: Node2D = load("res://scripts/smart_object.gd").new().setup(o.name, Vector2(cell), o.ads, o.minutes,
+		o.get("color", Color(0.6, 0.6, 0.6)), o.get("height", 24))
+	node.facing = rot
+	node.with_extras(extras)
+	node.catalog_id = id
+	return node
+
+
+# The catalog item baked as `model` (a sprite name without "_r<n>"), "" if none.
+static func id_for_model(model: String) -> String:
+	for id in ITEMS:
+		if ITEMS[id].model == model and model != "":
+			return id
+	return ""
 
 
 # What's on this tile of your home (floor f) that you could sell or move: an object or a prop.
@@ -257,7 +273,7 @@ static func rotate(c: Node2D, thing: Node2D) -> bool:
 		return true
 	var old: int = thing.facing
 	var r := (old + 1) % 4
-	if not thing.is_seat():
+	if not thing.on_tile():
 		var front: Vector2i = Vector2i(thing.grid_pos) + FACING[r]
 		if not free_tile(c.world, thing.building, thing.floor, front):
 			return false

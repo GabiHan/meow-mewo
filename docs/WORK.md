@@ -31,8 +31,12 @@ you're back above zero.
 
 ## Jobs
 
-Jobs work like The Sims' rabbit holes. On a workday at the start time, the worker walks to the
-**Bus stop** (on the street, at (497,511)), disappears to work, and comes back at the end time.
+Jobs work like The Sims' rabbit holes. On a workday at the start time, the worker walks to their **home car**
+(grown-ups with a job, if the car is home: `traffic.gd car_for`), gets in and drives off down the street; or to
+the **Bus stop** (on the street, at (497,511): kids going to school, and anyone whose car is out). They disappear
+to work and come back at the end time: by car, it drives back up the street and parks, and they get out
+(`Jobs.working` waits for it; `traffic.gd parked_back` ends the shift). Clicking the Bus stop's "Go to work"
+takes the car too when it's there.
 
 | Job | Days | Hours | Skill | Level 1 | Level 2 | Level 3 |
 |---|---|---|---|---|---|---|

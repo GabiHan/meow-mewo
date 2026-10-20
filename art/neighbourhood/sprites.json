@@ -1,4 +1,172 @@
 {
+	"car_delivery_r0": {
+		"anchor": [
+			59,
+			83
+		]
+	},
+	"car_delivery_r1": {
+		"anchor": [
+			61,
+			83
+		]
+	},
+	"car_delivery_r2": {
+		"anchor": [
+			61,
+			68
+		]
+	},
+	"car_delivery_r3": {
+		"anchor": [
+			59,
+			68
+		]
+	},
+	"car_hatchback-sports_r0": {
+		"anchor": [
+			54,
+			55
+		]
+	},
+	"car_hatchback-sports_r1": {
+		"anchor": [
+			54,
+			55
+		]
+	},
+	"car_hatchback-sports_r2": {
+		"anchor": [
+			54,
+			46
+		]
+	},
+	"car_hatchback-sports_r3": {
+		"anchor": [
+			54,
+			46
+		]
+	},
+	"car_police_r0": {
+		"anchor": [
+			53,
+			55
+		]
+	},
+	"car_police_r1": {
+		"anchor": [
+			57,
+			55
+		]
+	},
+	"car_police_r2": {
+		"anchor": [
+			57,
+			50
+		]
+	},
+	"car_police_r3": {
+		"anchor": [
+			53,
+			50
+		]
+	},
+	"car_sedan_r0": {
+		"anchor": [
+			50,
+			56
+		]
+	},
+	"car_sedan_r1": {
+		"anchor": [
+			50,
+			56
+		]
+	},
+	"car_sedan_r2": {
+		"anchor": [
+			50,
+			52
+		]
+	},
+	"car_sedan_r3": {
+		"anchor": [
+			50,
+			52
+		]
+	},
+	"car_suv_r0": {
+		"anchor": [
+			52,
+			63
+		]
+	},
+	"car_suv_r1": {
+		"anchor": [
+			48,
+			63
+		]
+	},
+	"car_suv_r2": {
+		"anchor": [
+			48,
+			53
+		]
+	},
+	"car_suv_r3": {
+		"anchor": [
+			52,
+			53
+		]
+	},
+	"car_taxi_r0": {
+		"anchor": [
+			52,
+			57
+		]
+	},
+	"car_taxi_r1": {
+		"anchor": [
+			52,
+			58
+		]
+	},
+	"car_taxi_r2": {
+		"anchor": [
+			52,
+			53
+		]
+	},
+	"car_taxi_r3": {
+		"anchor": [
+			52,
+			53
+		]
+	},
+	"car_van_r0": {
+		"anchor": [
+			52,
+			65
+		]
+	},
+	"car_van_r1": {
+		"anchor": [
+			52,
+			65
+		]
+	},
+	"car_van_r2": {
+		"anchor": [
+			52,
+			59
+		]
+	},
+	"car_van_r3": {
+		"anchor": [
+			52,
+			59
+		]
+	},
 	"house_0_1": {
 		"anchor": [
 			335,
@@ -93,6 +261,24 @@
 		"anchor": [
 			254,
 			252
+		]
+	},
+	"road_crossroad": {
+		"anchor": [
+			96,
+			51
+		]
+	},
+	"road_straight_x": {
+		"anchor": [
+			96,
+			51
+		]
+	},
+	"road_straight_y": {
+		"anchor": [
+			96,
+			51
 		]
 	},
 	"tree_large_Fall": {

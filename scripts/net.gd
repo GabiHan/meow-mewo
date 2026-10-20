@@ -32,7 +32,7 @@ const FAST_SECONDS := 0.1
 const SLOW_SECONDS := 1.0
 const BEACON_SECONDS := 1.0
 const FOUND_SECONDS := 4.0  # a town that stops shouting disappears from the list
-const PERSON_EXTRAS := ["thought", "thought_at", "wish", "wish_why", "wish_until", "napping", "pending_work"]
+const PERSON_EXTRAS := ["thought", "thought_at", "wish", "wish_why", "wish_until", "napping", "pending_work", "busy_talk"]
 
 signal towns_changed  # the list of towns on the Wi-Fi changed (home screen)
 signal offered(households: Array, starter_free: bool)  # the host's households arrived (home screen)

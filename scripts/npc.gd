@@ -20,8 +20,12 @@
 #   queueing -> the next step's object is busy; wait for it (gives up after QUEUE_TIMEOUT)
 #   waiting  -> someone is walking over to talk to us; we stand still (gives up after wait_limit)
 #   talking  -> in a conversation; the initiator's talk_timer ends it via Social.finish()
+#   Someone busy with a task (eating, watching TV, walking to the fridge...) who is talked to keeps doing it
+#   (`busy_talk`): their state stays, the initiator comes to where they are and talks while they carry on. If
+#   their task ends first, they stop and wait (or join the talk); if they walk away, the talk ends.
 #   knocking -> at someone's door waiting for an answer (ownership.gd)
-#   working  -> away at their job (hidden; jobs.gd). They walk to the Bus stop first ("pending_work").
+#   working  -> away at their job (hidden; jobs.gd). They walk to their home car (traffic.gd: it drives them there
+#               and back) or, without one, to the Bus stop first ("pending_work").
 #   down     -> on the floor or bent over (body.gd: tripped, passed out, fainted, throwing up) until pose_until
 #
 # Tasks are lists of steps (run_steps). A step is {object, verb, seconds, ads?, start?, done?}:
@@ -87,6 +91,8 @@ const WAIT_SLACK := 5.0  # a partner waits for the initiator's walking time plus
 const RETHINK_DELAY := 1.0  # after a plan fails (no path), wait this long before thinking again
 const EMOTE_SECONDS := 4.0
 const QUEUE_TIMEOUT := 15.0  # seconds to wait for a busy object before giving up the task
+const TALK_REACH := 1.9  # tiles: close enough to talk to someone busy with a task
+const MAX_CHASES := 3  # an initiator follows a busy partner who moved on this many times
 
 # Toggled with F3 in main.gd: shows every need value above each NPC.
 static var show_details := false
@@ -170,6 +176,7 @@ var job_level := 0
 var performance := 0.0  # 0-100; promotion at 100
 var at_work := false
 var pending_work := false  # walking to the bus stop
+var commute_car: Node2D = null  # their home car, driving them to work and back (traffic.gd); null = the bus
 var shift_day := -1  # game day of the last shift attended
 var missed_day := -1
 var shift_started := 0.0
@@ -191,6 +198,8 @@ var activity_with: Node2D = null
 var partner: Node2D = null
 var interaction := {}
 var is_initiator := false
+var busy_talk := false  # talked to while busy: in the conversation but still doing their task (see header)
+var chases := 0  # times the initiator has walked after a busy partner who moved on
 var talk_timer := 0.0
 var wait_timer := 0.0
 var wait_limit := 0.0  # how long this wait was allowed to last
@@ -322,7 +331,15 @@ func _process(delta: float) -> void:
 	update_work(delta)
 	match state:
 		"idle":
-			if building >= 0 and not world.can_enter(self, building) and think_delay <= 0.0:
+			if busy_talk and partner:  # their task is over: now they stand and talk properly
+				busy_talk = false
+				if partner.state == "talking":
+					state = "talking"
+					activity = "Talking with {who}" if interaction.is_empty() else interaction.verb + " {who}"
+					activity_with = partner
+				else:
+					begin_waiting(partner, WAIT_SLACK * 4.0)
+			elif building >= 0 and not world.can_enter(self, building) and think_delay <= 0.0:
 				leave_building()
 			elif think_delay <= 0.0:
 				think()
@@ -368,7 +385,10 @@ func _process(delta: float) -> void:
 			if wait_timer <= 0.0:
 				end_social()
 		"talking":
-			if is_initiator:
+			if partner and partner.busy_talk and not interaction.is_empty() and grid_pos.distance_to(partner.grid_pos) > TALK_REACH + 1.0:
+				show_emote("\"Never mind.\"", partner)
+				end_social()  # they walked off with what they were doing
+			elif is_initiator:
 				talk_timer -= delta
 				if talk_timer <= 0.0:
 					Social.finish(self, partner, interaction)
@@ -444,6 +464,8 @@ func arrive() -> void:
 		start_peeking(pending_peek)
 	elif pending_work:
 		pending_work = false
+		if commute_car:
+			world.traffic.drive_off(commute_car, self)
 		Jobs.start_shift(self)
 	elif pending_knock >= 0:
 		var b := pending_knock
@@ -456,6 +478,13 @@ func arrive() -> void:
 		use_timer = step.seconds
 		activity = step.verb
 	elif partner:
+		if partner.busy_talk and grid_pos.distance_to(partner.grid_pos) > TALK_REACH:
+			chases += 1  # they moved on with their task: follow them a little
+			if chases > MAX_CHASES or not walk_to(world.free_neighbor(partner.cell(), partner.floor, cell()), partner.floor):
+				activity = "Couldn't catch {who}"
+				activity_with = partner
+				end_social()
+			return
 		Social.begin(self, partner, interaction)
 	else:
 		state = "idle"
@@ -701,17 +730,33 @@ func time_for_work() -> void:
 		Social.log_event("{a} should leave for %s: click the Bus stop" % ("school" if school else "work"), self, self)
 
 
-# Drop everything and head for the bus stop.
+# Drop everything and head for the home car (grown-ups with a job, if it's there) or the bus stop.
 func go_to_work() -> bool:
 	if partner:
 		end_social()
 	drop_task()
+	var car: Node2D = world.traffic.car_for(self) if world.traffic else null
+	if car and walk_to(world.free_neighbor(car.park_cell, 0, cell()), 0):
+		car.driver = self  # theirs until they've driven off
+		commute_car = car
+		pending_work = true
+		activity = "Going to work"
+		return true
+	let_go_of_car()
 	var stop := bus_stop()
 	if stop == null or not walk_to(stop.use_cell(), 0):
 		return false
 	pending_work = true
 	activity = "Going to school" if Jobs.is_school(job) else "Going to work"
 	return true
+
+
+# Not driving after all (a new order, or no way to the car): the car is free for someone else.
+func let_go_of_car() -> void:
+	if commute_car and not at_work:
+		if commute_car.driver == self:
+			commute_car.driver = null
+		commute_car = null
 
 
 func bus_stop() -> Node2D:
@@ -773,8 +818,8 @@ func on_invited(b: int) -> void:
 
 # Objects in your own home, or outdoors, are fair game. Other people's fridges are not.
 func may_use(obj: Node2D) -> bool:
-	if Ages.stage(self) <= Ages.TODDLER and not obj.object_name in ["Bed", "Crib", "TV"]:
-		return false  # little ones only sleep and watch TV by themselves
+	if Ages.stage(self) <= Ages.TODDLER and not obj.object_name in ["Bed", "Crib", "TV", "Teddy bear"]:
+		return false  # little ones only sleep, watch TV and cuddle their teddy by themselves
 	return obj.building < 0 or obj.building == home
 
 
@@ -877,16 +922,36 @@ func is_available() -> bool:
 	return partner == null and target_object == null and steps.is_empty() and state in ["idle", "walking"]
 
 
+# Busy with a task (using something, or on the way to it): talked to, they carry on (busy_talk).
+func has_task() -> bool:
+	return target_object != null or not steps.is_empty() or state in ["using", "queueing"]
+
+
 func start_social(other: Node2D, i: Dictionary) -> bool:
-	if not walk_to(world.free_neighbor(other.cell(), other.floor, cell()), other.floor):
+	var busy: bool = other.has_task()
+	var meet: Vector2i = other.target_object.use_cell() if busy and other.target_object else other.cell()
+	var meet_floor: int = other.target_object.floor if busy and other.target_object else other.floor
+	if not walk_to(world.free_neighbor(meet, meet_floor, cell()), meet_floor):
 		return false
 	partner = other
 	interaction = i
 	is_initiator = true
-	other.begin_waiting(self, path.size() * 1.5 / maxf(walk_speed(), 0.1) + WAIT_SLACK)
+	chases = 0
+	if busy:
+		other.join_while_busy(self)
+	else:
+		other.begin_waiting(self, path.size() * 1.5 / maxf(walk_speed(), 0.1) + WAIT_SLACK)
 	activity = "Going to talk to {who}"
 	activity_with = other
 	return true
+
+
+# Talked to while busy: in the conversation, but they keep doing their task (state, path and step stay).
+func join_while_busy(initiator: Node2D) -> void:
+	stop_peeking()
+	partner = initiator
+	is_initiator = false
+	busy_talk = true
 
 
 func begin_waiting(initiator: Node2D, limit: float) -> void:
@@ -908,7 +973,9 @@ func end_social() -> void:
 	partner = null
 	interaction = {}
 	is_initiator = false
-	if state in ["waiting", "talking", "walking"]:
+	var was_busy := busy_talk
+	busy_talk = false
+	if not was_busy and state in ["waiting", "talking", "walking"]:  # someone busy just carries on
 		state = "idle"
 		activity = "Idle"
 		path = []
@@ -1079,8 +1146,13 @@ func stop_peeking(reason := "Idle") -> void:
 
 # Your order: start an interaction. You can interrupt someone walking somewhere, but not someone
 # using an object or already in a conversation.
+# Busy people (using something, or on their way to) aren't interrupted: they talk while they carry on.
 func order_interaction(other: Node2D, i: Dictionary) -> void:
-	if other.partner != null or other.state not in ["idle", "walking"]:
+	if other.state == "using" and other.step.get("asleep", false):
+		activity = "{who} is asleep"
+		activity_with = other
+		return
+	if other.partner != null or other.pose != "" or other.state not in ["idle", "walking", "using", "queueing"]:
 		activity = "{who} is busy"
 		activity_with = other
 		return
@@ -1101,6 +1173,7 @@ func cancel_current() -> void:
 		end_social()
 	drop_task()
 	stop_peeking()
+	let_go_of_car()
 	pending_knock = -1
 	knock_building = -1
 	path = []

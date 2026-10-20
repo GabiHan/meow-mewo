@@ -61,6 +61,8 @@ func with_extras(extras: Dictionary) -> Node2D:
 
 func _ready() -> void:
 	add_to_group("smart_objects")
+	if object_name in Actions.STAND_ON:
+		z_index = -1  # a rug: on the floor, under people and furniture
 	position = Iso.to_screen(grid_pos)
 	label = Label.new()
 	label.text = object_name
@@ -95,13 +97,18 @@ func _process(delta: float) -> void:
 	label.position = Vector2(-20, -box_height - 34 - 17 * items.size())
 
 
-# The tile you stand on to use the object: the one in front of it (seats: the seat itself).
+# The tile you stand on to use the object: the one in front of it (seats and rugs: the object itself).
 func use_cell() -> Vector2i:
-	return Vector2i(grid_pos) if is_seat() else Vector2i(grid_pos) + FACING[facing]
+	return Vector2i(grid_pos) if on_tile() else Vector2i(grid_pos) + FACING[facing]
 
 
 func is_seat() -> bool:
 	return object_name in Actions.SEATS
+
+
+# Used on its own tile (seats, rugs), which stays walkable.
+func on_tile() -> bool:
+	return is_seat() or object_name in Actions.STAND_ON
 
 
 # Turn it to face another way (build mode): its front tile and sprite follow.

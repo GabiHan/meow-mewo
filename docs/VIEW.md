@@ -10,6 +10,7 @@ Like Project Zomboid: you look down on the whole neighbourhood, but you only *se
 | The house you're in | Opened up: the floor you're on (tiles, cut-down walls, furniture), no roof or exterior |
 | Other houses | From outside (their exterior), dimmed like everything else you can't see right now |
 | People | Only while your sim can see them (`vision.sees()`), never inside another house (unless you're peeking in through its window) |
+| Cars | Driving: only while your sim can see them, like people. Parked: always (scenery, veiled like trees) |
 | Out of sight | A soft veil: light over places you remember, thicker over places you've never seen. Lavender grey by day, deep blue at night, white in fog |
 
 Furniture names only appear on mouse-over, and strangers show nothing above their heads (see README).

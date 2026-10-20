@@ -19,6 +19,7 @@ const SmartObject = preload("res://scripts/smart_object.gd")
 const Npc = preload("res://scripts/npc.gd")
 const Controller = preload("res://scripts/controller.gd")
 const Prop = preload("res://scripts/prop.gd")
+const Catalog = preload("res://scripts/catalog.gd")
 const BuildMode = preload("res://scripts/build_mode.gd")
 const Session = preload("res://scripts/session.gd")
 const SaveGame = preload("res://scripts/save_game.gd")
@@ -61,22 +62,24 @@ const FURNITURE := {
 	"Toilet": "Bathroom_Toilet_r0", "Bookshelf": "Bookshelf_r0", "TV": "TV_r0",
 }
 
-# Decoration in your house (not usable; usable furniture is in OBJECTS): [sprite, building, floor, tile, flat].
-# Props block their tile, so keep doors, stairs and the tiles in front of objects free.
+# Furnishing in your house: [sprite, building, floor, tile, flat]. Each becomes the catalog item baked as that
+# model (catalog.gd), usable like anything bought in build mode (actions.gd); a model the catalog doesn't have
+# stays a prop (only looked at). They block their tile (rugs don't) and their front tile must stay free, so keep
+# doors, stairs and the tiles in front of objects free.
 const PROPS := [
 	["Kitchen_Cabinet1_r0", 0, 0, Vector2i(484, 500), false],
 	["Carpet_1_r0", 0, 0, Vector2i(491, 502), true],
 	["Houseplant_1_r0", 0, 0, Vector2i(492, 500), false],
 	["Light_Stand1_r0", 0, 0, Vector2i(492, 503), false],
-	["Houseplant_5_r0", 0, 0, Vector2i(483, 507), false],
+	["Houseplant_5_r1", 0, 0, Vector2i(483, 507), false],
 	["Trashcan_Small1_r0", 0, 0, Vector2i(489, 500), false],
 	["NightStand_1_r0", 0, 1, Vector2i(487, 500), false],
 	["Light_Floor1_r0", 0, 1, Vector2i(489, 500), false],
 	["Carpet_Round_r0", 0, 1, Vector2i(488, 503), true],
 	["Couch_Small1_r2", 0, 1, Vector2i(486, 506), false],
-	["Drawer_2_r0", 0, 1, Vector2i(490, 507), false],
-	["Houseplant_3_r0", 0, 1, Vector2i(492, 507), false],
-	["Shelf_Small1_r0", 0, 1, Vector2i(484, 507), false],
+	["Drawer_2_r2", 0, 1, Vector2i(490, 507), false],
+	["Houseplant_3_r2", 0, 1, Vector2i(492, 507), false],
+	["Shelf_Small1_r2", 0, 1, Vector2i(484, 507), false],
 ]
 
 # [name, building, floor, tile, advertisements {need: amount restored}, seconds to use, color, box height, extras?]
@@ -263,7 +266,11 @@ func place_furniture() -> void:
 		var obj: Node2D = SmartObject.new().setup(o[0], o[3], o[4], o[5], o[6], o[7])
 		world.add_object(obj.with_extras(extras), o[1], o[2])
 	for p in PROPS:
-		world.add_prop(Prop.new().setup(p[0], p[3], p[4]), p[1], p[2])
+		var id := Catalog.id_for_model(p[0].substr(0, p[0].rfind("_r")))
+		if id != "" and Catalog.ITEMS[id].has("object"):
+			world.add_object(Catalog.make_object(id, p[3], int(p[0].substr(p[0].rfind("_r") + 2))), p[1], p[2])
+		else:
+			world.add_prop(Prop.new().setup(p[0], p[3], p[4]), p[1], p[2])
 
 
 # The people who live on the street at the start. Returns Jo.

@@ -373,12 +373,13 @@ static func accept_chance(a: Node2D, b: Node2D, i: Dictionary) -> float:
 static func begin(a: Node2D, b: Node2D, i: Dictionary) -> void:
 	if randf() < accept_chance(a, b, i):
 		a.state = "talking"
-		b.state = "talking"
 		a.talk_timer = i.duration
 		a.activity = i.verb + " {who}"
 		a.activity_with = b
-		b.activity = i.verb + " {who}"
-		b.activity_with = a
+		if not b.busy_talk:  # someone busy keeps doing what they were doing while they talk (npc.gd)
+			b.state = "talking"
+			b.activity = i.verb + " {who}"
+			b.activity_with = a
 		var line := line_for(a, b, i)
 		a.show_emote("\"%s\"" % line, b)
 		var llm := a.get_tree().get_first_node_in_group("llm")

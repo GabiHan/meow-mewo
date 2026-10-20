@@ -181,7 +181,14 @@ static func make_object(world: Node2D, o: Dictionary) -> Node2D:
 	return obj
 
 
+# Older saves have furniture as props (only looked at): it comes back as the usable catalog item.
 static func make_prop(world: Node2D, p: Dictionary) -> Node2D:
+	var Catalog: GDScript = load("res://scripts/catalog.gd")
+	var id: String = p.catalog_id if p.catalog_id != "" else Catalog.id_for_model(p.sprite.substr(0, p.sprite.rfind("_r")))
+	if not p.get("wall", false) and id != "" and Catalog.ITEMS[id].has("object"):
+		var obj: Node2D = Catalog.make_object(id, p.cell, p.rotation)
+		world.add_object(obj, p.building, p.floor)
+		return obj
 	var prop: Node2D = Prop.new().setup(p.sprite, p.cell, p.flat, p.get("wall", false))
 	prop.catalog_id = p.catalog_id
 	prop.rotation_index = p.rotation

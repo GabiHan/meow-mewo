@@ -30,6 +30,7 @@ const Session = preload("res://scripts/session.gd")
 const DAY := 24 * 60.0  # real seconds (world.clock) per game day
 const Iso = preload("res://scripts/iso.gd")
 const Furniture = preload("res://scripts/furniture.gd")
+const Traffic = preload("res://scripts/traffic.gd")
 const Block = preload("res://scripts/block.gd")
 const SIM_SECONDS := 900.0
 
@@ -48,6 +49,7 @@ var emotions_seen := {}  # emotion -> true, felt by anyone during the run
 var start_xp := {}  # npc_name -> total skill xp at the start
 var last_building := {}  # character -> building last frame
 var trespasses := 0  # times someone walked into a building they weren't allowed in
+var socials_seen := {}  # completed interactions ("→" events) seen in the event log during the run
 var knocks := 0
 var went_to_work := {}  # npc_name -> true
 var start_needs := {}
@@ -101,7 +103,7 @@ func check_world() -> void:
 			blocked.append("%s in %s" % [o.object_name, w.BUILDINGS[o.building].name])
 	check(blocked.is_empty(), "furniture doesn't block anything: every object can be reached from its front door %s" % [blocked])
 	var sprites := main.get_tree().get_nodes_in_group("smart_objects").filter(func(o): return o.sprite != "")
-	check(sprites.size() >= 20 and main.world.floor_nodes[0][0].get_children().any(func(n): return "flat" in n),
+	check(sprites.size() >= 20 and main.world.floor_nodes[0][0].get_children().any(func(n): return n.get("object_name") == "Rug"),
 		"3D furniture sprites are used (%d objects) and your house is decorated" % sprites.size())
 
 
@@ -688,7 +690,7 @@ func check_build() -> void:
 	check(not Catalog.rotate(player, fridge) and fridge.facing == 0, "you can't turn the fridge to face the counter")
 	check(Catalog.rotate(player, couch) and couch.facing == 3 and couch.sprite != couch_sprite, "rotating the couch turns its sprite")
 	var corner_plant := Catalog.thing_at(player, Vector2i(483, 507), 0)
-	check(corner_plant != null and Catalog.rotate(player, corner_plant) and corner_plant.rotation_index == 1, "decor can be rotated too")
+	check(corner_plant != null and Catalog.rotate(player, corner_plant) and corner_plant.facing == 2, "decor can be rotated too")
 	main.build.toggle()
 	var opened: bool = main.build.active and main.paused
 	main.build.toggle()
@@ -832,6 +834,48 @@ func set_time(day: int, hour: float) -> void:
 	main.world.clock = (day * 86400.0 + hour * 3600.0 - GameTime.START_HOUR * 3600.0) / 60.0 / GameTime.MINUTES_PER_SECOND
 
 
+# Driving to work in the home car (traffic.gd), and the bus when the car is out.
+func check_commute() -> void:
+	var w: Node2D = main.world
+	var car: Node2D = w.traffic.home_car(0)
+	reset(player, Vector2(488, 504))
+	player.auto_mode = false
+	player.money = 300
+	set_time(22, 6.0)  # a Tuesday
+	Jobs.take_job(player, "Café")
+	set_time(22, 8.2)
+	check(car.mode == "parked" and not w.is_walkable(car.park_cell, 0) and not w.is_walkable(car.park_cell + Vector2i(1, 0), 0),
+		"your home car is parked on the front yard (its two tiles are solid)")
+	player.go_to_work()
+	check(player.commute_car == car and car.driver == player and player.pending_work, "with a job and the car home, you walk to the car")
+	player.follow_path(100.0)
+	check(player.at_work and car.mode == "route" and w.is_walkable(car.park_cell, 0), "you get in and drive off down the street")
+	for n in 600:
+		if car.mode == "away":
+			break
+		car.drive(0.1, w.traffic)
+	check(car.mode == "away", "the car is away while you work")
+	set_time(22, 14.0)
+	player._process(0.0)
+	check(player.at_work and car.mode == "route", "at the end of the shift the car drives back")
+	for n in 600:
+		if car.mode == "parked":
+			break
+		car.drive(0.1, w.traffic)
+	check(not player.at_work and car.mode == "parked" and player.money > 300 and player.commute_car == null
+		and player.grid_pos.distance_to(car.grid_pos) < 2.5 and not w.is_walkable(car.park_cell, 0),
+		"it parks and you get out, home from work and paid ($%d)" % (player.money - 300))
+	var sam := person("Sam")
+	reset(sam, Vector2(490, 503))
+	Jobs.take_job(sam, "Café")
+	car.mode = "away"
+	sam.go_to_work()
+	check(sam.commute_car == null and sam.pending_work, "when the car is out, the bus it is")
+	car.mode = "parked"
+	reset(sam, Vector2(490, 503))
+	reset(player, Vector2(488, 504))
+
+
 # Jobs, shifts, pay, performance, promotion, prices and bills.
 func check_jobs() -> void:
 	var w: Node2D = main.world
@@ -848,6 +892,8 @@ func check_jobs() -> void:
 	player._process(0.0)
 	check(Jobs.should_work(player, w.now()) and player.reminded_day == 15 and player.state == "idle",
 		"Manual mode: at 08:00 you get a reminder, you don't go by yourself")
+	var car: Node2D = w.traffic.home_car(0)
+	car.mode = "away"  # the bus this time (driving: check_commute)
 	player.go_to_work()
 	player.follow_path(100.0)
 	w.update_view()
@@ -857,6 +903,7 @@ func check_jobs() -> void:
 	check(not player.at_work and player.money == 300 + int(round(5.8 * 15)) and Emotions.has(player, "Payday") and player.performance > 0.0,
 		"at 14:00 you come back paid for the hours worked ($%d) with better performance (%d)" % [player.money - 300, player.performance])
 	check(not Jobs.should_work(player, w.now()), "one shift per day")
+	car.mode = "parked"
 
 	var perf: float = player.performance
 	set_time(16, 13.6)
@@ -1453,6 +1500,75 @@ func check_art() -> void:
 	check(not trees.is_empty() and trees.all(func(t): return t.has_sprite), "trees show their baked sprites (%d)" % trees.size())
 
 
+# Roads and cars (traffic.gd, car.gd): lanes, stopping for people, turning at crossroads, parked cars.
+func check_traffic() -> void:
+	var w: Node2D = main.world
+	var t: Node2D = w.traffic
+	for n in 60:
+		t.spawn()
+	var moving: Array = t.cars.filter(func(c): return c.mode == "traffic")
+	check(not moving.is_empty() and moving.all(func(c): return World.is_road(c.cell)), "traffic: cars drive along the roads near you (%d)" % moving.size())
+	var car: Node2D = t.add_car("sedan", Vector2(500, Traffic.road_centre(513.0) + Traffic.LANE), Vector2(1, 0))
+	car.mode = "traffic"
+	t.plan_turn(car)
+	var sam := person("Sam")
+	reset(sam, car.grid_pos + Vector2(1.0, 0.0))
+	var before: Vector2 = car.grid_pos
+	car.drive(0.1, t)
+	check(car.grid_pos == before, "a car stops for someone in front of it")
+	reset(sam, Vector2(490, 503))
+	car.drive(0.1, t)
+	check(car.grid_pos.x > before.x, "and drives on when they've gone")
+	var on_road := true
+	var turned := false
+	for n in 400:
+		car.drive(0.05, t)
+		on_road = on_road and World.is_road(car.cell)
+		turned = turned or car.dir != Vector2(1, 0)
+	check(on_road, "through the crossroads a car stays on the road (heading %s, turned: %s)" % [car.dir, turned])
+	t.cars.erase(car)
+	car.queue_free()
+	var pieces: Array = w.road_pieces(Vector2i(513, 513) / w.CHUNK)
+	check(pieces.any(func(p): return p[0] == "road_crossroad") and pieces.any(func(p): return p[0].begins_with("road_straight")),
+		"roads are drawn with the road kit (crossroads and straight pieces)")
+	var some: Array = w.parked_cells.keys().slice(0, 20)
+	check(w.street_cars.size() > 50 and some.all(func(c): return not w.is_walkable(c, 0)),
+		"cars are parked along the streets all over town (%d chunks), and you walk around them" % w.street_cars.size())
+
+
+# Talking to someone busy doesn't interrupt them: they keep doing it while you talk; sleepers aren't bothered.
+func check_busy_talk() -> void:
+	var sam := person("Sam")
+	var tv := object_named("TV", 0)
+	reset(sam, Vector2(490, 503))
+	reset(player, Vector2(488, 504))
+	Social.change_friendship(sam, player, 100.0)  # so Sam says yes
+	sam.use_object(tv, Actions.ACTIONS.TV[0])
+	sam.follow_path(20.0)
+	check(sam.state == "using" and sam.target_object == tv, "Sam is watching TV")
+	player.order_interaction(sam, Social.INTERACTIONS[0])
+	check(player.partner == sam and sam.partner == player and sam.busy_talk and sam.state == "using" and sam.target_object == tv,
+		"ordering a chat with someone busy: they keep watching TV")
+	player.follow_path(20.0)
+	var talked: bool = player.state == "talking"
+	check(player.grid_pos.distance_to(sam.grid_pos) <= sam.TALK_REACH and sam.state == "using" and (talked or player.partner == null),
+		"you come over and talk to Sam while Sam keeps watching (talking: %s)" % talked)
+	if player.partner == sam:
+		Social.finish(player, sam, player.interaction)
+	check(player.partner == null and sam.partner == null and not sam.busy_talk and sam.state == "using" and sam.target_object == tv,
+		"after the chat, Sam is still watching TV")
+	var bed := object_named("Bed", 0)
+	reset(sam, Vector2(488, 501))
+	sam.floor = 1
+	sam.use_object(bed, Actions.ACTIONS.Bed[0])
+	sam.follow_path(20.0)
+	player.floor = 1
+	player.order_interaction(sam, Social.INTERACTIONS[0])
+	check(sam.state == "using" and sam.partner == null and player.partner == null, "you don't chat with someone asleep")
+	reset(sam, Vector2(490, 503))
+	reset(player, Vector2(488, 504))
+
+
 func check_peeking() -> void:
 	var w: Node2D = main.world
 	var alex: Node2D = npcs().filter(func(c): return c.npc_name == "Alex")[0]
@@ -1581,6 +1697,9 @@ func _process(delta: float) -> bool:
 			knocks += 1
 		if c.state == "using" and c.step.get("verb") == "Sleeping":
 			slept[c.npc_name] = "night" if GameTime.is_night(main.world.now()) else "day"
+	for e in Social.event_log:  # the log only keeps the last few: collect them as they come
+		if "→" in e.text:
+			socials_seen[e] = true
 	if t > 0.5:
 		check_view()
 
@@ -1604,7 +1723,8 @@ func _process(delta: float) -> bool:
 			phase = 2
 			friendship_before = Social.friendship(player, npc)
 			player.order_interaction(npc, Social.INTERACTIONS[0])
-			check(player.partner == npc and npc.state == "waiting", "ordering a chat makes %s wait for you" % npc.npc_name)
+			check(player.partner == npc and (npc.state == "waiting" or npc.busy_talk),
+				"ordering a chat makes %s wait for you (or carry on with what they're doing)" % npc.npc_name)
 
 	# Phase 2: conversation resolves (completed or rejected) and friendship changes.
 	if phase == 2 and player.partner == null:
@@ -1648,8 +1768,7 @@ func _process(delta: float) -> bool:
 		check(not learned.is_empty(), "people practised skills on their own: %s" % [learned.map(func(c): return c.npc_name)])
 		var remembered := chars.filter(func(c): return not c.memories.is_empty())
 		check(not remembered.is_empty(), "people remember things about each other: %s" % [remembered.map(func(c): return c.npc_name)])
-		var completed := Social.event_log.filter(func(e): return "→" in e.text)
-		check(completed.size() > 0, "NPCs completed social interactions (%d in last log)" % completed.size())
+		check(socials_seen.size() > 0, "NPCs completed social interactions (%d during the run)" % socials_seen.size())
 		print("\nLast social events:\n  " + "\n  ".join(Social.event_log.map(func(e): return Social.format_event(e, null))))
 		print("\nFinal state after %d simulated minutes:" % int(SIM_SECONDS / 60))
 		for c in chars:
@@ -1664,6 +1783,7 @@ func _process(delta: float) -> bool:
 		check_people()
 		check_ownership()
 		check_jobs()
+		check_commute()
 		check_life()
 		check_romance()
 		check_everyday()
@@ -1673,6 +1793,8 @@ func _process(delta: float) -> bool:
 		check_kitchen()
 		check_streaming()
 		check_art()
+		check_busy_talk()
+		check_traffic()
 		check_peeking()
 		check_llm()
 		check_vision()
