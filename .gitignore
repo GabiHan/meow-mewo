@@ -2,3 +2,11 @@
 *.import
 export/
 assets/*.zip
+# Kenney kits: only the GLB models (and textures, licences) are used; the other formats stay local
+assets/kenney/*/Models/FBX format/
+assets/kenney/*/Models/OBJ format/
+assets/kenney/*/Models/DAE format/
+assets/kenney/*/Models/STL format/
+assets/kenney/*/Previews/
+assets/kenney/furniture/Isometric/
+assets/kenney/furniture/Side/

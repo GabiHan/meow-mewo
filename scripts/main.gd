@@ -53,12 +53,12 @@ const ZOOM_MAX := 1.5
 # Buildings are indexes into World.BUILDINGS: 0 = your house, 1 = Alex's, 2 = Riley's, -1 = outdoors.
 const BOOKSHELF := {"verb": "Reading", "skill": "Logic", "moodlet": "Learned something"}
 
-# Furniture sprites (furniture.gd, baked from assets/furniture_obj by tools/bake_furniture.gd) for each
+# Furniture sprites (furniture.gd, baked from assets/kenney/furniture by tools/bake_furniture.gd) for each
 # object type; an object's extras can override it with "sprite". Objects not listed keep a placeholder box.
 const FURNITURE := {
 	"Fridge": "Kitchen_Fridge_r0", "Counter": "Kitchen_2Drawers_r0", "Stove": "Kitchen_Oven_r0", "Sink": "Kitchen_Sink_r0",
 	"Table": "Table_RoundSmall_r0", "Bed": "Bed_Single_r0", "Crib": "Bed_Single_r0", "Shower": "Bathroom_Bathtub_r0",
-	"Toilet": "Bathroom_Toilet_r0", "Bookshelf": "Bookshelf_r0",
+	"Toilet": "Bathroom_Toilet_r0", "Bookshelf": "Bookshelf_r0", "TV": "TV_r0",
 }
 
 # Decoration in your house (not usable; usable furniture is in OBJECTS): [sprite, building, floor, tile, flat].
@@ -139,7 +139,7 @@ const OBJECTS := [
 	["Bed", 3, 0, Vector2(503, 519), {"energy": 100}, 420.0, Color.WHITE, 14],
 	["Bed", 3, 0, Vector2(505, 519), {"energy": 100}, 420.0, Color.WHITE, 14],
 	["Toilet", 3, 0, Vector2(499, 524), {"bladder": 90}, 3.0, Color.WHITE, 20],
-	["Shower", 3, 0, Vector2(506, 524), {"hygiene": 80}, 10.0, Color.WHITE, 36],
+	["Shower", 3, 0, Vector2(505, 524), {"hygiene": 80}, 10.0, Color.WHITE, 36],
 	["TV", 3, 0, Vector2(504, 523), {"fun": 60}, 30.0, Color(0.656, 0.626, 0.671), 28],
 
 	["Bench", -1, 0, Vector2(500, 516), {"fun": 25}, 15.0, Color(0.865, 0.720, 0.748), 12],

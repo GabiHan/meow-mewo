@@ -41,6 +41,8 @@ const ITEMS := {
 		"object": {"name": "Table", "ads": {}, "minutes": 0.0}},
 	"table_large": {"name": "Large table", "category": "Tables", "price": 220, "model": "Table_RoundLarge",
 		"object": {"name": "Table", "ads": {}, "minutes": 0.0}},
+	"coffee_table": {"name": "Coffee table", "category": "Tables", "price": 90, "model": "Table_Coffee"},
+	"desk": {"name": "Desk", "category": "Tables", "price": 150, "model": "Desk"},
 	"nightstand": {"name": "Nightstand", "category": "Tables", "price": 60, "model": "NightStand_1"},
 	"nightstand2": {"name": "Bedside table", "category": "Tables", "price": 70, "model": "NightStand_2"},
 	"bed_single": {"name": "Single bed", "category": "Beds", "price": 300, "model": "Bed_Single", "object": BED},
@@ -76,13 +78,16 @@ const ITEMS := {
 	"shelf_large": {"name": "Tall shelf", "category": "Storage", "price": 140, "model": "Shelf_Large"},
 	"dresser": {"name": "Dresser", "category": "Storage", "price": 160, "model": "Drawer_2"},
 	"dresser_tall": {"name": "Tall dresser", "category": "Storage", "price": 190, "model": "Drawer_4"},
+	"coat_rack": {"name": "Coat rack", "category": "Storage", "price": 35, "model": "Coat_Rack"},
 	"bin": {"name": "Bin", "category": "Storage", "price": 15, "model": "Trashcan_Small1"},
 	"bin_large": {"name": "Large bin", "category": "Storage", "price": 30, "model": "Trashcan_Large"},
-	"tv": {"name": "TV", "category": "Fun", "price": 350, "model": "",
+	"tv": {"name": "TV", "category": "Fun", "price": 350, "model": "TV",
 		"object": {"name": "TV", "ads": {"fun": 60}, "minutes": 30.0, "color": Color(0.3, 0.3, 0.35), "height": 28,
 			"extras": {"verb": "Watching TV", "skill": "Comedy"}}},
-	"fireplace": {"name": "Fireplace", "category": "Fun", "price": 800, "model": "Fireplace",
-		"object": {"name": "Fireplace", "ads": {"fun": 25, "social": 5}, "minutes": 30.0, "extras": {"verb": "Relaxing by the fire"}}},
+	"radio": {"name": "Radio", "category": "Fun", "price": 45, "model": "Radio"},
+	"teddy": {"name": "Teddy bear", "category": "Fun", "price": 20, "model": "Teddy"},
+	"fireplace": {"name": "Fireplace", "category": "Fun", "price": 800, "model": "",  # no fireplace in the kit: a placeholder box
+		"object": {"name": "Fireplace", "ads": {"fun": 25, "social": 5}, "minutes": 30.0, "color": Color(0.78, 0.6, 0.6), "height": 30, "extras": {"verb": "Relaxing by the fire"}}},
 }
 
 const FACING := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]  # rotation -> front tile direction

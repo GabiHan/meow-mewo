@@ -2,6 +2,31 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-10-20 — Kenney art: characters, furniture and the neighbourhood's houses
+- **Assets:** the Kenney kits (Mini Characters, Furniture Kit, City Kit (Suburban), CC0) unzipped in `assets/kenney/`;
+  only their GLBs are imported (`.gdignore` in the FBX/OBJ/DAE/STL and preview folders). The old Quaternius packs
+  (`assets/characters`, `assets/furniture_obj`, the four zips) are deleted.
+- **Characters** (`tools/bake_characters.gd`, rewritten): each look is a kit model (`looks.gd` `model`), posed by
+  sampling its own animations (`POSES`: idle, walk, sit, static for bed, sprint, pick-up, die) instead of turning
+  bones and painting clothes. Same sheet layout (8 × 13, 96×112, feet at (48, 100)), so npc.gd is unchanged.
+  New look `kai` (household creator). Labels describe the new models.
+- **Furniture** (`tools/bake_furniture.gd`): sprite ids stay the game's names (saves, catalog, PROPS keep working);
+  `MODELS` maps each to kit model(s), stacked (lamp on a side table, TV on its cabinet). Kit colours, softened, instead
+  of tinting. The TV finally has a model; the fireplace is a placeholder box (no fireplace in the kit). New catalog
+  decor: coffee table, desk, coat rack, radio, teddy bear.
+- **Neighbourhood** (`tools/bake_neighbourhood.gd`, new → `art/neighbourhood`): houses from the suburban kit, two
+  models per building (`models`: one / two storeys), turned to the door, stretched over the rect, palette repainted
+  in the house's wall and roof colours, plus a snowy winter version; trees in each season's leaf colour.
+  `world.gd build_exterior` cuts the house sprite into 16 px strips y-sorted at the front wall; the per-tile boxes
+  stay as invisible click areas (`Block.under_sprite`) that still draw closed curtains. Winter rebuilds exteriors.
+- **Doors moved to match the models:** your house (487,508) → (485,508); Starter house (507,522) → (507,525), and its
+  shower (506,524) → (505,524) so the tile inside the door stays free.
+- `furniture.gd` takes a folder (`Furniture.SCENERY` for the neighbourhood).
+- Tests: `check_art()` (everything baked, houses are strips over click boxes, strips sort behind people at the door,
+  snowy winter roofs, trees have sprites); door cells updated.
+- **Watch out:** `check_online.gd` failed once on "Mia stops to talk with Alex" (a 4 s walk timing) and passed 3 times
+  after; looks like an old timing flake. Re-bake houses after changing a building's rect, colours or models.
+
 ## 2026-10-20 — Zomboid-style sight, light and weather; strangers stay strangers
 - **Strangers:** nothing above the head of someone you haven't talked to (then `Name - Mood`); their menu shows no
   feeling, traits or thought; the relationships drawer says only "You haven't met yet"; you don't hear them talking

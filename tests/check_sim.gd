@@ -29,6 +29,7 @@ const SaveGame = preload("res://scripts/save_game.gd")
 const Session = preload("res://scripts/session.gd")
 const DAY := 24 * 60.0  # real seconds (world.clock) per game day
 const Iso = preload("res://scripts/iso.gd")
+const Furniture = preload("res://scripts/furniture.gd")
 const Block = preload("res://scripts/block.gd")
 const SIM_SECONDS := 900.0
 
@@ -79,7 +80,7 @@ func object_named(name: String, b: int) -> Node2D:
 func check_world() -> void:
 	var w: Node2D = main.world
 	check(not w.is_walkable(Vector2i(482, 503), 0), "house walls are solid")
-	check(w.is_walkable(Vector2i(487, 508), 0), "the front door is walkable")
+	check(w.is_walkable(Vector2i(485, 508), 0), "the front door is walkable")
 	check(not w.is_walkable(Vector2i(488, 511), 1), "there is no upper floor outside a building")
 	check(not w.is_walkable(Vector2i(500, 504), 1), "Alex's one-storey house has no floor 1")
 
@@ -91,7 +92,7 @@ func check_world() -> void:
 	check(up.has(Vector3i(483, 500, 0)) and up.has(Vector3i(483, 500, 1)), "that path goes up the stairs")
 
 	var across: Array = w.find_path(Vector2i(488, 504), 0, Vector2i(490, 521), 0)
-	check(across.has(Vector3i(487, 508, 0)) and across.has(Vector3i(495, 522, 0)),
+	check(across.has(Vector3i(485, 508, 0)) and across.has(Vector3i(495, 522, 0)),
 		"path to Riley's house leaves through your door and enters through Riley's")
 	check(w.find_path(Vector2i(488, 504), 0, Vector2i(482, 503), 0).is_empty(), "no path into a wall")
 	var blocked := []
@@ -1419,6 +1420,39 @@ func check_body() -> void:
 		reset(c, c.home_cell)
 
 
+# Kenney art: every catalog sprite and look is baked, houses are sprite strips over click boxes, trees have sprites.
+func check_art() -> void:
+	var w: Node2D = main.world
+	var missing := []
+	for id in Catalog.ITEMS:
+		for r in 4:
+			var sprite := Catalog.sprite(id, r)
+			if sprite != "" and not Furniture.has(sprite):
+				missing.append(sprite)
+	for look in Looks.LOOKS:
+		if Looks.sheet(look) == null or Looks.face(look) == null:
+			missing.append(look)
+	check(missing.is_empty(), "every catalog item is baked in 4 rotations and every look has a sheet and a face (missing: %s)" % [missing])
+	var strips: Array = w.exteriors[1].get_children().filter(func(n): return n is Sprite2D)
+	var boxes: Array = w.exteriors[1].get_children().filter(func(n): return not n is Sprite2D)
+	check(strips.size() > 10 and boxes.all(func(b): return b.under_sprite), "a house is its baked sprite in strips, over invisible click boxes")
+	var front := Iso.to_screen(Vector2(w.door_outside(1)))
+	var near: Array = strips.filter(func(s): return absf(s.position.x + 8.0 - front.x) < 24.0)
+	check(not near.is_empty() and near.all(func(s): return s.position.y < front.y),
+		"strips by the door sort behind someone standing outside it")
+	var season: String = w.season
+	w.season = "Winter"
+	w.build_exterior(1)
+	var snowy: Sprite2D = w.exteriors[1].get_children().filter(func(n): return n is Sprite2D)[0]
+	check(snowy.texture.resource_path.ends_with("house_1_1_winter.png"), "winter rebuilds a house with a snowy roof")
+	w.season = season
+	w.build_exterior(1)
+	var trees := []
+	for k in w.chunks:
+		trees += w.chunks[k].get_children().filter(func(n): return n.get("kind") == "tree")
+	check(not trees.is_empty() and trees.all(func(t): return t.has_sprite), "trees show their baked sprites (%d)" % trees.size())
+
+
 func check_peeking() -> void:
 	var w: Node2D = main.world
 	var alex: Node2D = npcs().filter(func(c): return c.npc_name == "Alex")[0]
@@ -1638,6 +1672,7 @@ func _process(delta: float) -> bool:
 		check_looks()
 		check_kitchen()
 		check_streaming()
+		check_art()
 		check_peeking()
 		check_llm()
 		check_vision()

@@ -1,0 +1,146 @@
+{
+	"house_0_1": {
+		"anchor": [
+			335,
+			230
+		]
+	},
+	"house_0_1_winter": {
+		"anchor": [
+			335,
+			230
+		]
+	},
+	"house_0_2": {
+		"anchor": [
+			297,
+			206
+		]
+	},
+	"house_0_2_winter": {
+		"anchor": [
+			297,
+			206
+		]
+	},
+	"house_1_1": {
+		"anchor": [
+			313,
+			231
+		]
+	},
+	"house_1_1_winter": {
+		"anchor": [
+			313,
+			231
+		]
+	},
+	"house_1_2": {
+		"anchor": [
+			313,
+			277
+		]
+	},
+	"house_1_2_winter": {
+		"anchor": [
+			313,
+			277
+		]
+	},
+	"house_2_1": {
+		"anchor": [
+			285,
+			198
+		]
+	},
+	"house_2_1_winter": {
+		"anchor": [
+			285,
+			198
+		]
+	},
+	"house_2_2": {
+		"anchor": [
+			253,
+			264
+		]
+	},
+	"house_2_2_winter": {
+		"anchor": [
+			253,
+			264
+		]
+	},
+	"house_3_1": {
+		"anchor": [
+			247,
+			157
+		]
+	},
+	"house_3_1_winter": {
+		"anchor": [
+			247,
+			157
+		]
+	},
+	"house_3_2": {
+		"anchor": [
+			254,
+			252
+		]
+	},
+	"house_3_2_winter": {
+		"anchor": [
+			254,
+			252
+		]
+	},
+	"tree_large_Fall": {
+		"anchor": [
+			27,
+			155
+		]
+	},
+	"tree_large_Spring": {
+		"anchor": [
+			27,
+			155
+		]
+	},
+	"tree_large_Summer": {
+		"anchor": [
+			27,
+			155
+		]
+	},
+	"tree_large_Winter": {
+		"anchor": [
+			27,
+			155
+		]
+	},
+	"tree_small_Fall": {
+		"anchor": [
+			27,
+			116
+		]
+	},
+	"tree_small_Spring": {
+		"anchor": [
+			27,
+			116
+		]
+	},
+	"tree_small_Summer": {
+		"anchor": [
+			27,
+			116
+		]
+	},
+	"tree_small_Winter": {
+		"anchor": [
+			27,
+			116
+		]
+	}
+}

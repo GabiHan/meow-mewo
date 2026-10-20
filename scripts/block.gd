@@ -1,7 +1,10 @@
-# A placeholder shape that fills one tile, drawn in _draw(): walls, house exteriors, trees and stairs.
+# A shape that fills one tile, drawn in _draw(): walls, house exteriors, trees and stairs.
+# House exteriors are a baked sprite (world.gd build_exterior); their boxes are `under_sprite`: they only answer
+# clicks (door, window, wall) and show closed curtains. A tree shows its baked sprite if it has one.
 extends Node2D
 
 const Iso = preload("res://scripts/iso.gd")
+const Furniture = preload("res://scripts/furniture.gd")
 const HW := Iso.TILE_W / 2.0
 const HH := Iso.TILE_H / 2.0
 
@@ -15,6 +18,8 @@ var storeys := 1  # one row of windows per storey
 var storey_height := 56.0
 var cell := Vector2i.ZERO
 var curtains := false  # ground-floor windows show closed curtains
+var under_sprite := false  # house exterior under its sprite: draws only closed curtains
+var has_sprite := false
 
 
 func setup(p_kind: String, p_cell: Vector2i, p_height: float, p_color: Color) -> Node2D:
@@ -26,7 +31,22 @@ func setup(p_kind: String, p_cell: Vector2i, p_height: float, p_color: Color) ->
 	return self
 
 
+# Show a baked neighbourhood sprite (Furniture.SCENERY) instead of the drawn shape, if there is one.
+func add_sprite(sprite: String) -> Node2D:
+	if Furniture.has(sprite, Furniture.SCENERY):
+		add_child(Furniture.make_sprite(sprite, Furniture.SCENERY))
+		has_sprite = true
+	return self
+
+
 func _draw() -> void:
+	if has_sprite:
+		return
+	if under_sprite:
+		for face in window_faces:
+			if curtains:
+				draw_on_face(face, 0.3, 0.7, 22.0, 40.0, Color("#f5ccd4"))
+		return
 	match kind:
 		"tree":
 			draw_rect(Rect2(-3, -20, 6, 20), Color(0.612, 0.585, 0.626))

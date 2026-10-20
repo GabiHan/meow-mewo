@@ -12,9 +12,9 @@ at the top left), there's no game over, and everyone lives a whole life: emotion
 mental health, learning, romance, family, work and death; see [docs/PEOPLE.md](docs/PEOPLE.md). Everyone ages through life stages (baby to old), kids go to school, and grown-ups can
 have babies; see [docs/LIFE.md](docs/LIFE.md). Each has a personality (traits),
 emotions, memories of what others did, and skills that grow with practice; see
-[docs/PEOPLE.md](docs/PEOPLE.md). People and furniture are drawn with sprites baked from 3D models (Quaternius' Universal Base
-Characters and a low-poly furniture pack; see *Character art* and *Furniture art*); the world itself
-is still simple shapes.
+[docs/PEOPLE.md](docs/PEOPLE.md). People, furniture, houses and trees are sprites baked from Kenney's 3D kits (Mini Characters,
+Furniture Kit, City Kit (Suburban); see *Character art*, *Furniture art* and *Neighbourhood art*); the ground,
+roads and inner walls are still simple shapes.
 
 ---
 
@@ -113,14 +113,15 @@ Cozy and pastel. The **atmosphere** is one 7-shade palette (`PALETTE` in `ui_the
 | 0 | `#c9def4` | Summer ground, fridge and bathroom furniture, top of the backdrop |
 | 1 | `#d0dbef` | Spring ground, kitchen furniture, trash cans |
 | 2 | `#d8d8e9` | Shelves, the paper of every panel (lightened almost to white) |
-| 3 | `#dfd5e4` | Roads (darkened), interior walls (lightened), couches, fireplace |
-| 4 | `#e6d2df` | Fall ground, tables, night stands, drawers |
-| 5 | `#eecfd9` | Starter house, chairs, stools, carpets |
-| 6 | `#f5ccd4` | Beds, lamps, blossom trees, bottom of the backdrop |
+| 3 | `#dfd5e4` | Roads (darkened), interior walls (lightened), Riley's house |
+| 4 | `#e6d2df` | Fall ground |
+| 5 | `#eecfd9` | Starter house |
+| 6 | `#f5ccd4` | Your house, closed curtains, bottom of the backdrop |
 
-Houses use shades 6, 0, 3 and 5, each with a darker roof; floors are pink. Inside, nights are a soft pink lamplight; outside, the sky changes through the day (see Day and night).
-Furniture sprites are tinted with these shades when baked (`TINTS` in `tools/bake_furniture.gd`; plants are
-just softened), and character sheets get a soft brighter finish.
+Houses use shades 6, 0, 3 and 5 for their walls, each with a darker roof (the kit's palette texture is repainted
+in them when baking), and trees blossom in `GameTime.LEAVES`; floors are pink. Inside, nights are a soft pink lamplight; outside, the sky changes through the day (see Day and night).
+Furniture keeps the kit's own colours, softened a little (`SOFTEN` in `tools/bake_furniture.gd`), and character
+sheets get a soft brighter finish.
 
 **Cozy UI (like a paper planner):** a second palette, `ACCENTS` in `ui_theme.gd`, is the UI's accent, periwinkle → lilac:
 `#9ba9ff` `#a5adff` `#afb1ff` `#b9b5ff` `#c4baff` `#cebeff` `#d8c2ff` `#e2c6ff` `#eccaff` `#f4ccff`. `#9ba9ff`
@@ -223,10 +224,13 @@ tests/
   check_sim.gd          Headless simulation with assertions (exit code 1 on failure)
   check_online.gd       Online end to end: starts a host (online_host.gd) and joins it (exit code 1 on failure)
 tools/
-  bake_furniture.gd     Renders 3D models into isometric sprites (art/furniture)
-  bake_characters.gd    Poses the 3D characters and renders their sprite sheets (art/characters)
-assets/                 The furniture packs (zips) and the unpacked OBJ models (assets/furniture_obj)
+  bake_furniture.gd     Renders the furniture models into isometric sprites (art/furniture)
+  bake_characters.gd    Poses the 3D characters with their animations and renders sprite sheets (art/characters)
+  bake_neighbourhood.gd Renders the houses (in their colours, with snowy winter roofs) and trees (art/neighbourhood)
+assets/kenney/          The Kenney kits, unzipped: characters, furniture, suburban (only the GLB models are
+                        imported; the other formats have a .gdignore)
 art/furniture/          Baked sprites + sprites.json (anchors)
+art/neighbourhood/      Baked houses and trees + sprites.json (anchors)
 art/characters/         One sprite sheet per look (8 directions × 13 frames) and a head portrait
 docs/
   DEVLOG.md             What changed in each update and why
@@ -319,10 +323,10 @@ around tile (490, 512). The camera follows you.
 
 | Building | Rect (incl. walls) | Floors | Door | Stairs | Who lives there |
 |---|---|---|---|---|---|
-| Your house | (482,499) 12×10 | 2 | (487,508) | (483,500) | Jo, Sam |
+| Your house | (482,499) 12×10 | 2 | (485,508) | (483,500) | Jo, Sam |
 | Alex's house | (498,499) 10×10 | 1 | (502,508) | – | Alex |
 | Riley's house | (486,518) 10×9 | 1 | (495,522) | – | Riley, Noah |
-| Starter house | (498,518) 10×9 | 1 | (507,522) | – | a household you create (empty otherwise) |
+| Starter house | (498,518) 10×9 | 1 | (507,525) | – | a household you create (empty otherwise) |
 
 **What you can see** (`update_view()` and `vision.gd`; full details in **[docs/VIEW.md](docs/VIEW.md)**), Project
 Zomboid style: the whole neighbourhood is always on screen, inside or out, but you only *see* what your sim
@@ -635,7 +639,7 @@ Staring or yelling makes **you** Embarrassed, and they **remember** it; a wave m
 
 ## Build mode
 
-Press **B** at home: time pauses and a catalog of about 45 items in 10 categories opens along the
+Press **B** at home: time pauses and a catalog of about 50 items in 10 categories opens along the
 bottom. Pick an item, rotate it with R, and click to buy and place it. Usable furniture (chairs,
 sofas, beds, kitchen appliances, toilet, bathtub, sinks, bookshelf, TV, fireplace) works right away
 for everyone in the house. Click furniture with nothing picked to rotate, move or delete (sell) it. You can't build
@@ -644,28 +648,26 @@ in walls, doorways or on the stairs, or block anything. Details and the full cat
 
 ## Character art
 
-People are Quaternius' **Universal Base Characters** (free version, CC0; `assets/characters`: the
-rigged male and female glTF bodies, light/dark skin textures, hairstyles, beard). The pack has no
-animations and its bodies are in underwear, so **`tools/bake_characters.gd`** does it all in code:
+People are Kenney's **Mini Characters** (CC0; `assets/kenney/characters`: 12 rigged, animated chibi
+models, 6 female and 6 male, clothes and hair included). **`tools/bake_characters.gd`** poses each model
+by sampling its own animations (`POSES`): `idle`, a 4-step `walk` cycle, `sit` (raised onto a seat),
+`static` laid on its back for bed, a 4-step `sprint` for running, `pick-up` for bent over and the end of `die`
+for down on the floor. Models are scaled ×2 (about 1.55 m in the game).
 
-* **Poses** by rotating skeleton bones: arms down from the T-pose, a 4-step walk cycle (legs and
-  arms swinging), sitting (thighs forward, knees bent, lowered), lying (on the back).
-* **Clothes** painted on by a shader, per vertex by its main bone: shirt on the spine, clavicles and
-  upper arms; trousers on the pelvis and legs; shoes on the feet; skin (the pack's texture) elsewhere.
-* **Hair** ("origin at 0" models) attached to the head bone; hair and eyebrows tinted per look.
-* Rendered at the game's isometric angle and scale in **8 directions × 13 frames** (idle, walk ×4,
-  sit, lie in bed, run ×4, bent over, down on the floor) into one sheet per look: `art/characters/<look>.png`, cells of 96×112 px, feet at (48, 100).
+Rendered at the game's isometric angle and scale in **8 directions × 13 frames** (idle, walk ×4,
+sit, lie in bed, run ×4, bent over, down on the floor) into one sheet per look: `art/characters/<look>.png`, cells of 96×112 px, feet at (48, 100).
 
-| Look | Body | Skin | Hair | Shirt / pants |
-|---|---|---|---|---|
-| jo (you) | F | light | long, brown | teal / navy |
-| sam | M | dark | buzzed + beard | orange / grey |
-| alex | F | dark | buns | purple / black |
-| mia | F | dark | buns | yellow / blue |
-| lily | F | dark | short | light blue / pink |
-| riley | M | light | parted, grey + beard | red / brown |
-| noah | M | light | parted, brown | blue / charcoal |
-| girl_a, girl_b, boy_a, boy_b | | | | for babies born in the game (picked by sex) |
+| Look | Body | Model | Looks like |
+|---|---|---|---|
+| jo (you) | F | character-female-f | auburn hair, dungarees |
+| sam | M | character-male-a | glasses, green top |
+| alex | F | character-female-a | buns, purple top, crutches |
+| mia | F | character-female-b | blonde pigtails, yellow top |
+| lily | F | character-female-c | grey beanie, orange top |
+| riley | M | character-male-b | bald, ginger beard |
+| noah | M | character-male-c | police cap, blue uniform |
+| kai | M | character-male-f | white hair, glasses, yellow dungarees (household creator only) |
+| girl_a, girl_b, boy_a, boy_b | | female-d, female-e, male-d, male-e | for babies born in the game (picked by sex) |
 
 In the game (`npc.gd animate()`): the row is the direction they walk (or face what they use / who they
 talk to), the frame is the walk cycle while moving, **sitting** on chairs, couches, the toilet and at
@@ -673,7 +675,7 @@ the table, **lying** in bed or napping on the couch (drawn on the bed). Children
 age (toddler 50%, child 70%, teen 90%); babies keep their bundle. A small overlay on top draws the
 progress bar and whatever they carry.
 
-**Add or change a look:** edit `LOOKS` in `looks.gd`, run `godot --path . -s res://tools/bake_characters.gd`
+**Add or change a look:** edit `LOOKS` in `looks.gd` (a label, body and kit model), run `godot --path . -s res://tools/bake_characters.gd`
 (needs a window; add look names after `--` to bake only those), then `godot --headless --import`, and
 give a person `.set_look("name")` in `main.gd`.
 
@@ -683,43 +685,64 @@ give a person `.set_look("name")` in `main.gd`.
 
 ## Furniture art
 
-The 3D furniture pack (`assets/*.zip`; the OBJ version is unpacked in `assets/furniture_obj/OBJ`) is
-turned into 2D sprites by **`tools/bake_furniture.gd`**: each model is rendered with an orthographic
-camera at the game's 2:1 isometric angle (30° pitch, 45° yaw) and scale (1 m = one tile, 45.25 px per
-metre), lit, cropped and saved as `art/furniture/<Model>_r<rotation>.png`, with the pixel of its floor
-centre in `sprites.json`. Rotation r0 faces the +y grid direction (towards where you stand to use it),
-r1 +x, r2 −y, r3 −x. Models are scaled to 85% and to at most 1.6 m across, so they fit a tile.
+Kenney's **Furniture Kit** (CC0; `assets/kenney/furniture`, the GLB models) is turned into 2D sprites by
+**`tools/bake_furniture.gd`**: each model is rendered with an orthographic camera at the game's 2:1 isometric
+angle (30° pitch, 45° yaw) and scale (1 m = one tile, 45.25 px per metre; a kit unit is 2.1 m), lit, cropped and
+saved as `art/furniture/<Sprite>_r<rotation>.png`, with the pixel of its floor centre in `sprites.json`.
+Rotation r0 faces the +y grid direction (towards where you stand to use it), r1 +x, r2 −y, r3 −x. Models are
+scaled to 85% and to at most 1.6 m across, so they fit a tile.
+
+Sprite ids are the game's own names (`Kitchen_Fridge`, `Bed_King`…, used by `main.gd`, `catalog.gd` and saves);
+`MODELS` in the tool says which kit model(s) each is, stacked bottom to top (a lamp on a side table, a TV on its
+cabinet), and a size factor.
 
 Sprites are shown as `Sprite2D` children (drawing them by hand in `_draw` inside the y-sorted world
 renders them white with the GL Compatibility renderer).
 
-| Object | Model |
-|---|---|
-| Fridge, Counter, Stove, Sink | Kitchen_Fridge, Kitchen_2Drawers, Kitchen_Oven, Kitchen_Sink |
-| Table | Table_RoundSmall |
-| Bed | Bed_King (your house), Bed_Single (others; also Crib) |
-| Shower | Bathroom_Bathtub (the pack's shower model is just a rail) |
-| Toilet, Bookshelf | Bathroom_Toilet, Bookshelf |
-| TV, Bench, Pull-up bar, Bus stop | placeholder boxes (no model in the pack) |
+| Object | Sprite | Kit model |
+|---|---|---|
+| Fridge, Counter, Stove, Sink | Kitchen_Fridge, Kitchen_2Drawers, Kitchen_Oven, Kitchen_Sink | kitchenFridgeLarge, kitchenCabinetDrawer, kitchenStove, kitchenSink |
+| Table | Table_RoundSmall | tableRound |
+| Bed | Bed_King (your house), Bed_Single (others; also Crib) | bedDouble, bedSingle |
+| Shower | Bathroom_Bathtub | bathtub |
+| Toilet, Bookshelf, TV | Bathroom_Toilet, Bookshelf, TV | toilet, bookcaseOpen, cabinetTelevision + televisionModern |
+| Fireplace, Bench, Pull-up bar, Bus stop | placeholder boxes (no model in the kit) | |
 
 **Your house** is also decorated with props (`PROPS` in `main.gd`): kitchen cabinet, two chairs at
 the table, a couch facing the TV on a rug, a floor lamp, plants, a bathroom sink and a bin downstairs;
 a nightstand, floor lamp, round rug, bathroom sink, armchair, dresser, shelf and plant upstairs.
 Props block their tile (rugs don't); a test checks every object is still reachable from the door.
 
-All catalog models are baked in 4 rotations (180 sprites).
+All sprites are baked in 4 rotations (200 sprites).
 
-**Add furniture:** add the model to `MODELS` in `tools/bake_furniture.gd` (with the rotations you
-need), run `godot --path . -s res://tools/bake_furniture.gd` (needs a window), then
+**Add furniture:** add a sprite id and its kit model to `MODELS` in `tools/bake_furniture.gd`, run `godot --path . -s res://tools/bake_furniture.gd` (needs a window), then
 `godot --headless --import`, and use `"<Model>_r<n>"` in `FURNITURE` (an object type), an object's
-`"sprite"` extra, or a `PROPS` row.
+`"sprite"` extra, or a `PROPS` row. Bake only some: add their ids after `--`.
+
+## Neighbourhood art
+
+Kenney's **City Kit (Suburban)** (CC0; `assets/kenney/suburban`) gives the houses and trees, baked by
+**`tools/bake_neighbourhood.gd`** into `art/neighbourhood/` (+ `sprites.json`, loaded with `Furniture.*(…, Furniture.SCENERY)`):
+
+* **Houses:** each building in `World.START_BUILDINGS` names two kit models in `models` (one storey, two storeys:
+  stairs from build mode switch to the bigger house). The model is turned to face its door, stretched over the
+  building's rect (height ×0.5 of that), and its palette texture repainted: walls in the house's `color`, the roof
+  in its `roof`, or snowy for the `_winter` version. Sprites: `house_<building>_<floors>[_winter]`.
+  The doors are placed where the models' doors are. Re-bake after changing a rect, colour or model.
+* **In the game** (`world.gd build_exterior`), the house sprite is cut into 16 px strips, each y-sorted at the
+  front wall below it, so people walking around a house are drawn in front of it or hidden behind it correctly.
+  Under it, the old per-tile boxes stay invisible (`Block.under_sprite`): they still answer clicks (door, window,
+  wall) and draw closed curtains. Winter rebuilds the exteriors with snowy roofs.
+* **Trees:** `tree-large` (two in three) and `tree-small`, leaves repainted in each season's `GameTime.LEAVES`
+  (`tree_<large|small>_<season>`), shown by `Block.add_sprite()`.
 
 ## Credits
 
 * Font: EB Garamond (SIL Open Font License, `assets/fonts/OFL.txt`).
 * Music: "Join my server" and "The game" by adrihuwu, "Beautiful lofi" and "Tokyo lofi" by zephiramusic (`assets/music`;
   from the files the owner provided: check each track's licence before publishing the game).
-* Characters: Quaternius Universal Base Characters (CC0). Furniture: a low-poly furniture pack (see *Furniture art*).
+* Characters, furniture, houses and trees: Kenney (www.kenney.nl), Mini Characters, Furniture Kit and City Kit (Suburban), CC0
+  (`assets/kenney/*/License.txt`).
 
 ## How to…
 

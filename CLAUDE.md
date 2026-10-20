@@ -55,8 +55,10 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   ignores the mouse while build mode is active.
 - Character art: `looks.gd` + `tools/bake_characters.gd` (needs a window) → `art/characters`. Things drawn on top of a
   person go in `draw_overlay()` (npc.gd), not `_draw` (that's under the sprite).
-- Furniture art: sprites baked from `assets/furniture_obj` by `tools/bake_furniture.gd` (needs a window), shown
-  with `Furniture.make_sprite()` (a Sprite2D). See README "Furniture art".
+- Art comes from the Kenney kits in `assets/kenney/` (only GLBs are imported; other formats have a `.gdignore`).
+  Furniture: `tools/bake_furniture.gd` (sprite ids → kit models in `MODELS`) → art/furniture. Houses and trees:
+  `tools/bake_neighbourhood.gd` → art/neighbourhood (`Furniture.*(…, Furniture.SCENERY)`); re-bake after changing a
+  building's rect, colours or `models`. All bakers need a window. See README "Furniture art" / "Neighbourhood art".
 
 - AI words: `llm.gd` (local Qwen3.5 via llama-server) and `talk_panel.gd`; documented in `docs/AI.md` (keep its
   tables in sync). The model only writes words and nudges (`wish_factor`); systems decide. Everything must still
@@ -68,7 +70,7 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   "who controls c" with `game.controller_of(c)`, not the "controller" group. Run `tests/check_online.gd` too.
 - The body: `body.gd` (static; running, tripping, passing out, accidents, farts, illness, vomiting), documented in
   docs/PEOPLE.md "The body". People who are down have `state` "down" and `pose` set: don't give them orders
-  (`cancel_current` refuses). New sprite frames go in `looks.gd` (FRAMES) + `tools/bake_characters.gd` pose(), then
+  (`cancel_current` refuses). New sprite frames go in `looks.gd` (FRAMES) + `tools/bake_characters.gd` POSES (a kit animation + time), then
   re-bake (needs a window).
 - Sound: `music.gd` (/root/Music, `Music.play(tree, "menu"/"home"/"outside")`, real-time fades, not affected by
   game speed) and `settings.gd` (buses Master/Music/Sounds, user://settings.cfg). New sound effects go on the

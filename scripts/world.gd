@@ -28,6 +28,7 @@ const Jobs = preload("res://scripts/jobs.gd")
 const Life = preload("res://scripts/life.gd")
 const Vision = preload("res://scripts/vision.gd")
 const Weather = preload("res://scripts/weather.gd")
+const Furniture = preload("res://scripts/furniture.gd")
 
 const SIZE := 1024
 const CHUNK := 16
@@ -36,7 +37,8 @@ const ROAD_EVERY := 64  # a road every 64 tiles in both directions
 const ROAD_WIDTH := 3
 const TREE_COUNT := 12000
 const CLEARING := Rect2i(470, 490, 60, 45)  # no trees around the starting street
-const STOREY_HEIGHT := 56.0  # pixels of exterior wall per floor
+const STOREY_HEIGHT := 56.0  # pixels of exterior wall per floor (the click boxes; the house sprite is taller)
+const HOUSE_STRIP := 16  # px: the house sprite is cut into strips this wide, each y-sorted at the front wall below it
 const INNER_WALL_HEIGHT := 22.0  # interior walls are cut down so you can see into rooms
 const CURTAIN_SECONDS := 60.0  # how long curtains stay closed after someone yells at a peeper
 const PATH_MARGIN := 10  # A* searches the box around start and goal, grown by this many tiles
@@ -49,17 +51,19 @@ const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: laven
 
 # rect includes the outer walls. door is on floor 0 and must be on the bottom (+y) or right (+x)
 # wall so it faces the camera. stairs (optional) is one interior cell shared by every floor.
+# models: the Kenney suburban houses it looks like from outside, with one and with two storeys
+# (tools/bake_neighbourhood.gd bakes them; re-bake after changing a rect, colour or model).
 # These are the houses at the start; BUILDINGS is this game's copy, which build mode can change
 # (stairs add an upper floor: add_upper_floor / remove_upper_floor; "built_stairs" marks those).
 const START_BUILDINGS := [
-	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(487, 508),
-		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665)},
+	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(485, 508),
+		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665), "models": ["building-type-i", "building-type-b"]},
 	{"name": "Alex's house", "rect": Rect2i(498, 499, 10, 10), "floors": 1, "door": Vector2i(502, 508),
-		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765)},
+		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765), "models": ["building-type-h", "building-type-e"]},
 	{"name": "Riley's house", "rect": Rect2i(486, 518, 10, 9), "floors": 1, "door": Vector2i(495, 522),
-		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697)},
-	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 522),
-		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681)},  # for new households (Play → Create)
+		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697), "models": ["building-type-a", "building-type-o"]},
+	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 525),
+		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681), "models": ["building-type-g", "building-type-d"]},  # for new households (Play → Create)
 ]
 
 static var BUILDINGS: Array = START_BUILDINGS.duplicate(true)  # static: fresh for every game (_ready)
@@ -218,23 +222,30 @@ func apply_building_state(state: Array) -> void:
 			remove_upper_floor(i)
 
 
-# Exterior: one full-height box per tile, y-sorted so people walking past are drawn correctly.
-# Rebuilt when the house gets or loses a storey.
+# Exterior: the baked house sprite (house_strips), over one full-height box per tile that answers clicks
+# (door, windows, wall) and shows closed curtains. Without a baked sprite the boxes are drawn instead.
+# Rebuilt when the house gets or loses a storey, and when winter comes or goes (snowy roof).
 func build_exterior(i: int) -> void:
 	var b: Dictionary = BUILDINGS[i]
 	var r: Rect2i = b.rect
+	var closed := {}  # curtains stay closed through a rebuild
 	if exteriors[i]:
 		exteriors[i].queue_free()
 		for c in windows.keys():
 			if windows[c].building == i:
+				closed[c] = windows[c].closed_until
 				windows.erase(c)
 	var ext := sorted_node()
+	var sprite := "house_%d_%d%s" % [i, mini(b.floors, 2), "_winter" if season == "Winter" else ""]
+	var has_sprite := Furniture.has(sprite, Furniture.SCENERY)
+	if has_sprite:
+		house_strips(ext, r, sprite)
 	for x in range(r.position.x, r.end.x):
 		for y in range(r.position.y, r.end.y):
 			var c := Vector2i(x, y)
 			var blk: Node2D = Block.new().setup("box", c, STOREY_HEIGHT * b.floors, b.color)
-			blk.set_meta("roof", b.get("roof", ROOF_COLOR))
-			blk.top_color = SNOW_ROOF_COLOR if season == "Winter" else blk.get_meta("roof")
+			blk.under_sprite = has_sprite
+			blk.top_color = SNOW_ROOF_COLOR if season == "Winter" else b.get("roof", ROOF_COLOR)
 			blk.storeys = b.floors
 			blk.storey_height = STOREY_HEIGHT
 			var face := ""
@@ -246,9 +257,38 @@ func build_exterior(i: int) -> void:
 				blk.door_face = face
 			elif face != "" and (x + y) % 2 == 0:
 				blk.window_faces = [face]
-				windows[c] = {"building": i, "dir": face_dir(face), "block": blk, "closed_until": 0.0}
+				windows[c] = {"building": i, "dir": face_dir(face), "block": blk, "closed_until": closed.get(c, 0.0)}
+				blk.curtains = closed.get(c, 0.0) > now()
 			ext.add_child(blk)
 	exteriors[i] = ext
+
+
+# The house sprite over rect r, cut into vertical strips. Each strip is y-sorted at the front wall below it
+# (the nearer of its two ends), so people outside the house are drawn in front of it and people behind it
+# are hidden by it, wherever they stand around it.
+func house_strips(ext: Node2D, r: Rect2i, sprite: String) -> void:
+	var tex := Furniture.texture(sprite, Furniture.SCENERY)
+	var centre := Vector2(r.position) + Vector2(r.size) / 2.0 - Vector2(0.5, 0.5)
+	var top_left := Iso.to_screen(centre) - Furniture.anchor(sprite, Furniture.SCENERY)
+	var left := Iso.to_screen(Vector2(r.position.x - 0.5, r.end.y - 0.5))  # the footprint's front corners
+	var bottom := Iso.to_screen(Vector2(r.end.x - 0.5, r.end.y - 0.5))
+	var right := Iso.to_screen(Vector2(r.end.x - 0.5, r.position.y - 0.5))
+	var front_y := func(x: float) -> float:
+		if x <= bottom.x:
+			return lerpf(left.y, bottom.y, clampf((x - left.x) / (bottom.x - left.x), 0.0, 1.0))
+		return lerpf(bottom.y, right.y, clampf((x - bottom.x) / (right.x - bottom.x), 0.0, 1.0))
+	for sx in range(0, tex.get_width(), HOUSE_STRIP):
+		var w := mini(HOUSE_STRIP, tex.get_width() - sx)
+		var x0 := top_left.x + sx
+		var y: float = minf(front_y.call(x0), front_y.call(x0 + w))
+		var strip := Sprite2D.new()
+		strip.texture = tex
+		strip.centered = false
+		strip.region_enabled = true
+		strip.region_rect = Rect2(sx, 0, w, tex.get_height())
+		strip.position = Vector2(x0, y)
+		strip.offset = Vector2(0, top_left.y - y)
+		ext.add_child(strip)
 
 
 # The outward direction of a wall face: "left" faces +y, "right" faces +x.
@@ -350,6 +390,8 @@ func exterior_hit(screen: Vector2) -> Dictionary:
 		if not exteriors[i].visible:
 			continue
 		for blk in exteriors[i].get_children():
+			if blk is Sprite2D:
+				continue  # the house sprite's strips; the boxes under it answer clicks
 			var local: Vector2 = screen - blk.position
 			if blk.position.y > best_y and blk.contains(local):
 				best_y = blk.position.y
@@ -512,10 +554,8 @@ func _process(delta: float) -> void:
 			chunks[k].queue_free()
 		chunks.clear()
 		last_chunk = Vector2i(-1, -1)
-		for ext in exteriors:
-			for blk in ext.get_children():
-				blk.top_color = SNOW_ROOF_COLOR if season == "Winter" else blk.get_meta("roof", ROOF_COLOR)
-				blk.queue_redraw()
+		for i in exteriors.size():
+			build_exterior(i)  # snowy roofs in winter
 	if player:
 		daylight.color = GameTime.tint(t, player.building >= 0)
 	for c in windows:
@@ -599,7 +639,8 @@ func make_chunk(k: Vector2i) -> Node2D:
 			var c := Vector2i(x, y)
 			tiles.append([c, terrain_color(c, season)])
 			if trees.has(c):
-				node.add_child(Block.new().setup("tree", c, 0.0, GameTime.LEAVES[season]))
+				var size := "small" if hash(c) % 3 == 0 else "large"
+				node.add_child(Block.new().setup("tree", c, 0.0, GameTime.LEAVES[season]).add_sprite("tree_%s_%s" % [size, season]))
 	node.add_child(Ground.new().setup(tiles))
 	return node
 

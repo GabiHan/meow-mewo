@@ -51,7 +51,7 @@ needs to the AI like everything else). The rest is decoration.
 | Seating | Wooden chair / Modern chair / Dining armchair / Stool | $40 / $60 / $75 / $25 | ✓ | Sit |
 | Seating | Armchair / Loveseat / Sofa / Corner sofa | $180 / $260 / $350 / $480 | ✓ | Relax, Sit, Nap on the couch |
 | Tables | Round dining table / Large table | $120 / $220 | ✓ | a Table (eat here, put food down) |
-| Tables | Nightstand / Bedside table | $60 / $70 | | |
+| Tables | Coffee table / Desk / Nightstand / Bedside table | $90 / $150 / $60 / $70 | | |
 | Beds | Single bed / King bed / Bunk bed | $300 / $650 / $420 | ✓ | Sleep (7 h), Nap, Relax in bed |
 | Kitchen | Fridge / Oven / Counter / Kitchen sink | $500 / $400 / $150 / $200 | ✓ | the kitchen objects (docs/KITCHEN.md) |
 | Kitchen | Kitchen cabinet / Kitchen drawers | $110 / $130 | | |
@@ -63,9 +63,10 @@ needs to the AI like everything else). The rest is decoration.
 | Plants | Fern / Cactus / Small palm / Big leafy plant | $25 / $20 / $30 / $45 | | |
 | Rugs | Rug / Dark rug / Round rug | $60 / $70 / $80 | | walkable |
 | Storage | Bookshelf | $250 | ✓ | Read a textbook (Logic), a novel, a cookbook (Cooking) |
-| Storage | Wall shelf / Tall shelf / Dresser / Tall dresser / Bin / Large bin | $50 / $140 / $160 / $190 / $15 / $30 | | |
-| Fun | TV | $350 | ✓ | Watch comedy / the news / a cooking show (placeholder box: no TV model) |
-| Fun | Fireplace | $800 | ✓ | Relax by the fire, Warm up |
+| Storage | Wall shelf / Tall shelf / Dresser / Tall dresser / Coat rack / Bin / Large bin | $50 / $140 / $160 / $190 / $35 / $15 / $30 | | |
+| Fun | TV | $350 | ✓ | Watch comedy / the news / a cooking show |
+| Fun | Radio / Teddy bear | $45 / $20 | | |
+| Fun | Fireplace | $800 | ✓ | Relax by the fire, Warm up (placeholder box: no fireplace in the kit) |
 
 What each usable item does in detail is in README, *Furniture interactions* (`actions.gd`).
 Rotating checks the same rules: usable furniture needs its new front tile free, and nothing may
@@ -73,7 +74,7 @@ become unreachable; seats and decor turn freely.
 
 ## Adding an item
 
-1. If it's a new model, add it to `MODELS` in `tools/bake_furniture.gd` (rotations `[0, 1, 2, 3]`),
+1. If it's a new model, add a sprite id and its Kenney kit model to `MODELS` in `tools/bake_furniture.gd`,
    bake (`godot --path . -s res://tools/bake_furniture.gd`) and `godot --headless --import`.
 2. Add a row to `ITEMS` in `catalog.gd`: `name`, `category` (one of `CATEGORIES`), `price`, `model`,
    optional `flat` (rugs) and, for usable furniture, `object`: `{name, ads, minutes, extras}` like an
