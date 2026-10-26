@@ -12,9 +12,10 @@ at the top left), there's no game over, and everyone lives a whole life: emotion
 mental health, learning, romance, family, work and death; see [docs/PEOPLE.md](docs/PEOPLE.md). Everyone ages through life stages (baby to old), kids go to school, and grown-ups can
 have babies; see [docs/LIFE.md](docs/LIFE.md). Each has a personality (traits),
 emotions, memories of what others did, and skills that grow with practice; see
-[docs/PEOPLE.md](docs/PEOPLE.md). People, furniture, houses and trees are sprites baked from Kenney's 3D kits (Mini Characters,
-Furniture Kit, City Kit (Suburban); see *Character art*, *Furniture art* and *Neighbourhood art*); the ground,
-roads and inner walls are still simple shapes.
+[docs/PEOPLE.md](docs/PEOPLE.md). People, furniture, houses, trees, cars and roads are sprites baked from 3D kits: Isa Lousberg's
+Tiny Treats packs for the kitchen, bathroom, plants, houses and trees, Kenney's kits for the people and what
+Tiny Treats doesn't have (see *Character art*, *Furniture art* and *Neighbourhood art*); the ground and inner
+walls are still simple shapes.
 
 ---
 
@@ -229,7 +230,9 @@ tools/
   bake_furniture.gd     Renders the furniture models into isometric sprites (art/furniture)
   bake_characters.gd    Poses the 3D characters with their animations and renders sprite sheets (art/characters)
   bake_neighbourhood.gd Renders the houses (in their colours, with snowy winter roofs) and trees (art/neighbourhood)
-assets/kenney/          The Kenney kits, unzipped: characters, furniture, suburban (only the GLB models are
+assets/tinytreats/      Isa Lousberg's Tiny Treats packs (glTF only): baked_goods, bubbly_bathroom,
+                        charming_kitchen, homely_house, pleasant_picnic, pretty_park
+assets/kenney/          The Kenney kits, unzipped: characters, furniture, cars, roads (only the GLB models are
                         imported; the other formats have a .gdignore)
 art/furniture/          Baked sprites + sprites.json (anchors)
 art/neighbourhood/      Baked houses and trees + sprites.json (anchors)
@@ -589,7 +592,7 @@ adult, Adult, Old**, one day older per game day (old age after ~90 days). Each s
 someone can do (babies stay put and must be fed and changed, children can't use the stove, jobs are for young
 adults and up). Kids go to **Kindergarten / School / High school** automatically (like jobs, no pay,
 graded A–F); young adults may enroll in **College** for a degree. **Try for a baby** needs a fertile
-woman and man (young adult or adult; women until menopause at 50), friendship 70+, at home, not
+woman and man (women young adult until Old; men young adult and up, Old too), friendship 70+, at home, not
 family; a pregnancy lasts 3 days and the baby is born at home. Jo is a 20-year-old woman. People die of
 old age (usually 78–96): they become a grave outside their home and the people who loved them grieve.
 
@@ -711,28 +714,40 @@ give a person `.set_look("name")` in `main.gd`.
 
 ## Furniture art
 
-Kenney's **Furniture Kit** (CC0; `assets/kenney/furniture`, the GLB models) is turned into 2D sprites by
+Isa Lousberg's **Tiny Treats** packs (CC0; `assets/tinytreats/<pack>`, glTF) give everything they have a model
+for: the kitchen, bathroom, chairs, tables, plants, bins, rugs, a lamp and the radio. Kenney's **Furniture Kit**
+(CC0; `assets/kenney/furniture`, the GLB models) gives the rest: beds, sofas, TV, shelves, drawers, desk,
+nightstands, washing machine, the other lamps, stool, coat rack and teddy. Both are turned into 2D sprites by
 **`tools/bake_furniture.gd`**: each model is rendered with an orthographic camera at the game's 2:1 isometric
-angle (30° pitch, 45° yaw) and scale (1 m = one tile, 45.25 px per metre; a kit unit is 2.1 m), lit, cropped and
+angle (30° pitch, 45° yaw) and scale (1 m = one tile, 45.25 px per metre; a Kenney unit is 2.1 m, a Tiny Treats
+unit 0.65 m), lit, cropped and
 saved as `art/furniture/<Sprite>_r<rotation>.png`, with the pixel of its floor centre in `sprites.json`.
 Rotation r0 faces the +y grid direction (towards where you stand to use it), r1 +x, r2 −y, r3 −x. Models are
 scaled to 85% and to at most 1.6 m across, so they fit a tile.
 
 Sprite ids are the game's own names (`Kitchen_Fridge`, `Bed_King`…, used by `main.gd`, `catalog.gd` and saves);
 `MODELS` in the tool says which kit model(s) each is, stacked bottom to top (a lamp on a side table, a TV on its
-cabinet), and a size factor.
+cabinet, the radio on a side table), and a size factor. `"<pack>/<model>"` is a Tiny Treats model, a bare name a
+Kenney one.
 
 Sprites are shown as `Sprite2D` children (drawing them by hand in `_draw` inside the y-sorted world
 renders them white with the GL Compatibility renderer).
 
 | Object | Sprite | Kit model |
 |---|---|---|
-| Fridge, Counter, Stove, Sink | Kitchen_Fridge, Kitchen_2Drawers, Kitchen_Oven, Kitchen_Sink | kitchenFridgeLarge, kitchenCabinetDrawer, kitchenStove, kitchenSink |
-| Table | Table_RoundSmall | tableRound |
-| Bed | Bed_King (your house), Bed_Single (others; also Crib) | bedDouble, bedSingle |
-| Shower | Bathroom_Bathtub | bathtub |
-| Toilet, Bookshelf, TV | Bathroom_Toilet, Bookshelf, TV | toilet, bookcaseOpen, cabinetTelevision + televisionModern |
-| Fireplace, Bench, Pull-up bar, Bus stop | placeholder boxes (no model in the kit) | |
+| Fridge, Counter, Stove, Sink | Kitchen_Fridge, Kitchen_2Drawers, Kitchen_Oven, Kitchen_Sink | Tiny Treats charming_kitchen/fridge, countertop_straight_A, stove, countertop_sink |
+| Table | Table_RoundSmall | charming_kitchen/table_C |
+| Bed | Bed_King (your house), Bed_Single (others; also Crib) | Kenney bedDouble, bedSingle |
+| Shower | Bathroom_Bathtub | bubbly_bathroom/bath |
+| Toilet | Bathroom_Toilet | bubbly_bathroom/toilet |
+| Bookshelf, TV | Bookshelf, TV | Kenney bookcaseOpen, cabinetTelevision + televisionModern |
+| Fireplace, Bench, Pull-up bar, Bus stop | placeholder boxes (no model) | |
+
+The other catalog sprites from Tiny Treats: Kitchen_Cabinet1 / Kitchen_3Drawers (countertop_single /
+countertop_straight_B), Table_RoundLarge (table_B), Chair_1–3 (chair), Bathroom_Shower1 (mat + shower),
+Bathroom_Sink (cabinet_bathroom), Carpet_1 (bath mat), Carpet_2 (blue picnic blanket), Houseplant_1/3/5/7
+(plant, bush, bush_large, foliage_B), Light_Floor1 (street_lantern, small), Trashcan_Small1 / Trashcan_Large
+(bin, park trashcan), Radio (Kenney side table + pleasant_picnic/radio). The rest are Kenney.
 
 **Your house** is also decorated with props (`PROPS` in `main.gd`): kitchen cabinet, two chairs at
 the table, a couch facing the TV on a rug, a floor lamp, plants, a bathroom sink and a bin downstairs;
@@ -747,19 +762,20 @@ All sprites are baked in 4 rotations (200 sprites).
 
 ## Neighbourhood art
 
-Kenney's **City Kit (Suburban)** (CC0; `assets/kenney/suburban`) gives the houses and trees, baked by
+Tiny Treats' **Homely House** and **Pretty Park** (CC0; `assets/tinytreats/homely_house`, `pretty_park`) give the
+houses and trees, baked by
 **`tools/bake_neighbourhood.gd`** into `art/neighbourhood/` (+ `sprites.json`, loaded with `Furniture.*(…, Furniture.SCENERY)`):
 
-* **Houses:** each building in `World.START_BUILDINGS` names two kit models in `models` (one storey, two storeys:
-  stairs from build mode switch to the bigger house). The model is turned to face its door, stretched over the
-  building's rect (height ×0.5 of that), and its palette texture repainted: walls in the house's `color`, the roof
-  in its `roof`, or snowy for the `_winter` version. Sprites: `house_<building>_<floors>[_winter]`.
-  The doors are placed where the models' doors are. Re-bake after changing a rect, colour or model.
+* **Houses:** every building is the Homely House model (`HOUSE`), turned to face its door, stretched over the
+  building's rect (height ×0.5 of that; ×1.25 more with two storeys, which stairs from build mode add), and its
+  palette texture repainted: walls (the white swatch) in the house's `color`, the roof (the red swatch) in its
+  `roof`, or snowy for the `_winter` version. Sprites: `house_<building>_<floors>[_winter]`.
+  Re-bake after changing a rect or colour.
 * **In the game** (`world.gd build_exterior`), the house sprite is cut into 16 px strips, each y-sorted at the
   front wall below it, so people walking around a house are drawn in front of it or hidden behind it correctly.
   Under it, the old per-tile boxes stay invisible (`Block.under_sprite`): they still answer clicks (door, window,
   wall) and draw closed curtains. Winter rebuilds the exteriors with snowy roofs.
-* **Trees:** `tree-large` (two in three) and `tree-small`, leaves repainted in each season's `GameTime.LEAVES`
+* **Trees:** Pretty Park's `tree_large` (two in three) and `tree`, leaves (the green swatch) repainted in each season's `GameTime.LEAVES`
   (`tree_<large|small>_<season>`), shown by `Block.add_sprite()`.
 
 ## Cars and roads
@@ -798,9 +814,11 @@ Kenney's **City Kit (Suburban)** (CC0; `assets/kenney/suburban`) gives the house
 * Font: EB Garamond (SIL Open Font License, `assets/fonts/OFL.txt`).
 * Music: "Join my server" and "The game" by adrihuwu, "Beautiful lofi" and "Tokyo lofi" by zephiramusic (`assets/music`;
   from the files the owner provided: check each track's licence before publishing the game).
-* Characters, furniture, houses, trees, cars and roads: Kenney (www.kenney.nl), Mini Characters, Furniture Kit, City Kit
-  (Suburban), Car Kit and City Kit (Roads), CC0
-  (`assets/kenney/*/License.txt`).
+* Kitchen, bathroom and other furniture, houses and trees: Isa Lousberg (www.isalousberg.com), Tiny Treats packs
+  (Baked Goods, Bubbly Bathroom, Charming Kitchen, Homely House, Pleasant Picnic, Pretty Park), CC0
+  (`assets/tinytreats/*/License.txt`).
+* Characters, the rest of the furniture, cars and roads: Kenney (www.kenney.nl), Mini Characters, Furniture Kit,
+  Car Kit and City Kit (Roads), CC0 (`assets/kenney/*/License.txt`).
 
 ## How to…
 

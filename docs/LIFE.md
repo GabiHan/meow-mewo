@@ -15,7 +15,7 @@ the age. Each stage also maps to years, which is what the game shows ("Young adu
 | Child | 14 | 4–13 | ×0.85 | Uses the kitchen but not the Stove or Coffee; **School** |
 | Teen | 14 | 13–18 | ×1 | Cooks; no jobs, no babies; **High school**; answers the door |
 | Young adult | 22 | 18–26 | ×1 | Jobs or optional **College**; can have babies |
-| Adult | 30 | 26–61 | ×1 | Jobs; women can have babies until menopause (50) |
+| Adult | 30 | 26–61 | ×1 | Jobs; women can have babies until they turn Old (61) |
 | Old | stays | 61+ | ×0.8 | Energy drops ×1.2; men can still father children |
 
 **Ageing:** every new game day everyone gets one day older (`AGING_SPEED` in life.gd: 2.0 for a
@@ -80,7 +80,7 @@ teens are enrolled automatically by stage; growing up moves them to the next sch
 The **Try for a baby** interaction (30 minutes) is available only when:
 
 * both are **Young adults or older**, a **woman and a man**, and both **fertile**: women are fertile
-  as Young adults and Adults **until menopause at 50**; men from Young adult on;
+  as Young adults and Adults (**until they turn Old at 61**); men from Young adult on, **Old men too**;
 * the initiator's friendship toward the partner is **70 or more**, and the partner accepts (normal
   acceptance rules);
 * they're **at home together** (inside one of their homes);

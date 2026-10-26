@@ -4,7 +4,7 @@
 # new stage: a "Birthday" moodlet, a log line, and school changes (Jobs.school_for_stage).
 #
 # Babies: the "Try for a baby" interaction (social.gd) between close friends (friendship 70+) who are a
-# fertile woman (Young adult or Adult, before menopause) and a man (Young adult or older), at home.
+# fertile woman (Young adult or Adult, not Old) and a man (Young adult or older, Old too), at home.
 # BABY_CHANCE per try. Pregnancy lasts PREGNANCY_DAYS; then the baby is born in the mother's home.
 const Ages = preload("res://scripts/ages.gd")
 const Social = preload("res://scripts/social.gd")

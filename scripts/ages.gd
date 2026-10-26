@@ -20,8 +20,6 @@ const YOUNG_ADULT := 4
 const ADULT := 5
 const OLD := 6
 
-const MENOPAUSE_YEARS := 50.0  # women can't get pregnant from this age
-
 # What each stage changes. speed: walking ×; decay: {need: ×} how fast needs drop. Babies and toddlers
 # can't look after themselves: grown-ups must feed, change and rock them (social.gd care interactions).
 const EFFECTS := [
@@ -78,13 +76,13 @@ static func is_grown_up(c: Node2D) -> bool:  # Young adult, Adult or Old
 	return stage(c) >= YOUNG_ADULT
 
 
-# Can this person have a baby now? Young adults and adults; women until menopause.
+# Can this person have a baby now? Women from Young adult until they're Old; men from Young adult on, even Old.
 static func fertile(c: Node2D) -> bool:
 	var s := stage(c)
 	if s < YOUNG_ADULT:
 		return false
 	if c.sex == "F":
-		return s <= ADULT and years(c) < MENOPAUSE_YEARS
+		return s <= ADULT
 	return true
 
 

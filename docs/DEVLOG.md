@@ -2,6 +2,25 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-10-26 — Tiny Treats art
+- **Assets:** Isa Lousberg's Tiny Treats packs (CC0; Baked Goods, Bubbly Bathroom, Charming Kitchen, Homely House,
+  Pleasant Picnic, Pretty Park) in `assets/tinytreats/<pack>`, glTF only. Kenney's City Kit (Suburban) is removed.
+- **Furniture** (`tools/bake_furniture.gd`): kitchen (fridge, counters, stove, sink), tables, chairs, toilet, bath,
+  shower, bathroom sink, rugs, plants, bins, a floor lamp and the radio are now Tiny Treats. The free packs have no
+  beds, sofas, TV, shelves, drawers, desk, nightstands, washer, stool, coat rack or teddy, so those stay Kenney.
+  `MODELS` parts written `"<pack>/<model>"` load Tiny Treats and are scaled into Kenney units (`TT_SCALE` 0.65 m),
+  so both kits stack in one sprite. Sprite ids are unchanged: no game code or save changes.
+- **Houses and trees** (`tools/bake_neighbourhood.gd`): every house is the Homely House model, repainted per
+  building (walls = white swatch, roof = red swatch, snowy in winter); two storeys are ×1.25 taller. The buildings'
+  `models` field is gone. Trees are Pretty Park's `tree_large` / `tree` with the seasonal leaf colours.
+- Characters, cars and roads are still Kenney.
+
+## 2026-10-26 — Who can make a baby
+- **Fertility ages**: women can have a baby from Young adult until they turn Old (61); the menopause at 50 is gone
+  (`Ages.MENOPAUSE_YEARS` removed). Men can father a baby from Young adult on, Old men included. Everything else about
+  "Try for a baby" is unchanged (opposite sexes, friendship 70+ or partners, at home together, not family).
+- Tests: a 52-year-old woman is fertile, an Old woman isn't, an Old man still can with a fertile woman.
+
 ## 2026-10-20 — Talk while busy, every piece of furniture usable, cars and roads
 - **Talking to someone busy doesn't interrupt them**: if they're using something,
   queueing or on the way to it, they keep doing it (`busy_talk`); the initiator comes to where they are and talks

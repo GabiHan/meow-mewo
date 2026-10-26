@@ -1,12 +1,12 @@
-# Bakes the neighbourhood (assets/kenney/suburban, Kenney "City Kit (Suburban)", CC0) into isometric
-# sprites that match the game's 2:1 projection: every house in World.START_BUILDINGS, and the trees.
+# Bakes the neighbourhood into isometric sprites that match the game's 2:1 projection: every house in
+# World.START_BUILDINGS and the trees (Isa Lousberg's "Tiny Treats" packs, assets/tinytreats, CC0), the roads and cars.
 #
 # Run (needs a window):  godot --path . -s res://tools/bake_neighbourhood.gd   then  godot --headless --import
 # Output: art/neighbourhood/<sprite>.png and sprites.json ({"<sprite>": {"anchor": [x, y]}}, like furniture)
-#   house_<building>_<floors>[_winter]: the house stretched over its rect (walls included), front towards its
-#     door, "models"[floors - 1] of the building (one- and two-storey: build mode can add a storey). The anchor
-#     is the rect's centre on the ground. The kit's palette texture is repainted in the house's "color" (walls)
-#     and "roof"; in winter the roof is snowy. world.gd cuts the sprite into strips so people sort around it.
+#   house_<building>_<floors>[_winter]: the Homely House model stretched over its rect (walls included), front
+#     towards its door; two storeys (build mode can add one) make it TWO_STOREYS taller. The anchor is the rect's
+#     centre on the ground. The pack's palette texture is repainted in the house's "color" (walls) and "roof";
+#     in winter the roof is snowy. world.gd cuts the sprite into strips so people sort around it.
 #   tree_<large|small>_<season>: leaves in GameTime.LEAVES; the anchor is the trunk's foot.
 #   road_straight_x / road_straight_y / road_crossroad: 3×3 tiles of road (assets/kenney/roads, "City Kit (Roads)"),
 #     a kit tile per 3 m, graded to the pastel palette by brightness (ROAD_DARK → ROAD_LIGHT). Anchor: the centre.
@@ -16,14 +16,16 @@ extends SceneTree
 
 const World = preload("res://scripts/world.gd")
 const GameTime = preload("res://scripts/game_time.gd")
-const SRC := "res://assets/kenney/suburban/Models/GLB format/%s.glb"
-const PALETTE := "res://assets/kenney/suburban/Models/GLB format/Textures/colormap.png"
+const SRC := "res://assets/tinytreats/%s.gltf"
+const PALETTE := "res://assets/tinytreats/homely_house/tiny_treats_texture_1.png"  # the park pack's is the same
+const HOUSE := "homely_house/house"
+const TWO_STOREYS := 1.25  # height × for a two-storey house
 const OUT := "res://art/neighbourhood/"
 const SIZE := 1024
 const PX_PER_M := 45.25
 const HOUSE_HEIGHT := 0.5  # houses are stretched to their rect; their height is scaled by this share of that
-const TREE_SCALE := 5.0  # metres per kit unit
-const TREES := {"large": "tree-large", "small": "tree-small"}
+const TREE_SCALE := 0.7  # metres per Tiny Treats unit
+const TREES := {"large": "pretty_park/tree_large", "small": "pretty_park/tree"}
 const ROAD_SRC := "res://assets/kenney/roads/Models/GLB format/%s.glb"
 const CAR_SRC := "res://assets/kenney/cars/Models/GLB format/%s.glb"
 const ROAD_SCALE := 3.0  # metres per kit tile: the game's roads are 3 tiles wide (world.gd ROAD_WIDTH)
@@ -33,10 +35,10 @@ const ROAD_LIGHT := Color(0.97, 0.96, 0.99)  # pavements and lines
 const CAR_SCALE := 0.85  # metres per kit unit: a car is about 1.3 m wide and 2.2 m long
 const CARS := ["sedan", "suv", "taxi", "van", "hatchback-sports", "police", "delivery"]
 const SOFTEN := 0.12  # cars: their own colours, lifted a little towards white (like furniture)
-# Swatches of the kit's palette texture (pixels)
-const ROOF := Rect2i(0, 128, 64, 128)
-const WALL := Rect2i(192, 256, 64, 128)
-const LEAF := [Rect2i(0, 128, 64, 128), Rect2i(64, 384, 64, 128)]
+# Swatches of the pack's palette texture (pixels; a 4 × 8 grid of 128 × 256 gradients)
+const ROOF := Rect2i(256, 512, 128, 256)
+const WALL := Rect2i(384, 0, 128, 256)
+const LEAF := [Rect2i(128, 256, 128, 256)]
 const SNOW := Color(0.98, 0.98, 1.0)  # world.gd SNOW_ROOF_COLOR
 
 var viewport: SubViewport
@@ -84,7 +86,7 @@ func _initialize() -> void:
 		for floors in [1, 2]:
 			for winter in [false, true]:
 				var tex := repaint({ROOF: SNOW if winter else b.roof, WALL: b.color})
-				queue.append(["house_%d_%d%s" % [i, floors, "_winter" if winter else ""], SRC % b.models[floors - 1], tex, house_fit(b, b.models[floors - 1]), ""])
+				queue.append(["house_%d_%d%s" % [i, floors, "_winter" if winter else ""], SRC % HOUSE, tex, house_fit(b, floors), ""])
 	for t in TREES:
 		for season in GameTime.LEAVES:
 			var swatches := {}
@@ -115,8 +117,8 @@ func repaint(swatches: Dictionary) -> ImageTexture:
 
 
 # Turn the model's front (+z) towards the door and stretch it over the building's rect, centred on it.
-func house_fit(b: Dictionary, model_name: String) -> Transform3D:
-	var model: Node3D = load(SRC % model_name).instantiate()
+func house_fit(b: Dictionary, floors: int) -> Transform3D:
+	var model: Node3D = load(SRC % HOUSE).instantiate()
 	var box := bounds(model)
 	model.free()
 	var r: Rect2i = b.rect
@@ -125,7 +127,7 @@ func house_fit(b: Dictionary, model_name: String) -> Transform3D:
 	var size := Vector3(box.size.z, 0, box.size.x) if door_on_x else Vector3(box.size.x, 0, box.size.z)
 	var sx := r.size.x / size.x
 	var sz := r.size.y / size.z
-	var scale := Basis().scaled(Vector3(sx, (sx + sz) / 2.0 * HOUSE_HEIGHT, sz))
+	var scale := Basis().scaled(Vector3(sx, (sx + sz) / 2.0 * HOUSE_HEIGHT * (TWO_STOREYS if floors == 2 else 1.0), sz))
 	var centre := box.position + box.size / 2.0
 	return Transform3D(scale * turn, Vector3.ZERO) * Transform3D(Basis(), -Vector3(centre.x, box.position.y, centre.z))
 

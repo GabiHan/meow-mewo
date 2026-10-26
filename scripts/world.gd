@@ -54,23 +54,23 @@ const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: laven
 
 # rect includes the outer walls. door is on floor 0 and must be on the bottom (+y) or right (+x)
 # wall so it faces the camera. stairs (optional) is one interior cell shared by every floor.
-# models: the Kenney suburban houses it looks like from outside, with one and with two storeys
-# (tools/bake_neighbourhood.gd bakes them; re-bake after changing a rect, colour or model).
+# From outside every house is the Tiny Treats "Homely House" in its colour and roof colour
+# (tools/bake_neighbourhood.gd bakes them; re-bake after changing a rect or colour).
 # car: the home car parked on the front yard (traffic.gd): its cell and the next one along dir, facing the road.
 # These are the houses at the start; BUILDINGS is this game's copy, which build mode can change
 # (stairs add an upper floor: add_upper_floor / remove_upper_floor; "built_stairs" marks those).
 const START_BUILDINGS := [
 	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(485, 508),
-		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665), "models": ["building-type-i", "building-type-b"],
+		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665),
 		"car": {"cell": Vector2i(488, 511), "dir": Vector2i(1, 0), "model": "sedan"}},
 	{"name": "Alex's house", "rect": Rect2i(498, 499, 10, 10), "floors": 1, "door": Vector2i(502, 508),
-		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765), "models": ["building-type-h", "building-type-e"],
+		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765),
 		"car": {"cell": Vector2i(505, 511), "dir": Vector2i(1, 0), "model": "suv"}},
 	{"name": "Riley's house", "rect": Rect2i(486, 518, 10, 9), "floors": 1, "door": Vector2i(495, 522),
-		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697), "models": ["building-type-a", "building-type-o"],
+		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697),
 		"car": {"cell": Vector2i(483, 516), "dir": Vector2i(1, 0), "model": "hatchback-sports"}},
 	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 525),
-		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681), "models": ["building-type-g", "building-type-d"],
+		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681),
 		"car": {"cell": Vector2i(505, 516), "dir": Vector2i(1, 0), "model": "van"}},  # for new households (Play → Create)
 ]
 

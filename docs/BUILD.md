@@ -81,7 +81,7 @@ become unreachable; seats and decor turn freely.
 
 ## Adding an item
 
-1. If it's a new model, add a sprite id and its Kenney kit model to `MODELS` in `tools/bake_furniture.gd`,
+1. If it's a new model, add a sprite id and its kit model (`"<pack>/<model>"` for Tiny Treats, a bare name for Kenney) to `MODELS` in `tools/bake_furniture.gd`,
    bake (`godot --path . -s res://tools/bake_furniture.gd`) and `godot --headless --import`.
 2. Add a row to `ITEMS` in `catalog.gd`: `name`, `category` (one of `CATEGORIES`), `price`, `model`,
    optional `flat` (rugs) and, for usable furniture, `object`: `{name, ads, minutes, extras}` like an

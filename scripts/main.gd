@@ -54,7 +54,7 @@ const ZOOM_MAX := 1.5
 # Buildings are indexes into World.BUILDINGS: 0 = your house, 1 = Alex's, 2 = Riley's, -1 = outdoors.
 const BOOKSHELF := {"verb": "Reading", "skill": "Logic", "moodlet": "Learned something"}
 
-# Furniture sprites (furniture.gd, baked from assets/kenney/furniture by tools/bake_furniture.gd) for each
+# Furniture sprites (furniture.gd, baked from assets/tinytreats and assets/kenney/furniture by tools/bake_furniture.gd) for each
 # object type; an object's extras can override it with "sprite". Objects not listed keep a placeholder box.
 const FURNITURE := {
 	"Fridge": "Kitchen_Fridge_r0", "Counter": "Kitchen_2Drawers_r0", "Stove": "Kitchen_Oven_r0", "Sink": "Kitchen_Sink_r0",

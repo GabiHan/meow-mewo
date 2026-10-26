@@ -1,48 +1,52 @@
-# Bakes 3D furniture models (assets/kenney/furniture, Kenney "Furniture Kit", CC0) into isometric
-# sprites that match the game's 2:1 projection (iso.gd: a 1 m tile is 64×32 px).
+# Bakes 3D furniture models into isometric sprites that match the game's 2:1 projection (iso.gd: a 1 m tile
+# is 64×32 px). Models come from Isa Lousberg's "Tiny Treats" packs (assets/tinytreats, CC0) where they have
+# one, and from Kenney's "Furniture Kit" (assets/kenney/furniture, CC0) for what they don't (beds, sofas, TV...).
 #
 # Run (needs a window, not --headless):  godot --path . -s res://tools/bake_furniture.gd
 # Output: art/furniture/<Sprite>_r<0-3>.png and art/furniture/sprites.json
 #   {"<Sprite>_r<n>": {"anchor": [x, y]}}: the pixel where the model's floor centre is, which goes on
 #   the object's tile centre. r = rotation in 90° steps (r0 faces the +y grid direction).
-# Sprite ids are the game's own names (main.gd, catalog.gd, saves); MODELS says which kit model each one is.
+# Sprite ids are the game's own names (main.gd, catalog.gd, saves); MODELS says which kit model each one is:
+# "<pack>/<model>" is a Tiny Treats model (assets/tinytreats/<pack>/<model>.gltf), a bare name a Kenney one.
 # Add one: a row in MODELS, run the bake, then use it in main.gd or catalog.gd.
 extends SceneTree
 
 const SRC := "res://assets/kenney/furniture/Models/GLTF format/%s.glb"
+const TT_SRC := "res://assets/tinytreats/%s.gltf"
 const OUT := "res://art/furniture/"
 const SIZE := 512
 const PX_PER_M := 45.25  # 32 px across per metre along a grid axis: 32 / cos(45°)
 const KIT_SCALE := 2.1  # metres per kit unit (a kit wall is 1 unit wide, 1.3 high)
+const TT_SCALE := 0.65  # metres per Tiny Treats unit (a counter is 2 units wide, 1 high)
 const MODEL_SCALE := 0.85  # a touch smaller than life, to suit the characters
 const MAX_FOOTPRINT := 1.6  # metres; bigger models are shrunk to fit around one tile
 
 # sprite id -> [kit model(s) stacked bottom to top, scale]. Every sprite is baked in all four rotations
 # (anything can be rotated in build mode).
 const MODELS := {
-	"Kitchen_Fridge": [["kitchenFridgeLarge"], 1.0],
-	"Kitchen_2Drawers": [["kitchenCabinetDrawer"], 1.0],
-	"Kitchen_Oven": [["kitchenStove"], 1.0],
-	"Kitchen_Sink": [["kitchenSink"], 1.0],
-	"Kitchen_Cabinet1": [["kitchenCabinet"], 1.0],
-	"Kitchen_3Drawers": [["kitchenBar"], 1.0],
-	"Table_RoundSmall": [["tableRound"], 1.0],
-	"Table_RoundLarge": [["tableCloth"], 1.0],
+	"Kitchen_Fridge": [["charming_kitchen/fridge"], 0.85],
+	"Kitchen_2Drawers": [["charming_kitchen/countertop_straight_A"], 1.0],
+	"Kitchen_Oven": [["charming_kitchen/stove"], 1.0],
+	"Kitchen_Sink": [["charming_kitchen/countertop_sink"], 1.0],
+	"Kitchen_Cabinet1": [["charming_kitchen/countertop_single"], 1.0],
+	"Kitchen_3Drawers": [["charming_kitchen/countertop_straight_B"], 1.0],
+	"Table_RoundSmall": [["charming_kitchen/table_C"], 1.0],
+	"Table_RoundLarge": [["charming_kitchen/table_B"], 1.0],
 	"Table_Coffee": [["tableCoffee"], 1.0],
 	"Desk": [["desk"], 1.0],
-	"Chair_1": [["chair"], 1.0],
-	"Chair_2": [["chairModernCushion"], 1.0],
-	"Chair_3": [["chairCushion"], 1.0],
+	"Chair_1": [["charming_kitchen/chair"], 1.0],
+	"Chair_2": [["charming_kitchen/chair"], 1.0],
+	"Chair_3": [["charming_kitchen/chair"], 1.0],
 	"Stool": [["stoolBar"], 1.0],
 	"Bed_King": [["bedDouble"], 1.0],
 	"Bed_Single": [["bedSingle"], 1.0],
 	"Bed_Bunk": [["bedBunk"], 1.0],
 	"NightStand_1": [["cabinetBedDrawer"], 1.0],
 	"NightStand_2": [["cabinetBedDrawerTable"], 1.0],
-	"Bathroom_Shower1": [["shower"], 1.0],
-	"Bathroom_Toilet": [["toilet"], 1.0],
-	"Bathroom_Sink": [["bathroomSink"], 1.0],
-	"Bathroom_Bathtub": [["bathtub"], 1.0],
+	"Bathroom_Shower1": [["bubbly_bathroom/mat", "bubbly_bathroom/shower"], 1.0],
+	"Bathroom_Toilet": [["bubbly_bathroom/toilet"], 1.2],
+	"Bathroom_Sink": [["bubbly_bathroom/cabinet_bathroom"], 1.0],
+	"Bathroom_Bathtub": [["bubbly_bathroom/bath"], 1.0],
 	"Bathroom_WashingMachine": [["washer"], 1.0],
 	"Bookshelf": [["bookcaseOpen"], 1.0],
 	"Shelf_Small1": [["bookcaseOpenLow"], 1.0],
@@ -53,21 +57,21 @@ const MODELS := {
 	"Couch_Small1": [["loungeChair"], 1.0],
 	"Couch_Medium1": [["loungeSofa"], 1.0],
 	"Couch_L": [["loungeSofaCorner"], 1.0],
-	"Carpet_1": [["rugRectangle"], 1.0],
-	"Carpet_2": [["rugSquare"], 1.0],
+	"Carpet_1": [["bubbly_bathroom/mat"], 1.0],
+	"Carpet_2": [["pleasant_picnic/picnic_blanket_blue"], 1.0],
 	"Carpet_Round": [["rugRound"], 1.0],
-	"Houseplant_1": [["pottedPlant"], 1.0],
-	"Houseplant_3": [["plantSmall1"], 2.6],
-	"Houseplant_5": [["plantSmall2"], 2.6],
-	"Houseplant_7": [["plantSmall3"], 2.6],
-	"Light_Floor1": [["lampRoundFloor"], 1.0],
+	"Houseplant_1": [["bubbly_bathroom/plant"], 1.8],
+	"Houseplant_3": [["pretty_park/bush"], 1.3],
+	"Houseplant_5": [["pretty_park/bush_large"], 1.0],
+	"Houseplant_7": [["homely_house/foliage_B"], 2.6],
+	"Light_Floor1": [["pretty_park/street_lantern"], 0.6],
 	"Light_Floor3": [["lampSquareFloor"], 1.0],
 	"Light_Stand1": [["sideTable", "lampSquareTable"], 1.0],
 	"Light_Stand2": [["sideTable", "lampRoundTable"], 1.0],
-	"Trashcan_Small1": [["trashcan"], 1.0],
-	"Trashcan_Large": [["trashcan"], 1.4],
+	"Trashcan_Small1": [["bubbly_bathroom/bin"], 1.6],
+	"Trashcan_Large": [["pretty_park/trashcan"], 1.0],
 	"TV": [["cabinetTelevision", "televisionModern"], 1.0],
-	"Radio": [["sideTable", "radio"], 1.0],
+	"Radio": [["sideTable", "pleasant_picnic/radio"], 1.0],
 	"Teddy": [["bear"], 1.2],
 	"Coat_Rack": [["coatRackStanding"], 1.0],
 }
@@ -163,7 +167,10 @@ func next_model() -> bool:
 	var stack := Node3D.new()  # the parts, stacked
 	var top := 0.0
 	for part in row[0]:
-		var model: Node3D = load(SRC % part).instantiate()
+		var tiny: bool = "/" in part
+		var model: Node3D = load(TT_SRC % part if tiny else SRC % part).instantiate()
+		if tiny:
+			model.scale *= TT_SCALE / KIT_SCALE  # in Kenney kit units, so parts of both kits stack
 		var box := bounds(model)
 		var holder_part := Node3D.new()
 		holder_part.add_child(model)

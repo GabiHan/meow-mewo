@@ -55,10 +55,12 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   ignores the mouse while build mode is active.
 - Character art: `looks.gd` + `tools/bake_characters.gd` (needs a window) → `art/characters`. Things drawn on top of a
   person go in `draw_overlay()` (npc.gd), not `_draw` (that's under the sprite).
-- Art comes from the Kenney kits in `assets/kenney/` (only GLBs are imported; other formats have a `.gdignore`).
+- Art comes from the Tiny Treats packs in `assets/tinytreats/` (glTF; furniture, houses, trees) and the Kenney kits in
+  `assets/kenney/` (characters, cars, roads, furniture Tiny Treats lacks; only GLBs are imported). In `MODELS`,
+  `"<pack>/<model>"` is Tiny Treats, a bare name Kenney.
   Furniture: `tools/bake_furniture.gd` (sprite ids → kit models in `MODELS`) → art/furniture. Houses and trees:
   `tools/bake_neighbourhood.gd` → art/neighbourhood (`Furniture.*(…, Furniture.SCENERY)`); re-bake after changing a
-  building's rect, colours or `models`. All bakers need a window. See README "Furniture art" / "Neighbourhood art".
+  building's rect or colours. All bakers need a window. See README "Furniture art" / "Neighbourhood art".
 - Cars and roads: `traffic.gd` (home cars, traffic, driving to work) and `car.gd`; road pieces and street-parked cars
   are made with the chunks in `world.gd`. Home cars' tiles are solid; driving cars don't block paths, they stop
   for people. Scripted tests drive a car with `car.drive(delta, world.traffic)`. See README "Cars and roads".

@@ -360,8 +360,15 @@ func check_life() -> void:
 	var old_alex: float = alex.age_days
 	check(Ages.fertile(alex) and Ages.fertile(sam) and not Ages.fertile(mia), "fertile: adult woman and young man yes, child no")
 	alex.age_days = Ages.days_for_years(52)
-	check(not Ages.fertile(alex) and Ages.stage(alex) == Ages.ADULT, "menopause: a 52-year-old woman can't get pregnant")
+	check(Ages.fertile(alex) and Ages.stage(alex) == Ages.ADULT, "a 52-year-old woman (Adult) can still get pregnant")
+	alex.age_days = Ages.days_for_years(65)
+	check(not Ages.fertile(alex) and Ages.stage(alex) == Ages.OLD, "an Old woman (65) can't get pregnant")
 	alex.age_days = old_alex
+	var old_sam: float = sam.age_days
+	sam.age_days = Ages.days_for_years(75)
+	check(Ages.fertile(sam) and Ages.stage(sam) == Ages.OLD and Life.can_have_baby(alex, sam),
+		"an Old man (75) can still make a baby with a fertile woman")
+	sam.age_days = old_sam
 
 	# Trying for a baby: you (F) and Sam (M), close friends, at home.
 	player.relationships["Sam"] = 80.0
