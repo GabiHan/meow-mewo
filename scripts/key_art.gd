@@ -8,6 +8,7 @@ const Block = preload("res://scripts/block.gd")
 const Ground = preload("res://scripts/ground.gd")
 const Furniture = preload("res://scripts/furniture.gd")
 const Looks = preload("res://scripts/looks.gd")
+const Doll = preload("res://scripts/doll.gd")
 
 const ROOM := 7  # tiles per side
 const ZOOM := 1.7
@@ -20,7 +21,7 @@ const FURNITURE := [
 	["Kitchen_Fridge_r0", Vector2i(1, 2)], ["Carpet_Round_r0", Vector2i(3, 4)], ["Couch_Large1_r1", Vector2i(1, 4)],
 	["Table_RoundSmall_r0", Vector2i(4, 4)], ["Chair_1_r1", Vector2i(3, 4)], ["Houseplant_5_r0", Vector2i(5, 5)],
 ]
-# [look, tile] — who's home
+# [look preset (looks.gd), tile] — who's home
 const PEOPLE := [["jo", Vector2(3.2, 3.0)], ["sam", Vector2(2.4, 5.2)], ["alex", Vector2(5.0, 3.0)], ["mia", Vector2(4.2, 5.6)]]
 
 var room: Node2D
@@ -60,18 +61,11 @@ func _ready() -> void:
 		holder.add_child(Furniture.make_sprite(f[0]))
 		room.add_child(holder)
 	for p in PEOPLE:
-		var sheet := Looks.sheet(p[0])
-		if sheet == null:
-			continue
-		var s := Sprite2D.new()
-		s.texture = sheet
-		s.hframes = Looks.FRAMES
-		s.vframes = 8
-		s.frame = 1 * Looks.FRAMES + Looks.IDLE  # facing us
-		s.centered = false
-		s.offset = -Looks.FEET
-		s.position = Iso.to_screen(p[1])
-		room.add_child(s)
+		var d := Doll.new()
+		d.show_look(Looks.PRESETS[p[0]])
+		d.scale = Vector2(-1.0 if p[1].x > 3.5 else 1.0, 1.0) * Looks.WORLD_SCALE * (0.75 if p[0] == "mia" else 1.0)
+		d.position = Iso.to_screen(p[1])
+		room.add_child(d)
 	resized.connect(place_room)
 	place_room()
 

@@ -704,37 +704,44 @@ func check_build() -> void:
 	check(opened and not main.build.active and not main.paused, "B opens build mode (paused) and closes it again")
 
 
-# Character sprites (looks.gd): everyone has a sheet; frames follow what they do.
+# Paper dolls (looks.gd, doll.gd): everyone is a layered doll; the pose follows what they do.
 func check_looks() -> void:
 	var people: Array = main.get_tree().get_nodes_in_group("characters")
 	var grown := people.filter(func(c): return Ages.stage(c) != Ages.BABY)
-	check(grown.all(func(c): return c.body_sprite != null and c.body_sprite.texture != null and c.body_sprite.visible),
-		"everyone (except babies) is drawn with a baked 3D character sheet")
+	check(grown.all(func(c): return c.doll != null and c.doll.visible and c.doll.get_child_count() >= 5),
+		"everyone (except babies) is drawn as a layered paper doll")
 	var babies := people.filter(func(c): return Ages.stage(c) == Ages.BABY)
-	check(babies.all(func(c): return not c.body_sprite.visible and c.look in ["girl_a", "girl_b", "boy_a", "boy_b"]),
+	check(babies.all(func(c): return not c.doll.visible and c.look is Dictionary and c.look.has("skin")),
 		"babies are drawn as a bundle and already have a look for when they grow up")
+	var kids := grown.filter(func(c): return Ages.stage(c) < Ages.YOUNG_ADULT)
+	check(kids.all(func(c): return c.doll.get_node_or_null("beard") == null), "no beards on children")
 	reset(player, Vector2(488, 504))
 	player.walk_to(Vector2i(491, 504), 0)
 	for n in 5:
 		player._process(0.1)
-	var f: int = player.body_sprite.frame
-	check(f / Looks.FRAMES == 2 and f % Looks.FRAMES >= Looks.WALK and f % Looks.FRAMES < Looks.WALK + 4,
-		"walking towards +x: the +x row, a walk frame (%d)" % f)
+	check(player.anim == "walk" and player.facing_dir == 2 and not player.flip and player.doll.position.y <= 0.0,
+		"walking towards +x: facing +x (to the right on screen, not mirrored), bobbing")
+	player.walk_to(Vector2i(485, 504), 0)
+	for n in 5:
+		player._process(0.1)
+	check(player.facing_dir == 6 and player.flip and player.doll.scale.x < 0.0, "walking towards -x: mirrored")
 	player.cancel_current()
 	var chair := object_named("Chair", 0)
 	player.use_object(chair)
 	until_using(player)
 	player._process(0.0)
-	check(player.body_sprite.frame % Looks.FRAMES == Looks.SIT, "sitting on a chair uses the sitting frame")
+	check(player.anim == "sit" and player.doll.scale.y < absf(player.doll.scale.x), "sitting on a chair: the sitting pose")
 	player.cancel_current()
 	player.use_object(object_named("Bed", 0))
 	until_using(player)
 	player._process(0.0)
-	check(player.body_sprite.frame % Looks.FRAMES == Looks.LIE and player.body_sprite.position != Vector2.ZERO,
+	check(player.anim == "lie" and absf(player.doll.rotation) > 1.0 and player.doll.position != Vector2.ZERO,
 		"sleeping: lying down, drawn on the bed")
 	player.cancel_current()
 	check(Looks.direction(Vector2(0, 1)) == 0 and Looks.direction(Vector2(-1, 0)) == 6 and Looks.direction(Vector2(1, -1)) == 3,
-		"facing directions map to sheet rows")
+		"facing directions map to DIRS")
+	var old_save: Dictionary = Looks.normalize("riley", "M")
+	check(old_save.beard > 0 and Looks.normalize({}, "F").has("hair_color"), "old saves' look names become looks")
 
 
 func check_death() -> void:
@@ -805,8 +812,8 @@ func check_saving() -> void:
 	Session.reset()
 	Session.mode = "new"
 	Session.new_household = {"name": "The Meows", "members": [
-		{"name": "Mimi", "sex": "F", "stage": "Adult", "look": "girl_b", "traits": ["Cheerful"]},
-		{"name": "Tom", "sex": "M", "stage": "Child", "look": "boy_a", "traits": []}]}
+		{"name": "Mimi", "sex": "F", "stage": "Adult", "look": Looks.PRESETS.alex, "traits": ["Cheerful"]},
+		{"name": "Tom", "sex": "M", "stage": "Child", "look": Looks.random_for("M"), "traits": []}]}
 	restart_game()
 	var tom := person("Tom")
 	check(main.player.npc_name == "Mimi" and main.player.home == main.STARTER_HOUSE and main.player.money == main.STARTING_FUNDS
@@ -832,6 +839,16 @@ func check_saving() -> void:
 	var ok: Dictionary = menu.read_household()
 	check(taken.is_empty() and no_adult.is_empty() and ok.get("name") == "The Meows" and ok.members[0].stage == "Adult",
 		"the household creator refuses taken names and households without a grown-up")
+	menu.open_creator(menu.members[0])
+	var creator: Control = menu.get_child(menu.get_child_count() - 1)
+	creator.look.hair_color = 6
+	creator.pick("dress", 1)
+	var dressed: bool = creator.look.dress == 1 and creator.look.top == 0 and creator.look.bottom == 0
+	creator.show_tab("Clothes")
+	creator.find_child("Done", true, false).pressed.emit()
+	var styled: Dictionary = menu.read_household()
+	check(dressed and styled.members[0].look.hair_color == 6 and styled.members[0].look.dress == 1 and menu.members[0].styled,
+		"the character creator: a dress replaces top and bottom, Done gives the person that look")
 	menu.free()
 	Session.reset()
 
@@ -1483,10 +1500,18 @@ func check_art() -> void:
 			var sprite := Catalog.sprite(id, r)
 			if sprite != "" and not Furniture.has(sprite):
 				missing.append(sprite)
-	for look in Looks.LOOKS:
-		if Looks.sheet(look) == null or Looks.face(look) == null:
-			missing.append(look)
-	check(missing.is_empty(), "every catalog item is baked in 4 rotations and every look has a sheet and a face (missing: %s)" % [missing])
+	for part in Looks.PARTS:
+		if Looks.count(part.key) == 0:
+			missing.append(part.key)
+		for n in range(1, Looks.count(part.key) + 1):
+			if Looks.texture(part.key, n) == null:
+				missing.append("%s/%d" % [part.key, n])
+	for preset in Looks.PRESETS:
+		for key in Looks.PRESETS[preset]:
+			var n: int = Looks.PRESETS[preset][key]
+			if Looks.part_info(key) and n > Looks.count(key):
+				missing.append("%s.%s" % [preset, key])
+	check(missing.is_empty(), "every catalog item is baked in 4 rotations and every doll layer is in art/doll (missing: %s)" % [missing])
 	var strips: Array = w.exteriors[1].get_children().filter(func(n): return n is Sprite2D)
 	var boxes: Array = w.exteriors[1].get_children().filter(func(n): return not n is Sprite2D)
 	check(strips.size() > 10 and boxes.all(func(b): return b.under_sprite), "a house is its baked sprite in strips, over invisible click boxes")

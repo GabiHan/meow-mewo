@@ -3,7 +3,8 @@
 # then "Loading the neighbourhood…" (the game scene loads in the background) and the version (project.godot).
 # The home-screen song plays (music.gd).
 #
-#   Play Game    -> Create a new household (name it, add up to 4 people) | Choose a household  (offline)
+#   Play Game    -> Create a new household (name it, add up to 4 people, Look… opens the character creator,
+#                   creator.gd) | Choose a household  (offline)
 #   Play Online  -> Host a town (pick or create a household, or continue: others on your Wi-Fi can join)
 #                 | Join a town (towns on the Wi-Fi, or type an address -> pick a free household or move a new one in)
 #   Continue     -> loads the most recent save
@@ -17,6 +18,9 @@ const UiTheme = preload("res://scripts/ui_theme.gd")
 const SaveGame = preload("res://scripts/save_game.gd")
 const Session = preload("res://scripts/session.gd")
 const Looks = preload("res://scripts/looks.gd")
+const Doll = preload("res://scripts/doll.gd")
+const Creator = preload("res://scripts/creator.gd")
+const PREVIEW_SCALE := 0.2
 const Traits = preload("res://scripts/traits.gd")
 const Main = preload("res://scripts/main.gd")
 const Net = preload("res://scripts/net.gd")
@@ -393,13 +397,21 @@ func add_member(list: VBoxContainer) -> void:
 	m.sex = option(row, ["Female", "Male"])
 	m.age = option(row, AGES)
 	m.age.select(2)
-	m.look = option(row, [])
-	m.preview = TextureRect.new()
-	m.preview.custom_minimum_size = Vector2(48, 56)
-	m.preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	m.preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	row.add_child(m.preview)
-	m.look.item_selected.connect(func(_i): m.preview.texture = Looks.portrait(m.look.get_item_metadata(m.look.selected)))
+	m.look = Looks.random_for("F")
+	m.styled = false  # picked in the creator: changing sex keeps it
+	var frame := Control.new()  # the person, small (doll.gd)
+	frame.custom_minimum_size = Vector2(44, 72)
+	frame.clip_contents = true
+	row.add_child(frame)
+	m.preview = Doll.new()
+	m.preview.scale = Vector2.ONE * PREVIEW_SCALE
+	m.preview.position = Vector2(22, 70)
+	frame.add_child(m.preview)
+	var style := Button.new()
+	style.text = "Look…"
+	style.tooltip_text = "Create this person's look"
+	style.pressed.connect(func(): open_creator(m))
+	row.add_child(style)
 	m.traits = [option(row, ["(trait)"] + Traits.TRAITS.keys()), option(row, ["(trait)"] + Traits.TRAITS.keys()),
 		option(row, ["(trait)"] + Traits.TRAITS.keys())]
 	var remove := Button.new()
@@ -408,8 +420,12 @@ func add_member(list: VBoxContainer) -> void:
 		members.erase(m)
 		card.queue_free())
 	row.add_child(remove)
-	m.sex.item_selected.connect(func(_i): fill_looks(m))
-	fill_looks(m)
+	m.sex.item_selected.connect(func(_i):
+		if not m.styled:
+			m.look = Looks.random_for(member_sex(m))
+		show_member_look(m))
+	m.age.item_selected.connect(func(_i): show_member_look(m))
+	show_member_look(m)
 	members.append(m)
 
 
@@ -421,16 +437,27 @@ func option(row: HBoxContainer, items: Array) -> OptionButton:
 	return o
 
 
-# Looks of the chosen sex (looks.gd).
-func fill_looks(m: Dictionary) -> void:
-	var sex := "F" if m.sex.selected == 0 else "M"
-	m.look.clear()
-	for look in Looks.LOOKS:
-		if Looks.LOOKS[look].body == sex:
-			m.look.add_item(Looks.LOOKS[look].label)
-			m.look.set_item_metadata(m.look.item_count - 1, look)
-	m.look.select(0)
-	m.preview.texture = Looks.portrait(m.look.get_item_metadata(0))
+func member_sex(m: Dictionary) -> String:
+	return "F" if m.sex.selected == 0 else "M"
+
+
+func member_grown(m: Dictionary) -> bool:
+	return AGES[m.age.selected] in ["Young adult", "Adult", "Old"]
+
+
+func show_member_look(m: Dictionary) -> void:
+	m.preview.show_look(m.look, member_grown(m))
+
+
+# The character creator (creator.gd) over the page; Done keeps the look.
+func open_creator(m: Dictionary) -> void:
+	var creator: Control = Creator.new().setup(m.look, member_sex(m), member_grown(m))
+	creator.finished.connect(func(look: Dictionary):
+		if not look.is_empty() and is_instance_valid(m.preview):
+			m.look = look
+			m.styled = true
+			show_member_look(m))
+	add_child(creator)
 
 
 # The household described by the create page, or {} (and an error shown) if something's wrong.
@@ -440,7 +467,7 @@ func read_household() -> Dictionary:
 	var names := {}
 	for m in members:
 		var person := {"name": m.name.text.strip_edges(), "sex": "F" if m.sex.selected == 0 else "M",
-			"stage": AGES[m.age.selected], "look": m.look.get_item_metadata(m.look.selected), "traits": []}
+			"stage": AGES[m.age.selected], "look": m.look.duplicate(), "traits": []}
 		for t in m.traits:
 			var trait_name: String = t.get_item_text(t.selected)
 			if t.selected > 0 and not trait_name in person.traits:

@@ -62,6 +62,7 @@ const Life = preload("res://scripts/life.gd")
 const Mind = preload("res://scripts/mind.gd")
 const Actions = preload("res://scripts/actions.gd")
 const Looks = preload("res://scripts/looks.gd")
+const Doll = preload("res://scripts/doll.gd")
 const Llm = preload("res://scripts/llm.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
 const Body = preload("res://scripts/body.gd")
@@ -215,9 +216,11 @@ var emote_timer := 0.0
 var world: Node2D
 var label: Label
 
-# Appearance (looks.gd): a baked sprite sheet, animated by what they're doing
-var look := ""
-var body_sprite: Sprite2D
+# Appearance (looks.gd): a layered paper doll (doll.gd), posed by what they're doing (animate)
+var look := {}  # looks.gd: part and colour numbers
+var doll: Node2D
+var anim := "idle"  # the pose animate() chose: idle, walk, run, sit, lie, down, bent
+var flip := false  # mirrored (facing left on screen)
 var overlay: Node2D  # draws on top of the sprite: progress bar, carried plate
 var facing_dir := 0  # sheet row (direction)
 var last_move := Vector2(0, 1)
@@ -269,23 +272,15 @@ func _ready() -> void:
 	label = Label.new()
 	label.add_theme_font_override("font", UiTheme.font())
 	label.add_theme_font_size_override("font_size", 14)
-	label.position = Vector2(-45, -95)
+	label.position = Vector2(-45, -124)
 	label.add_theme_constant_override("outline_size", 5)
 	label.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.9))
 	label.add_theme_color_override("font_color", Color(0.36, 0.29, 0.48))
 	label.z_index = 10  # character info draws above object names
 	add_child(label)
-	if look == "":
-		look = Looks.random_for(sex)
-	var sheet := Looks.sheet(look)
-	if sheet:
-		body_sprite = Sprite2D.new()
-		body_sprite.texture = sheet
-		body_sprite.hframes = Looks.FRAMES
-		body_sprite.vframes = 8
-		body_sprite.centered = false
-		body_sprite.offset = -Looks.FEET
-		add_child(body_sprite)
+	look = Looks.normalize(look, sex, Ages.stage(self) == Ages.OLD)  # old saves stored a look's name
+	doll = Doll.new()
+	add_child(doll)
 	overlay = Overlay.new()
 	overlay.person = self
 	add_child(overlay)
@@ -767,8 +762,8 @@ func bus_stop() -> Node2D:
 
 
 # Give someone a job and money (main.gd).
-func set_look(p_look: String) -> Node2D:
-	look = p_look
+func set_look(p_look: Variant) -> Node2D:  # a look (Dictionary) or a preset's name (Looks.PRESETS)
+	look = Looks.normalize(p_look, sex)
 	return self
 
 
@@ -1000,7 +995,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
 	draw_circle(Vector2.ZERO, 12.0 * s, Color(0, 0, 0, 0.25))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	if body_sprite and Ages.stage(self) != Ages.BABY:
+	if doll and Ages.stage(self) != Ages.BABY:
 		return  # the sprite (and the overlay on top of it) draw the rest
 	if Ages.stage(self) == Ages.BABY:  # a bundle
 		draw_circle(Vector2(0, -6), 7.0, body_color.lightened(0.3))
@@ -1021,8 +1016,8 @@ func draw_overlay(canvas: Node2D) -> void:
 		canvas.draw_circle(Vector2(6, -22), 5.0, Color(1.0, 0.85, 0.75, 0.9))
 	if state == "using" and step.get("seconds", 0.0) > 0.0:  # progress bar for the current action
 		var done := clampf(1.0 - use_timer / step.seconds, 0.0, 1.0)
-		canvas.draw_rect(Rect2(-19, -73, 38, 6), Color(0, 0, 0, 0.6))
-		canvas.draw_rect(Rect2(-18, -72, 36 * done, 4), Color(0.45, 0.85, 0.5))
+		canvas.draw_rect(Rect2(-19, -102, 38, 6), Color(0, 0, 0, 0.6))
+		canvas.draw_rect(Rect2(-18, -101, 36 * done, 4), Color(0.45, 0.85, 0.5))
 	if not held.is_empty():  # carried plate or cup, in front of the body
 		var dish := Color(0.92, 0.92, 0.95) if held.kind != "dirty" else Color(0.7, 0.66, 0.6)
 		if held.get("dish", "") == "cup" or held.kind == "drink":
@@ -1035,52 +1030,68 @@ func draw_overlay(canvas: Node2D) -> void:
 			canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-# Pick the sheet frame: walking or running (4-step cycles, facing the way they move), sitting on seats and
-# the toilet, lying in bed (or napping on the couch), down on the floor or bent over (body.gd), facing who
-# they talk to, standing otherwise.
+# Pose the doll: walking or running (a bob and a lean, mirrored when heading left on screen), sitting on
+# seats and the toilet (a little lower, squashed), lying in bed (or napping on the couch), down on the floor or
+# bent over (body.gd), facing who they talk to, standing otherwise. `anim` names the pose.
 func animate(delta: float) -> void:
 	overlay.queue_redraw()
-	label.position.y = -45.0 if pose == "down" else -95.0  # lying on the floor: the name sits lower too
-	if body_sprite == null:
+	label.position.y = -45.0 if pose == "down" else -124.0  # lying on the floor: the name sits lower too
+	if doll == null:
 		return
 	var stage := Ages.stage(self)
-	body_sprite.visible = stage != Ages.BABY
-	body_sprite.scale = Vector2.ONE * BODY_SCALE[stage]
-	body_sprite.position = Vector2.ZERO
-	var frame := Looks.IDLE
-	if pose == "down":  # on the floor (body.gd); the frame is baked raised, so lower it
-		frame = Looks.DOWN
-		body_sprite.position = Vector2(0, Looks.DOWN_DROP * BODY_SCALE[stage])
+	doll.visible = stage != Ages.BABY
+	doll.show_look(look, stage >= Ages.YOUNG_ADULT)
+	var s: float = BODY_SCALE[stage] * Looks.WORLD_SCALE
+	var height: float = -Looks.HEAD.y * s  # feet to face
+	var at := Vector2.ZERO
+	var turn := 0.0
+	var slide := 0.0  # lying down: move the body sideways so it's centred (mirrored with the doll)
+	var squash := 1.0
+	anim = "idle"
+	if pose == "down":  # face down on the floor, head to the side they faced
+		anim = "down"
+		turn = PI / 2.0
+		slide = -height * 0.6
+		at.y = -6.0 * s
 	elif pose == "bent":
-		frame = Looks.BENT
-	elif state == "walking" and running:
-		anim_time += delta
-		facing_dir = Looks.direction(last_move)
-		frame = Looks.RUN + int(anim_time * 9.0) % 4
+		anim = "bent"
+		turn = 0.4
 	elif state == "walking":
+		anim = "run" if running else "walk"
 		anim_time += delta
 		facing_dir = Looks.direction(last_move)
-		frame = Looks.WALK + int(anim_time * 6.0) % 4
+		var rate := 18.0 if running else 11.0
+		at.y = -absf(sin(anim_time * rate)) * (5.0 if running else 3.0) * s / Looks.WORLD_SCALE
+		turn = (0.14 if running else 0.0) + sin(anim_time * rate) * 0.05
 	elif state == "using" and target_object:
-		var at: Vector2 = target_object.grid_pos
+		var spot: Vector2 = target_object.grid_pos
 		if step.get("asleep", false) and target_object.object_name in ["Bed", "Crib", "Couch"]:
-			frame = Looks.LIE
-			body_sprite.position = Iso.to_screen(at) - position + Vector2(0, -10)
+			anim = "lie"
 			facing_dir = target_object.facing * 2
+			turn = -PI / 2.0
+			slide = height * 0.5
+			at = Iso.to_screen(spot) - position + Vector2(0, -14.0)
 		elif target_object.is_seat() or target_object.object_name in ["Toilet", "Table"]:
-			frame = Looks.SIT
+			anim = "sit"
+			squash = 0.86
+			at.y = -6.0
 			if target_object.is_seat():
 				facing_dir = target_object.facing * 2
 			else:
-				facing_dir = Looks.direction(at - grid_pos)
+				facing_dir = Looks.direction(spot - grid_pos)
 				if target_object.object_name == "Toilet":
-					body_sprite.position = Iso.to_screen(at) - position
+					at += Iso.to_screen(spot) - position
 					facing_dir = target_object.facing * 2
 		else:
-			facing_dir = Looks.direction(at - grid_pos)
+			facing_dir = Looks.direction(spot - grid_pos)
 	elif state in ["talking", "waiting"] and partner:
 		facing_dir = Looks.direction(partner.grid_pos - grid_pos)
-	body_sprite.frame = facing_dir * Looks.FRAMES + frame
+	var screen_x: float = Iso.to_screen(Looks.DIRS[facing_dir]).x
+	if absf(screen_x) > 0.1:
+		flip = screen_x < 0.0
+	doll.position = at + Vector2(-slide if flip else slide, 0.0)
+	doll.rotation = turn * (-1.0 if flip else 1.0)
+	doll.scale = Vector2(-s if flip else s, s * squash)
 
 
 # --- Being controlled (controller.gd) ---

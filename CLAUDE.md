@@ -53,10 +53,11 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 
 - Build mode: `catalog.gd` (items, rules; keep docs/BUILD.md's table in sync) and `build_mode.gd` (UI). The controller
   ignores the mouse while build mode is active.
-- Character art: `looks.gd` + `tools/bake_characters.gd` (needs a window) → `art/characters`. Things drawn on top of a
+- Character art: paper dolls. `looks.gd` (parts, palettes, presets) + `doll.gd` (one tinted Sprite2D per layer);
+  `tools/import_doll.gd` (headless) prepares `assets/doll` → `art/doll`. The creator is `creator.gd`. Things drawn on top of a
   person go in `draw_overlay()` (npc.gd), not `_draw` (that's under the sprite).
 - Art comes from the Tiny Treats packs in `assets/tinytreats/` (glTF; furniture, houses, trees) and the Kenney kits in
-  `assets/kenney/` (characters, cars, roads, furniture Tiny Treats lacks; only GLBs are imported). In `MODELS`,
+  `assets/kenney/` (cars, roads, furniture Tiny Treats lacks; only GLBs are imported). In `MODELS`,
   `"<pack>/<model>"` is Tiny Treats, a bare name Kenney.
   Furniture: `tools/bake_furniture.gd` (sprite ids → kit models in `MODELS`) → art/furniture. Houses and trees:
   `tools/bake_neighbourhood.gd` → art/neighbourhood (`Furniture.*(…, Furniture.SCENERY)`); re-bake after changing a
@@ -76,8 +77,7 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   "who controls c" with `game.controller_of(c)`, not the "controller" group. Run `tests/check_online.gd` too.
 - The body: `body.gd` (static; running, tripping, passing out, accidents, farts, illness, vomiting), documented in
   docs/PEOPLE.md "The body". People who are down have `state` "down" and `pose` set: don't give them orders
-  (`cancel_current` refuses). New sprite frames go in `looks.gd` (FRAMES) + `tools/bake_characters.gd` POSES (a kit animation + time), then
-  re-bake (needs a window).
+  (`cancel_current` refuses). Poses are transforms of the doll in `npc.gd animate()` (`anim`), not sprite frames.
 - Sound: `music.gd` (/root/Music, `Music.play(tree, "menu"/"home"/"outside")`, real-time fades, not affected by
   game speed) and `settings.gd` (buses Master/Music/Sounds, user://settings.cfg). New sound effects go on the
   "Sounds" bus. Version: `application/config/version` in project.godot (shown on the home screen).

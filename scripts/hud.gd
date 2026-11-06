@@ -25,6 +25,8 @@ const Jobs = preload("res://scripts/jobs.gd")
 const Ages = preload("res://scripts/ages.gd")
 const Mind = preload("res://scripts/mind.gd")
 const Looks = preload("res://scripts/looks.gd")
+const Doll = preload("res://scripts/doll.gd")
+const PORTRAIT_SCALE := 0.42
 const Llm = preload("res://scripts/llm.gd")
 const TalkPanel = preload("res://scripts/talk_panel.gd")
 const Net = preload("res://scripts/net.gd")
@@ -88,7 +90,7 @@ var today_tab: Button
 var today_refresh_at := 0
 var passport: PanelContainer
 var passport_tab: Button
-var portrait: TextureRect
+var portrait: Control  # clips a doll (doll.gd) to its head
 var name_label: Label
 var mood_line: Control
 var mood_word: Label
@@ -421,11 +423,15 @@ func build_passport() -> void:
 	frame.add_theme_stylebox_override("panel", frame_style)
 	frame.custom_minimum_size = Vector2(64, 64)
 	top.add_child(frame)
-	portrait = TextureRect.new()
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait = Control.new()
+	portrait.clip_contents = true
 	portrait.custom_minimum_size = Vector2(60, 60)
 	frame.add_child(portrait)
+	var face := Doll.new()
+	face.name = "Doll"
+	face.scale = Vector2.ONE * PORTRAIT_SCALE
+	face.position = Vector2(30, 34) - Looks.HEAD * PORTRAIT_SCALE
+	portrait.add_child(face)
 	var who := VBoxContainer.new()
 	who.alignment = BoxContainer.ALIGNMENT_CENTER
 	who.custom_minimum_size = Vector2(170, 0)
@@ -531,9 +537,7 @@ func set_passport(on: bool) -> void:
 
 func update_passport() -> void:
 	name_label.text = player.npc_name
-	if portrait.get_meta("look", "") != player.look:
-		portrait.set_meta("look", player.look)
-		portrait.texture = Looks.face(player.look)  # just the head
+	portrait.get_node("Doll").show_look(player.look, Ages.stage(player) >= Ages.YOUNG_ADULT)  # just the head
 	mode_button.text = "%s  (Tab)" % ("Auto" if player.auto_mode else "Manual")
 	var emotion := Emotions.describe(player)
 	mood_word.text = emotion

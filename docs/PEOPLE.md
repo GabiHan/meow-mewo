@@ -17,7 +17,8 @@ Every character (NPCs and you) has:
 
 ## The residents
 
-Each person has a **look** (body, skin, hair, clothes; README *Character art*).
+Each person has a **look**: a paper doll (skin, figure, face, hair, clothes and their colours), made in the
+character creator or random; see README *Character art*.
 
 | Who | Age ([LIFE.md](LIFE.md)) | Lives | Traits | Starting skills | Money, job ([WORK.md](WORK.md)) |
 |---|---|---|---|---|---|
@@ -115,7 +116,7 @@ for that skill.
 
 ## The body (`body.gd`)
 
-People are only human. Everything here also shows on the character (new sprite frames: running, bent over,
+People are only human. Everything here also shows on the character (poses: running, bent over,
 down on the floor) and in your chat feed.
 
 | What | When | What happens |

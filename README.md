@@ -12,9 +12,10 @@ at the top left), there's no game over, and everyone lives a whole life: emotion
 mental health, learning, romance, family, work and death; see [docs/PEOPLE.md](docs/PEOPLE.md). Everyone ages through life stages (baby to old), kids go to school, and grown-ups can
 have babies; see [docs/LIFE.md](docs/LIFE.md). Each has a personality (traits),
 emotions, memories of what others did, and skills that grow with practice; see
-[docs/PEOPLE.md](docs/PEOPLE.md). People, furniture, houses, trees, cars and roads are sprites baked from 3D kits: Isa Lousberg's
-Tiny Treats packs for the kitchen, bathroom, plants, houses and trees, Kenney's kits for the people and what
-Tiny Treats doesn't have (see *Character art*, *Furniture art* and *Neighbourhood art*); the ground and inner
+[docs/PEOPLE.md](docs/PEOPLE.md). People are layered 2D paper dolls you dress up in the character creator
+(see *Character art*). Furniture, houses, trees, cars and roads are sprites baked from 3D kits: Isa Lousberg's
+Tiny Treats packs for the kitchen, bathroom, plants, houses and trees, Kenney's kits for what
+Tiny Treats doesn't have (see *Furniture art* and *Neighbourhood art*); the ground and inner
 walls are still simple shapes.
 
 ---
@@ -62,7 +63,7 @@ anywhere else (outside, at the neighbours'), and a fourth in build mode; they cr
 changes the music. Songs are in `assets/music` (see *Credits*).
 
 **Creating a household:** give it a name and add up to 4 people, each with a name, sex, age (Child,
-Teen, Young adult, Adult, Old), a look (with a preview) and up to 3 traits. Names must be new (not
+Teen, Young adult, Adult, Old), a look (a small preview; **Look…** opens the **character creator**) and up to 3 traits. Names must be new (not
 someone on the street), and there must be at least one grown-up. They move into the **Starter house**
 on the street (basic furniture included), the grown-ups share **$1,500**, and children get the
 grown-ups as parents (and go to school).
@@ -183,7 +184,9 @@ scripts/
   car.gd                One car: parked, roaming the roads, or following a route
   block.gd              Tile-sized shapes: walls, house exteriors, trees, stairs
   furniture.gd          Loads baked furniture sprites (art/furniture) and their floor anchors
-  looks.gd              What each person looks like (body, skin, hair, clothes) and their sprite sheets
+  looks.gd              What each person looks like: paper-doll parts, palettes, presets, random looks
+  doll.gd               Draws a look: one tinted sprite per layer (people, key art, passport, creator)
+  creator.gd            The character creator (Body / Hair / Clothes tabs, swatches, Randomise)
   prop.gd               Decorative furniture on a tile (couches, plants, rugs...)
   catalog.gd            Build mode catalog: items, prices, placement rules, buy/sell/move/rotate
   actions.gd            What you can do with each kind of furniture (Sleep/Nap, Pee/Poo, Read a novel...)
@@ -228,15 +231,16 @@ tests/
   check_online.gd       Online end to end: starts a host (online_host.gd) and joins it (exit code 1 on failure)
 tools/
   bake_furniture.gd     Renders the furniture models into isometric sprites (art/furniture)
-  bake_characters.gd    Poses the 3D characters with their animations and renders sprite sheets (art/characters)
+  import_doll.gd        Prepares the paper-doll layers (assets/doll → art/doll: half size, cropped, doll.cfg)
   bake_neighbourhood.gd Renders the houses (in their colours, with snowy winter roofs) and trees (art/neighbourhood)
 assets/tinytreats/      Isa Lousberg's Tiny Treats packs (glTF only): baked_goods, bubbly_bathroom,
                         charming_kitchen, homely_house, pleasant_picnic, pretty_park
-assets/kenney/          The Kenney kits, unzipped: characters, furniture, cars, roads (only the GLB models are
+assets/doll/            The "build a character" paper-doll layers (444×700 PNGs, not imported: .gdignore) + palette.png
+assets/kenney/          The Kenney kits, unzipped: furniture, cars, roads (only the GLB models are
                         imported; the other formats have a .gdignore)
 art/furniture/          Baked sprites + sprites.json (anchors)
 art/neighbourhood/      Baked houses and trees + sprites.json (anchors)
-art/characters/         One sprite sheet per look (8 directions × 13 frames) and a head portrait
+art/doll/               Paper-doll layers, half size and cropped, + doll.cfg (offsets, counts, skin tones)
 docs/
   DEVLOG.md             What changed in each update and why
   KITCHEN.md            Everything about the kitchen: recipes, drinks, spoiling, dishes, NPC use
@@ -677,40 +681,50 @@ in walls, doorways or on the stairs, or block anything. Details and the full cat
 
 ## Character art
 
-People are Kenney's **Mini Characters** (CC0; `assets/kenney/characters`: 12 rigged, animated chibi
-models, 6 female and 6 male, clothes and hair included). **`tools/bake_characters.gd`** poses each model
-by sampling its own animations (`POSES`): `idle`, a 4-step `walk` cycle, `sit` (raised onto a seat),
-`static` laid on its back for bed, a 4-step `sprint` for running, `pick-up` for bent over and the end of `die`
-for down on the floor. Models are scaled ×2 (about 1.55 m in the game).
+People are **paper dolls**: front-facing chibi layers from the "build a character" art (`assets/doll`, every
+layer a 444×700 PNG on the same canvas). **`tools/import_doll.gd`** halves them, crops each to what it draws and
+saves `art/doll/<part>/<n>.png` with `art/doll/doll.cfg` (where each one goes, how many there are, each skin's tone,
+the feet). Line-art layers are white and get **tinted**; mouth, eyebrows and beards are whitened first so they can be.
+`doll.gd` stacks one `Sprite2D` per layer (mipmapped, so it stays smooth small).
 
-Rendered at the game's isometric angle and scale in **8 directions × 13 frames** (idle, walk ×4,
-sit, lie in bed, run ×4, bent over, down on the floor) into one sheet per look: `art/characters/<look>.png`, cells of 96×112 px, feet at (48, 100).
+A **look** (`npc.look`, saved) is a Dictionary of numbers, one per part (0 = none where allowed) and one per colour:
 
-| Look | Body | Model | Looks like |
-|---|---|---|---|
-| jo (you) | F | character-female-f | auburn hair, dungarees |
-| sam | M | character-male-a | glasses, green top |
-| alex | F | character-female-a | buns, purple top, crutches |
-| mia | F | character-female-b | blonde pigtails, yellow top |
-| lily | F | character-female-c | grey beanie, orange top |
-| riley | M | character-male-b | bald, ginger beard |
-| noah | M | character-male-c | police cap, blue uniform |
-| kai | M | character-male-f | white hair, glasses, yellow dungarees (household creator only) |
-| girl_a, girl_b, boy_a, boy_b | | female-d, female-e, male-d, male-e | for babies born in the game (picked by sex) |
+| Part (draw order, back → front) | Pictures | Coloured by |
+|---|---|---|
+| `back` long hair | 12 | hair colour |
+| `skin` body | 29 (1–17 human tones, 18–29 fantasy) | itself |
+| `figure` chest, bust, pecs, belly, muscles | 5 | the skin's tone |
+| `hair` | 12 | hair colour |
+| `mouth` | 20 | `lips` (9 colours) |
+| `eyes` | 16 | itself |
+| `lashes` | 5 | – |
+| `brows` | 5 | hair colour, darker |
+| `shoes`, `top`, `bottom`, `dress`, `gloves` | 4, 12, 8, 7, 6 | `<part>_color` (51 clothes colours) |
+| `beard` (grown-ups only) | 5 | hair colour |
+| `bonus` braids & locks | 5 | hair colour |
+| `bangs` fringe | 13 | hair colour |
 
-In the game (`npc.gd animate()`): the row is the direction they walk (or face what they use / who they
-talk to), the frame is the walk cycle while moving, **sitting** on chairs, couches, the toilet and at
-the table, **lying** in bed or napping on the couch (drawn on the bed). Children are scaled down by
-age (toddler 50%, child 70%, teen 90%); babies keep their bundle. A small overlay on top draws the
-progress bar and whatever they carry.
+The palettes (`HAIR` 30, `LIPS` 9, `CLOTHES` 51) are the swatches of the art's palette sheet (`assets/doll/palette.png`).
+The starting residents use `PRESETS` (jo, sam, alex, mia, lily, riley, noah, kai; also the key art); everyone else
+gets `random_for(sex)` (natural skin and hair, girls often long hair and lashes, sometimes a dress, boys sometimes a
+beard; grey hair when old). Old saves that stored a look's name get that preset (`normalize`).
 
-**Add or change a look:** edit `LOOKS` in `looks.gd` (a label, body and kit model), run `godot --path . -s res://tools/bake_characters.gd`
-(needs a window; add look names after `--` to bake only those), then `godot --headless --import`, and
-give a person `.set_look("name")` in `main.gd`.
+**Character creator** (`creator.gd`, **Look…** in the household creator): the doll on the left with **Randomise**,
+tabs **Body** (skin swatches, figure, eyes, lashes, eyebrows, mouth, lips), **Hair** (colour, hair, fringe, long hair,
+braids & locks, beard) and **Clothes** (top, bottom, dress, shoes, gloves, each with a colour). ◂ ▸ step through a
+part's pictures (and None). A dress takes off the top and bottom, and the other way round. **Done** keeps the look.
 
-**Portraits:** the same tool also renders each look's **head** from the front (128×128,
-`art/characters/<look>_face.png`, `Looks.face()`), shown in the Passport. Only the portraits:
-`godot --path . -s res://tools/bake_characters.gd -- portraits` (add look names to do just those).
+**Poses** (`npc.gd animate()`, `anim`): there's one picture, so poses are transforms. Facing left on screen mirrors
+the doll; **walk** and **run** bob (running leans forward); **sit** squashes it a little on chairs, couches, the
+toilet and at the table; **lie** turns it on its side on the bed (sleeping, napping on the couch); **down** lays it
+on the floor; **bent** tips it forward (body.gd). Children are scaled down by age (toddler 50%, child 70%, teen 90%);
+babies keep their bundle. The overlay draws the progress bar above the head and what they carry. The Passport shows
+the doll's head.
+
+**Add art:** drop numbered PNGs (same 444×700 canvas) into `assets/doll/<part>/`, run
+`godot --headless -s res://tools/import_doll.gd`, then `godot --headless --import`, and turn mipmaps on for new
+files (`mipmaps/generate=true` in their `.import`, then import again). Counts come from `doll.cfg`. A new kind of part
+goes in `PARTS` (looks.gd) and `PARTS` (import_doll.gd), in draw order.
 
 ## Furniture art
 
@@ -817,7 +831,8 @@ houses and trees, baked by
 * Kitchen, bathroom and other furniture, houses and trees: Isa Lousberg (www.isalousberg.com), Tiny Treats packs
   (Baked Goods, Bubbly Bathroom, Charming Kitchen, Homely House, Pleasant Picnic, Pretty Park), CC0
   (`assets/tinytreats/*/License.txt`).
-* Characters, the rest of the furniture, cars and roads: Kenney (www.kenney.nl), Mini Characters, Furniture Kit,
+* Characters: the "build a character" paper-doll art and palette (`assets/doll`, from the files the owner provided).
+* The rest of the furniture, cars and roads: Kenney (www.kenney.nl), Furniture Kit,
   Car Kit and City Kit (Roads), CC0 (`assets/kenney/*/License.txt`).
 
 ## How to…

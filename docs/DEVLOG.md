@@ -2,6 +2,23 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-11-06 — Paper-doll characters and the character creator
+- **New character art**: the "build a character" paper doll (`assets/doll`: body in 29 skins, figure, eyes, lashes,
+  eyebrows, mouths, hair / fringe / long hair / braids, beards, tops, bottoms, dresses, shoes, gloves) and its palette
+  sheet. `tools/import_doll.gd` halves and crops the layers into `art/doll` + `doll.cfg`; `doll.gd` draws them
+  (one tinted Sprite2D per layer, mipmapped). Layer order is the PSD's.
+- **Removed**: Kenney Mini Characters (`assets/kenney/characters`), `tools/bake_characters.gd` and the baked sheets
+  and portraits (`art/characters`). `Looks.LOOKS`, `sheet()`, `face()`, `portrait()`, `FRAMES` are gone.
+- **Looks are Dictionaries** of part and colour numbers (`npc.look`, still in SAVE_FIELDS). The starting residents
+  use `Looks.PRESETS`; everyone else `random_for(sex)`. Old saves with a look's name get that preset (`normalize`).
+- **Character creator** (`creator.gd`): **Look…** next to each person in the household creator. Body / Hair / Clothes
+  tabs, ◂ ▸ pickers, colour swatches from the palette, Randomise, Done / Cancel. A dress replaces top and bottom.
+- **Poses** are transforms now (one picture): mirrored when facing left, bobbing walk and run, squashed sit, lying on
+  the bed or floor, bent over (`npc.anim`). Beards only on grown-ups. Name labels and the progress bar sit higher
+  (the dolls' big heads). The Passport portrait and the home screen key art are dolls too.
+- Tests: dolls for everyone, no beards on children, walk / mirror / sit / lie poses, old look names, every layer and
+  preset part exists, the creator (dress takes off top and bottom, Done sets the look).
+
 ## 2026-10-26 — Tiny Treats art
 - **Assets:** Isa Lousberg's Tiny Treats packs (CC0; Baked Goods, Bubbly Bathroom, Charming Kitchen, Homely House,
   Pleasant Picnic, Pretty Park) in `assets/tinytreats/<pack>`, glTF only. Kenney's City Kit (Suburban) is removed.
