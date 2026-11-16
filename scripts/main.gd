@@ -239,6 +239,16 @@ func is_online() -> bool:
 	return Net.is_online(get_tree())
 
 
+# F8: a kidnapper comes for the youngest in your household (not you, if there's anyone else).
+func try_abduction() -> void:
+	var family: Array = controller.household().filter(func(c): return c != player and world.crime.can_take(c))
+	if family.is_empty():
+		family = [player]
+	family.sort_custom(func(a, b): return a.age_days < b.age_days)
+	if not world.crime.abduct(family[0]):
+		print("No kidnapper could get to %s right now" % family[0].npc_name)
+
+
 # Whoever controls `c`: you, or (hosting) the controller of the player who joined as them.
 func controller_of(c: Node2D) -> Node:
 	if controller.body == c:
@@ -316,6 +326,8 @@ func spawn_household(spec: Dictionary, yours := true) -> Node2D:
 		c.set_life(0 if kid else int(STARTING_FUNDS / maxf(grown.size(), 1)))
 		c.set_age(m.sex, STAGE_YEARS[m.stage], adults if kid else [])
 		c.set_look(m.look)
+		if not m.get("hobbies", []).is_empty():
+			c.hobbies = m.hobbies
 		add_child(c)
 		if first == null and not kid:
 			first = c
@@ -330,6 +342,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_pause()
 		elif event.keycode == KEY_F3:
 			Npc.show_details = not Npc.show_details
+		elif event.keycode == KEY_F7 and not Net.is_client(get_tree()) and player.home >= 0:
+			world.crime.start(player.home)  # try it out: a burglar comes for your home (crime.gd)
+		elif event.keycode == KEY_F8 and not Net.is_client(get_tree()):
+			try_abduction()
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			camera.zoom = Vector2.ONE * minf(camera.zoom.x * 1.1, ZOOM_MAX)

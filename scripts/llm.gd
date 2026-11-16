@@ -227,6 +227,8 @@ static func who(c: Node2D, viewer: Node2D = null) -> String:
 	var parts := ["%s (%s)" % [name if name != "Unknown" else "a stranger", Ages.describe(c).to_lower()]]
 	if not c.traits.is_empty():
 		parts.append("personality: " + ", ".join(c.traits.map(func(t): return "%s (%s)" % [t, Traits.TRAITS[t].text.to_lower()])))
+	if not c.hobbies.is_empty():
+		parts.append("hobbies: " + ", ".join(c.hobbies).to_lower())
 	var why := Emotions.reasons(c)
 	parts.append("feeling %s%s" % [Emotions.describe(c).to_lower(), " (" + why.to_lower() + ")" if why != "" else ""])
 	var mind := Mind.states(c)
@@ -327,7 +329,7 @@ func replied(b: Node2D, a: Node2D, reply: String) -> void:
 # --- Background: thoughts and wishes ---
 
 func background_job() -> void:
-	var people := get_tree().get_nodes_in_group("characters").filter(func(c): return not c.dead and not c.at_work \
+	var people := get_tree().get_nodes_in_group("characters").filter(func(c): return not c.dead and not c.at_work and c.role == "" \
 		and Ages.stage(c) >= Ages.CHILD and Perception.is_awake(c))
 	var job := next_job
 	next_job = "wish" if job == "thought" else "thought"

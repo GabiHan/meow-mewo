@@ -23,6 +23,7 @@ const Skills = preload("res://scripts/skills.gd")
 const GameTime = preload("res://scripts/game_time.gd")
 const Ages = preload("res://scripts/ages.gd")
 const Mind = preload("res://scripts/mind.gd")
+const Morals = preload("res://scripts/morals.gd")
 
 # days: 0 = Monday … 6 = Sunday. start/end: hours. levels: [title, $ per hour, skill needed].
 const JOBS := {
@@ -167,7 +168,7 @@ static func finish_shift(c: Node2D) -> void:
 # How a shift went: base + skill + emotion − lateness.
 static func shift_result(c: Node2D) -> float:
 	var result := SHIFT_BASE + SKILL_PERFORMANCE * Skills.level(c, JOBS[c.job].skill)
-	result += EMOTION_PERFORMANCE.get(Emotions.emotion(c), 0.0) + Mind.bonus(c, "performance")
+	result += EMOTION_PERFORMANCE.get(Emotions.emotion(c), 0.0) + Mind.bonus(c, "performance") + Morals.performance(c)
 	if c.late:
 		result -= LATE_PENALTY
 	return result
@@ -275,7 +276,7 @@ static func spend(c: Node2D, amount: int) -> bool:
 # Grown-up NPCs without a job look for one each morning: the job that best fits their skills
 # (you choose your own at the Bus stop).
 static func find_work(c: Node2D) -> void:
-	if c.controlled or c.job != "" or not Ages.is_grown_up(c) or c.dead:
+	if c.controlled or c.job != "" or not Ages.is_grown_up(c) or c.dead or c.role != "":
 		return
 	var best := ""
 	var best_level := -1

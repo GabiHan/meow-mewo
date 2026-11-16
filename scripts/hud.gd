@@ -21,6 +21,8 @@ const GameTime = preload("res://scripts/game_time.gd")
 const Emotions = preload("res://scripts/emotions.gd")
 const Skills = preload("res://scripts/skills.gd")
 const Traits = preload("res://scripts/traits.gd")
+const Hobbies = preload("res://scripts/hobbies.gd")
+const Morals = preload("res://scripts/morals.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Ages = preload("res://scripts/ages.gd")
 const Mind = preload("res://scripts/mind.gd")
@@ -574,6 +576,9 @@ func update_passport() -> void:
 		" · degree" if player.degree else "", player.world.location_name(player)], job_text()]
 	if not Mind.states(player).is_empty():
 		lines.append("Mind: " + ", ".join(Mind.states(player)))
+	if not player.traits.is_empty():
+		lines.append("Traits: " + ", ".join(player.traits))
+	lines.append("Hobbies: %s · %s" % [Hobbies.describe(player), Morals.describe(player)])
 	var net := Net.find(get_tree())
 	if net and net.role != "":
 		lines.append(net.status_text())
@@ -831,7 +836,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func fill_drawer() -> void:
 	for child in drawer_list.get_children():
 		child.queue_free()
-	var people := get_tree().get_nodes_in_group("characters").filter(func(c): return c != player)
+	var people := get_tree().get_nodes_in_group("characters").filter(func(c): return c != player and c.role == "")
 	people.sort_custom(func(a, b): return Social.friendship(player, a) > Social.friendship(player, b))
 	for c in people:
 		var met: bool = player.known.has(c.npc_name)
@@ -885,6 +890,11 @@ func fill_drawer() -> void:
 				lines.append("Family")
 		if met:
 			lines.append("Traits: " + ", ".join(c.traits))
+			lines.append("Hobbies: " + Hobbies.describe(c))
+			if c.home == player.home:  # you know your own household (F3 shows everyone's over their heads)
+				lines.append("Path: " + Morals.describe(c))
+			elif c.record > 0:
+				lines.append("Criminal record (%d)" % c.record)
 		else:
 			lines.append("You haven't met yet")
 		if player.home >= 0 and player.world.invitation_left(player.home, c) > 0.0:

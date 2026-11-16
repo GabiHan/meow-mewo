@@ -11,6 +11,11 @@
 # never so that something becomes unreachable (every object's front tile and the stairs must still be
 # reachable from the door).
 #
+# Security category (crime.gd, docs/CRIME.md): a **Phone** (lets the house call the police), an **Alarm** (rings
+# when a burglar opens the door: wakes everyone, calls the police), and two upgrades bought for the whole house, no
+# tile: **Reinforced lock** and **Porch light** (BUILDINGS flags, saved in building_state). `carry`: a burglar may
+# steal it.
+#
 # Build category: a **Wall** (a cut-down wall on one tile, blocks movement and sight; build_mode.gd lets you
 # drag to draw a straight line of them), **Remove walls** (a tool: drag over walls you built to sell them) and **Stairs** (only in a one-storey house, on the ground floor: adds an empty upper floor, world.gd
 # add_upper_floor; removable while that floor is empty, refunding SELL_BACK).
@@ -19,7 +24,7 @@ const Actions = preload("res://scripts/actions.gd")
 
 const SELL_BACK := 0.75  # selling refunds this share of the price
 
-const CATEGORIES := ["Build", "Seating", "Tables", "Beds", "Kitchen", "Bathroom", "Lighting", "Plants", "Rugs", "Storage", "Fun"]
+const CATEGORIES := ["Build", "Seating", "Tables", "Beds", "Kitchen", "Bathroom", "Lighting", "Plants", "Rugs", "Storage", "Fun", "Security"]
 
 const BED := {"name": "Bed", "ads": {"energy": 100}, "minutes": 420.0, "extras": {"verb": "Sleeping", "moodlet": "Well rested"}}
 const COUCH := {"name": "Couch", "ads": {"fun": 20, "energy": 10}, "minutes": 30.0, "extras": {"verb": "Relaxing"}}
@@ -62,31 +67,37 @@ const ITEMS := {
 	"bath_sink": {"name": "Bathroom sink", "category": "Bathroom", "price": 120, "model": "Bathroom_Sink",
 		"object": {"name": "Bathroom sink", "ads": {"hygiene": 10}, "minutes": 2.0}},
 	"washer": {"name": "Washing machine", "category": "Bathroom", "price": 350, "model": "Bathroom_WashingMachine", "object": {"name": "Washing machine", "ads": {}, "minutes": 0.0}},
-	"lamp_floor": {"name": "Floor lamp", "category": "Lighting", "price": 60, "model": "Light_Floor1", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
-	"lamp_reading": {"name": "Reading lamp", "category": "Lighting", "price": 70, "model": "Light_Floor3", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
-	"lamp_shade": {"name": "Shade lamp", "category": "Lighting", "price": 90, "model": "Light_Stand1", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
-	"lamp_stand": {"name": "Standing lamp", "category": "Lighting", "price": 85, "model": "Light_Stand2", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
-	"plant_fern": {"name": "Fern", "category": "Plants", "price": 25, "model": "Houseplant_1", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
-	"plant_cactus": {"name": "Cactus", "category": "Plants", "price": 20, "model": "Houseplant_3", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
-	"plant_palm": {"name": "Small palm", "category": "Plants", "price": 30, "model": "Houseplant_5", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
-	"plant_big": {"name": "Big leafy plant", "category": "Plants", "price": 45, "model": "Houseplant_7", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"lamp_floor": {"carry": true, "name": "Floor lamp", "category": "Lighting", "price": 60, "model": "Light_Floor1", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"lamp_reading": {"carry": true, "name": "Reading lamp", "category": "Lighting", "price": 70, "model": "Light_Floor3", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"lamp_shade": {"carry": true, "name": "Shade lamp", "category": "Lighting", "price": 90, "model": "Light_Stand1", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"lamp_stand": {"carry": true, "name": "Standing lamp", "category": "Lighting", "price": 85, "model": "Light_Stand2", "object": {"name": "Lamp", "ads": {}, "minutes": 0.0}},
+	"plant_fern": {"carry": true, "name": "Fern", "category": "Plants", "price": 25, "model": "Houseplant_1", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"plant_cactus": {"carry": true, "name": "Cactus", "category": "Plants", "price": 20, "model": "Houseplant_3", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"plant_palm": {"carry": true, "name": "Small palm", "category": "Plants", "price": 30, "model": "Houseplant_5", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
+	"plant_big": {"carry": true, "name": "Big leafy plant", "category": "Plants", "price": 45, "model": "Houseplant_7", "object": {"name": "Plant", "ads": {}, "minutes": 0.0}},
 	"rug": {"name": "Rug", "category": "Rugs", "price": 60, "model": "Carpet_1", "flat": true, "object": {"name": "Rug", "ads": {}, "minutes": 0.0}},
 	"rug_dark": {"name": "Dark rug", "category": "Rugs", "price": 70, "model": "Carpet_2", "flat": true, "object": {"name": "Rug", "ads": {}, "minutes": 0.0}},
 	"rug_round": {"name": "Round rug", "category": "Rugs", "price": 80, "model": "Carpet_Round", "flat": true, "object": {"name": "Rug", "ads": {}, "minutes": 0.0}},
 	"bookshelf": {"name": "Bookshelf", "category": "Storage", "price": 250, "model": "Bookshelf",
 		"object": {"name": "Bookshelf", "ads": {"fun": 35}, "minutes": 45.0, "extras": {"verb": "Reading", "skill": "Logic", "moodlet": "Learned something"}}},
-	"shelf_small": {"name": "Wall shelf", "category": "Storage", "price": 50, "model": "Shelf_Small1", "object": {"name": "Shelf", "ads": {}, "minutes": 0.0}},
+	"shelf_small": {"carry": true, "name": "Wall shelf", "category": "Storage", "price": 50, "model": "Shelf_Small1", "object": {"name": "Shelf", "ads": {}, "minutes": 0.0}},
 	"shelf_large": {"name": "Tall shelf", "category": "Storage", "price": 140, "model": "Shelf_Large", "object": {"name": "Shelf", "ads": {}, "minutes": 0.0}},
 	"dresser": {"name": "Dresser", "category": "Storage", "price": 160, "model": "Drawer_2", "object": {"name": "Dresser", "ads": {}, "minutes": 0.0}},
 	"dresser_tall": {"name": "Tall dresser", "category": "Storage", "price": 190, "model": "Drawer_4", "object": {"name": "Dresser", "ads": {}, "minutes": 0.0}},
 	"coat_rack": {"name": "Coat rack", "category": "Storage", "price": 35, "model": "Coat_Rack", "object": {"name": "Coat rack", "ads": {}, "minutes": 0.0}},
 	"bin": {"name": "Bin", "category": "Storage", "price": 15, "model": "Trashcan_Small1", "object": {"name": "Bin", "ads": {}, "minutes": 0.0}},
 	"bin_large": {"name": "Large bin", "category": "Storage", "price": 30, "model": "Trashcan_Large", "object": {"name": "Bin", "ads": {}, "minutes": 0.0}},
-	"tv": {"name": "TV", "category": "Fun", "price": 350, "model": "TV",
+	"tv": {"carry": true, "name": "TV", "category": "Fun", "price": 350, "model": "TV",
 		"object": {"name": "TV", "ads": {"fun": 60}, "minutes": 30.0, "color": Color(0.3, 0.3, 0.35), "height": 28,
 			"extras": {"verb": "Watching TV", "skill": "Comedy"}}},
-	"radio": {"name": "Radio", "category": "Fun", "price": 45, "model": "Radio", "object": {"name": "Radio", "ads": {}, "minutes": 0.0}},
-	"teddy": {"name": "Teddy bear", "category": "Fun", "price": 20, "model": "Teddy", "object": {"name": "Teddy bear", "ads": {}, "minutes": 0.0}},
+	"radio": {"carry": true, "name": "Radio", "category": "Fun", "price": 45, "model": "Radio", "object": {"name": "Radio", "ads": {}, "minutes": 0.0}},
+	"teddy": {"carry": true, "name": "Teddy bear", "category": "Fun", "price": 20, "model": "Teddy", "object": {"name": "Teddy bear", "ads": {}, "minutes": 0.0}},
+	"phone": {"name": "Phone", "category": "Security", "price": 60, "model": "", "carry": true,
+		"object": {"name": "Phone", "ads": {"social": 15}, "minutes": 10.0, "color": Color(0.55, 0.6, 0.75), "height": 10}},
+	"alarm": {"name": "Alarm", "category": "Security", "price": 400, "model": "",
+		"object": {"name": "Alarm", "ads": {}, "minutes": 0.0, "color": Color(0.85, 0.45, 0.5), "height": 16}},
+	"lock": {"name": "Reinforced lock", "category": "Security", "price": 250, "model": "", "upgrade": "lock"},
+	"porch_light": {"name": "Porch light", "category": "Security", "price": 80, "model": "", "upgrade": "porch_light"},
 	"fireplace": {"name": "Fireplace", "category": "Fun", "price": 800, "model": "",  # no fireplace in the kit: a placeholder box
 		"object": {"name": "Fireplace", "ads": {"fun": 25, "social": 5}, "minutes": 30.0, "color": Color(0.78, 0.6, 0.6), "height": 30, "extras": {"verb": "Relaxing by the fire"}}},
 }
@@ -251,6 +262,20 @@ static func sell(c: Node2D, thing: Node2D) -> int:
 		return -1
 	c.money += money
 	return money
+
+
+# A Security upgrade for your whole house (Reinforced lock, Porch light). False if owned or too dear.
+static func buy_upgrade(c: Node2D, id: String) -> bool:
+	var item: Dictionary = ITEMS[id]
+	if c.home < 0 or has_upgrade(c.world, c.home, id) or c.money < item.price:
+		return false
+	c.world.BUILDINGS[c.home][item.upgrade] = true
+	c.money -= item.price
+	return true
+
+
+static func has_upgrade(world: Node2D, b: int, id: String) -> bool:
+	return world.BUILDINGS[b].get(ITEMS[id].upgrade, false)
 
 
 # Turn something in place to the next direction. Usable furniture needs its new front tile free,

@@ -10,7 +10,11 @@ You start as **Jo** (20), sharing a house with Sam. Neighbours: Alex with her da
 Lily (2), and Riley with his son Noah (15). You control anyone in your household (click their name
 at the top left), there's no game over, and everyone lives a whole life: emotions and long-term
 mental health, learning, romance, family, work and death; see [docs/PEOPLE.md](docs/PEOPLE.md). Everyone ages through life stages (baby to old), kids go to school, and grown-ups can
-have babies; see [docs/LIFE.md](docs/LIFE.md). Each has a personality (traits),
+have babies; see [docs/LIFE.md](docs/LIFE.md). Now and then a burglar breaks in, or a kidnapper takes someone
+(children most of all), who may come home or never be found: protect your home with a phone, an alarm, a lock and a
+porch light, and keep the kids company outside; see [docs/CRIME.md](docs/CRIME.md). Build complex characters:
+up to 4 traits (including dark ones like Psychopath or Sociopath) and 2 hobbies. A dark personality only turns
+criminal when life pushes it there, and you can play a criminal yourself. Each has a personality (traits),
 emotions, memories of what others did, and skills that grow with practice; see
 [docs/PEOPLE.md](docs/PEOPLE.md). People are layered 2D paper dolls you dress up in the character creator
 (see *Character art*). Furniture, houses, trees, cars and roads are sprites baked from 3D kits: Isa Lousberg's
@@ -47,7 +51,8 @@ written words. Without it everything works with the scripted lines. See *AI word
 The game opens on the **home screen** (`scenes/menu.tscn`, `menu.gd`): the key art on the left (a little
 room with the household, `key_art.gd`; pages you open show there instead), and on the right "A life
 simulation", the title, the menu, "Loading the neighbourhood…" (the game loads in the background) and the
-version (**v 0.0.1**, `application/config/version` in `project.godot`).
+version (**v 0.0.1**, `application/config/version` in `project.godot`). The household creator needs the whole
+width, so while it's open the menu on the right folds into a **Menu ▾** dropdown at the top right (same buttons).
 
 | Button | What it does |
 |---|---|
@@ -99,6 +104,8 @@ carry on from idle).
 | P / Space / 0, or the `\|\|` button | Pause / unpause (resumes at your speed). You can still click to give orders while paused |
 | 1 / 2 / 3 / 4, or the `>` … `>>>>` buttons | Speed: Normal 1x / Fast 5x / Faster 20x / Ultra 60x |
 | Mouse wheel | Zoom in / out |
+| F7 | Send a burglar to your home right now, to try it out (offline or host); see [docs/CRIME.md](docs/CRIME.md) |
+| F8 | Send a kidnapper for the youngest in your household right now (offline or host); see [docs/CRIME.md](docs/CRIME.md) |
 | F3 | Show NPC details above their heads: why they feel what they feel, what they're doing, traits, skills, needs, who they can see |
 
 **Manual** mode: your character only does what you click. **Auto** mode: it runs the same AI as the
@@ -205,8 +212,10 @@ scripts/
   mind.gd               Long-term mental states (depressed, anxious, thriving...) and learned tastes
   social.gd             Interactions, relationships, memories and grudges, spoken lines, social event log
   emotions.gd           Moodlets → emotion (Happy, Angry, Sad...) and what each emotion does
-  traits.gd             Personality traits (Outgoing, Hot-headed, Foodie...) and their effects
-  skills.gd             Skills 0-10 (Cooking, Charisma, Comedy, Fitness, Logic): xp, levels, effects
+  traits.gd             Personality traits in groups (Social, Lifestyle, Heart, Dark), conflicts, their effects
+  hobbies.gd            Hobbies (Reading, Fitness, Music...): what's more fun, Hobby time, faster skills
+  morals.gd             The path: dark traits × life pressure -> Criminal / Ruthless / Mean / Decent; crimes' odds
+  skills.gd             Skills 0-10 (Cooking, Charisma, Comedy, Fitness, Logic, Stealth): xp, levels, effects
   kitchen.gd            Recipes, drinks, plates/cups, leftovers and spoiling, kitchen menus and AI options
   perception.gd         What NPCs see (sight radius, line of sight) and how they react (greetings, peeking)
   ownership.gd          Homes, invitations, knocking on doors, answering the door
@@ -222,6 +231,7 @@ scripts/
   settings_panel.gd     The Settings controls (home screen page and the in-game ☰ window)
   key_art.gd            The home screen's picture: a cozy room made of the game's pieces
   body.gd               The body: running, tripping, passing out, fainting, accidents, farts, illness, throwing up
+  crime.gd              Burglars, kidnappers and the police: when and where, stealing, abductions, missing people (docs/CRIME.md)
   vision.gd             What your sim can see: sight rays, the cone, light, memory, the soft veil (docs/VIEW.md)
   weather.gd            Clear / cloudy / rain / fog: how far you see outdoors, chances per season
   weather_fx.gd         Rain falling and fog haze on screen
@@ -251,6 +261,7 @@ docs/
   AI.md                 The language model: setup, what it writes, what it's told, tuning
   VIEW.md               Sight, light and weather (Project Zomboid-style view)
   ONLINE.md             Online mode: hosting, joining, what's different, what's sent
+  CRIME.md              Burglars, abductions and the police: when, reactions, outcomes, missing people, Security items
 play.command            Double-click to play (macOS)
 ```
 
@@ -530,8 +541,17 @@ Full details and every table: **[docs/PEOPLE.md](docs/PEOPLE.md)**. In short:
 * **Emotions** come from moodlets (e.g. *Argued*: Angry for 3 h; *Hungry*: Uncomfortable while
   hunger < 25). The strongest emotion is what they feel, shown as `Name - Angry` above their head.
   Emotions change who they talk to, what they choose, whether they say yes, and how fast they learn.
-* **Traits** (3 per NPC) change need decay, likes, feelings and learning: Outgoing, Loner, Cheerful,
-  Hot-headed, Goofball, Foodie, Bookworm, Active, Lazy, Neat, Slob.
+* **Traits** (up to 4, in groups) change need decay, likes, feelings and learning. Social: Outgoing, Loner,
+  Cheerful, Hot-headed, Goofball. Lifestyle: Foodie, Bookworm, Active, Lazy, Neat, Slob. Heart: Kind, Honest, Brave.
+  Dark: Psychopath, Sociopath, Narcissist, Manipulative, Cruel, Kleptomaniac. Some can't be combined.
+* **Hobbies** (up to 2): Reading, Fitness, Cooking, Films, Music, Gardening, Writing, Socialising. More
+  attractive, *Hobby time* when done, their skill learned faster.
+* **The path** (`morals.gd`): dark traits only turn into crime when life pushes (broke and jobless, angry,
+  depressed, grudges, a record) more than it holds (a career going well, thriving, someone close). Then they're
+  **Criminal** (pickpocket, con, mug, attack, and may be the burglar next door), else **Ruthless** (+performance
+  at work), **Mean** or **Decent**. You can commit any crime yourself (Teen+): Pickpocket, Manipulate,
+  Threaten, Attack in the person menu, **Break in** at a locked door. Your conscience decides if you feel
+  *Guilty* or the *Thrill*. Caught breaking in: arrested, a fine, a criminal record, 2 days in jail.
 * **Memories:** everyone remembers what others did to them. Recent bad memories become grudges, and
   they bring old events up in conversation.
 * **The body:** people run when they're in a hurry (and can trip), pass out at 0 energy, faint at 0 hunger,
@@ -642,6 +662,25 @@ own. What they click is worked out on their screen and sent to the host as an or
 carries out with a controller of its own for them; menus come back to their screen. **Talk…** with
 another player passes your words to them (no AI). The host decides the game speed; build mode and
 saving are host/offline only for now.
+
+### Burglars and the police (`crime.gd`)
+
+About once a game week a burglar comes for a house: at night where everyone's asleep (no porch light on), or by day
+where nobody's home; your home 1 time in 2. He picks the lock, takes 30% of the household's money (max $500) and up
+to 2 valuable things (TV, radio, lamps, …), and runs off down the street. Someone inside who sees him reacts:
+**you choose** in a popup (Call the police / Hide / Fight him / Shout; the game pauses), everyone else by rules. The
+outcome is an if/else on the situation: he steals and runs, kills the witness and steals, kills and runs, is fought
+off, or the police come and catch him (everything goes back) or he gets away. Protect your home in build mode,
+**Security**: Phone ($60, needed to call), Alarm ($400), Reinforced lock ($250), Porch light ($80). **F7** sends one
+now. Full rules and tables: [docs/CRIME.md](docs/CRIME.md).
+
+**Abductions.** Now and then a kidnapper takes someone, of any age but children most of all: by day someone outside
+with no teen or grown-up nearby, at night someone asleep at home (he breaks in like a burglar, so the porch light,
+lock and alarm protect against him too). Witnesses get the same choice; shouting or winning a fight makes him drop
+them, a call brings the police, who free them if they catch him. If he gets away they're **missing** (their family
+is *Worried sick*). Whether they come home (after 1–10 days, older and *Traumatised*) or are never found (after 21
+days: grief and a grave) follows from what happened: the police called at the time, a phone at home to report it,
+their age. **F8** sends one for the youngest in your household.
 
 ### Perception (`perception.gd`)
 Every `LOOK_INTERVAL` (0.5 s) each NPC looks around. It **sees** every character on its floor within
@@ -877,7 +916,9 @@ behavior, and add an entry to `docs/DEVLOG.md`.
 * Paths longer than ~150 tiles are refused, so you can't click across town in one go.
 * Doors are always open, and houses have no inner walls or rooms yet.
 * Only ground-floor windows on the two camera-facing walls can be peeked through.
-* Doors can't be locked; ownership is enforced by pathfinding, not by a lock.
+* Doors can't be locked; ownership is enforced by pathfinding, not by a lock (a reinforced lock only slows burglars).
+* Burglars and kidnappers: a fight is one roll, not a fight scene; the police car only shows on the host; the lock
+  and porch light can't be sold back. A kidnapped person is simply hidden while missing (no search to play).
 * Only one street has houses; the rest of the 1 km map is grass, trees, parked cars and roads.
 * Cars stop for people but people walk through cars that are driving (only parked ones block paths). Online,
   joined players see their own (cosmetic) traffic, and a host's sim driving to work just disappears there.

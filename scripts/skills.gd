@@ -15,6 +15,7 @@ const SKILLS := {
 	"Comedy": {"xp_per_minute": 8.0, "from": "telling jokes, watching TV"},
 	"Fitness": {"xp_per_minute": 6.0, "from": "the pull-up bar"},
 	"Logic": {"xp_per_minute": 4.0, "from": "reading at a bookshelf, discussing ideas"},
+	"Stealth": {"xp_per_minute": 8.0, "from": "picking locks, pickpocketing, stealing (morals.gd, crime.gd)"},
 }
 
 

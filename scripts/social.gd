@@ -16,6 +16,7 @@ const Traits = preload("res://scripts/traits.gd")
 const Ages = preload("res://scripts/ages.gd")
 const Romance = preload("res://scripts/romance.gd")
 const Mind = preload("res://scripts/mind.gd")
+const Morals = preload("res://scripts/morals.gd")
 
 # Each interaction:
 #   name, verb         menu text / shown above heads while it happens ("Chatting with Sam")
@@ -34,6 +35,9 @@ const Mind = preload("res://scripts/mind.gd")
 #   partner_feeling    (optional) the partner must feel one of these (Comfort someone who's sad)
 #   min_skill          (optional) {skill: level} the initiator needs
 #   always_accepted    (optional) can't be turned down (you can't refuse being insulted)
+#   crime              (optional) a crime (morals.gd): anyone Teen+ can do it, NPCs only if their path allows
+#                      (Morals.would_do); no line said out loud; commit() decides what happens instead of the
+#                      usual effects; then they feel Guilty / Thrill / Uneasy (Morals.after_crime)
 #   special            (optional) "invite": partner may come into the initiator's home for INVITE_HOURS;
 #                      "ask_to_leave": initiator's guest loses their invitation and walks out (ownership.gd);
 #                      "baby": may make the woman pregnant (life.gd); only between a fertile woman and man
@@ -160,7 +164,22 @@ const INTERACTIONS := [
 	{"name": "Insult", "a_min": 3, "b_min": 2, "verb": "Insulting", "min_friendship": -100, "when_feeling": ["Angry"], "always_accepted": true,
 		"social": 0, "fun": 0, "friendship": -15, "duration": 2.0, "moodlet_b": "Insulted",
 		"lines": ["You're such a slob.", "Nobody likes you, you know."]},
+	# Crimes (morals.gd; commit() below)
+	{"name": "Pickpocket", "a_min": 3, "b_min": 3, "verb": "Brushing past", "min_friendship": -100, "crime": true, "always_accepted": true,
+		"social": 0, "fun": 10, "friendship": 0, "duration": 1.0, "lines": ["*brushes past {who}*"]},
+	{"name": "Manipulate", "a_min": 3, "b_min": 3, "verb": "Sweet-talking", "min_friendship": 0, "crime": true, "always_accepted": true,
+		"social": 10, "fun": 5, "friendship": 0, "duration": 8.0, "skill": "Charisma", "lines": ["*tells {who} a sad story about money*"]},
+	{"name": "Threaten", "a_min": 3, "b_min": 3, "verb": "Threatening", "min_friendship": -100, "crime": true, "always_accepted": true,
+		"social": 0, "fun": 5, "friendship": 0, "duration": 2.0, "lines": ["*corners {who}: \"Your money. Now.\"*"]},
+	{"name": "Attack", "a_min": 3, "b_min": 3, "verb": "Attacking", "min_friendship": -100, "crime": true, "always_accepted": true,
+		"social": 0, "fun": 0, "friendship": 0, "duration": 1.0, "lines": ["*lunges at {who}*"]},
 ]
+const PICK_SHARE := 0.15  # of their money...
+const PICK_MAX := 80  # ...at most
+const CON_SHARE := 0.15
+const CON_MAX := 150
+const MUG_SHARE := 0.3
+const MUG_MAX := 200
 
 const INVITE_HOURS := 6.0  # how long an invitation to someone's home lasts (ownership.gd)
 const REJECT_FRIENDSHIP := -2.0
@@ -262,6 +281,8 @@ static func available_interactions(a: Node2D, b: Node2D) -> Array:
 			continue
 		if i.has("partner_feeling") and not Emotions.emotion(b) in i.partner_feeling:
 			continue
+		if i.get("crime", false) and (not a.controlled or a.auto_mode) and not Morals.would_do(a, i.name):
+			continue  # NPCs (and you in Auto) only do what their path allows; you decide for yourself
 		match i.get("special", ""):
 			"invite":  # you have a home, they don't live there and aren't invited yet
 				if a.home < 0 or b.home == a.home or a.world.can_enter(b, a.home):
@@ -380,6 +401,9 @@ static func begin(a: Node2D, b: Node2D, i: Dictionary) -> void:
 			b.state = "talking"
 			b.activity = i.verb + " {who}"
 			b.activity_with = a
+		if i.get("crime", false):
+			a.show_emote(i.lines.pick_random(), b)  # an action, not words (no AI)
+			return
 		var line := line_for(a, b, i)
 		a.show_emote("\"%s\"" % line, b)
 		var llm := a.get_tree().get_first_node_in_group("llm")
@@ -409,6 +433,13 @@ static func line_for(a: Node2D, b: Node2D, i: Dictionary) -> String:
 
 # Talking time is over: apply effects to both sides.
 static func finish(a: Node2D, b: Node2D, i: Dictionary) -> void:
+	if i.get("crime", false):
+		commit(a, b, i.name)
+		for me in [a, b]:
+			me.known[(b if me == a else a).npc_name] = true
+			me.last_social = a.world.now()
+		a.end_social()
+		return
 	var flat: bool = i.name == "Tell a joke" and randf() > Skills.joke_chance(a)
 	if i.has("skill"):
 		a.practice(i.skill, i.duration)
@@ -505,6 +536,94 @@ static func finish(a: Node2D, b: Node2D, i: Dictionary) -> void:
 	var sign := "+" if i.friendship >= 0 else ""
 	log_event("{a} → {b}: %s (friendship %s%d)" % [i.name, sign, i.friendship], a, b)
 	a.end_social()
+
+
+# --- Crimes (morals.gd) ---
+
+# Chance a pickpocket isn't noticed / a con works. Pure enough to test: from skill levels and traits.
+static func pick_chance(a: Node2D, b: Node2D) -> float:
+	var chance := 0.35 + 0.06 * Skills.level(a, "Stealth")
+	if "Kleptomaniac" in a.traits:
+		chance += 0.1
+	if not load("res://scripts/perception.gd").is_awake(b):
+		chance += 0.3
+	return clampf(chance, 0.05, 0.9)
+
+
+static func con_chance(a: Node2D, b: Node2D) -> float:
+	var chance := 0.3 + 0.05 * Skills.level(a, "Charisma") + friendship(b, a) / 300.0
+	if "Manipulative" in a.traits or "Psychopath" in a.traits:
+		chance += 0.2
+	if "Honest" in b.traits:
+		chance -= 0.1
+	return clampf(chance, 0.05, 0.9)
+
+
+static func take_money(from: Node2D, to: Node2D, share: float, most: int) -> int:
+	var amount := mini(mini(int(from.money * share) + 5, most), from.money)
+	amount = maxi(amount, 0)
+	from.money -= amount
+	to.money += amount
+	return amount
+
+
+# What a crime does. `roll`: tests pass 0.0 (it works) or 1.0 (it fails); otherwise random.
+static func commit(a: Node2D, b: Node2D, crime: String, roll := -1.0) -> bool:
+	var r := randf() if roll < 0.0 else roll
+	var Body: GDScript = load("res://scripts/body.gd")
+	var ok := false
+	match crime:
+		"Pickpocket":
+			a.practice("Stealth", 20.0)
+			ok = r < pick_chance(a, b)
+			if ok:
+				var amount := take_money(b, a, PICK_SHARE, PICK_MAX)
+				log_event("{a} pickpocketed {b} ($%d)" % amount, a, b)
+			else:
+				b.show_emote("\"Hey! Thief!\"", a)
+				change_friendship(b, a, -30.0)
+				change_friendship(a, b, -10.0)
+				Emotions.add(b, "Robbed")
+				Emotions.add(a, "Caught stealing")
+				remember(b, a, "tried to pickpocket me", -5.0)
+				log_event("{b} caught {a} pickpocketing", a, b)
+		"Manipulate":
+			ok = r < con_chance(a, b)
+			if ok:
+				var amount := take_money(b, a, CON_SHARE, CON_MAX)
+				change_friendship(b, a, 3.0)  # they don't even know
+				b.show_emote("\"Of course I'll help you.\"", a)
+				log_event("{a} conned {b} out of $%d" % amount, a, b)
+			else:
+				b.show_emote("\"Do you think I'm stupid?\"", a)
+				change_friendship(b, a, -20.0)
+				remember(b, a, "tried to con me", -4.0)
+				log_event("{b} saw through {a}'s lies", a, b)
+		"Threaten":
+			ok = Morals.menace(a) > Morals.fight_strength(b) + (2.0 if "Brave" in b.traits else 0.0) if roll < 0.0 else roll < 0.5
+			change_friendship(b, a, -40.0)
+			if ok:
+				var amount := take_money(b, a, MUG_SHARE, MUG_MAX)
+				Emotions.add(b, "Scared")
+				Emotions.add(b, "Robbed")
+				b.show_emote("\"Take it! Just take it!\"", a)
+				remember(b, a, "mugged me", -8.0)
+				log_event("{a} mugged {b} for $%d" % amount, a, b)
+			else:
+				b.show_emote("\"Get lost!\"", a)
+				Body.go_down(a, "knocked out", "Hurt")
+				remember(b, a, "tried to mug me", -6.0)
+				log_event("{b} fought off {a}, who tried to mug them", a, b)
+		"Attack":
+			ok = Morals.fight_strength(a) > Morals.fight_strength(b) if roll < 0.0 else roll < 0.5
+			var loser: Node2D = b if ok else a
+			change_friendship(b, a, -50.0)
+			change_friendship(a, b, -20.0)
+			remember(b, a, "attacked me", -8.0)
+			Body.go_down(loser, "knocked out", "Hurt")
+			log_event("{a} attacked {b} and knocked them down" if ok else "{a} attacked {b}, who knocked them down", a, b)
+	Morals.after_crime(a)
+	return ok
 
 
 # Memory text, as the other person would say it: "you told me a joke".

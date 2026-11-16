@@ -82,6 +82,23 @@ const MOODLETS := {
 	"Funny fart": {"emotion": "Playful", "strength": 1, "hours": 1},
 	"Feeling better": {"emotion": "Happy", "strength": 2, "hours": 4},
 	"Sick": {"emotion": "Uncomfortable", "strength": 3, "hours": 0},
+	# Burglars (crime.gd)
+	"Burgled": {"emotion": "Sad", "strength": 3, "hours": 48},
+	"Scared": {"emotion": "Tense", "strength": 3, "hours": 6},
+	"Brave": {"emotion": "Confident", "strength": 3, "hours": 12},
+	"Traumatised": {"emotion": "Sad", "strength": 4, "hours": 72},
+	"Relieved": {"emotion": "Happy", "strength": 2, "hours": 12},
+	"Hurt": {"emotion": "Uncomfortable", "strength": 3, "hours": 12},
+	"Worried sick": {"emotion": "Sad", "strength": 4, "hours": 0},  # someone close is missing (until found or lost)
+	"Reunited": {"emotion": "Happy", "strength": 4, "hours": 48},
+	# Personality and crime (hobbies.gd, morals.gd)
+	"Hobby time": {"emotion": "Happy", "strength": 2, "hours": 3},
+	"Guilty": {"emotion": "Sad", "strength": 3, "hours": 24},
+	"Thrill": {"emotion": "Energized", "strength": 3, "hours": 4},
+	"Uneasy": {"emotion": "Tense", "strength": 2, "hours": 6},
+	"Robbed": {"emotion": "Angry", "strength": 3, "hours": 24},
+	"Caught stealing": {"emotion": "Embarrassed", "strength": 3, "hours": 6},
+	"Arrested": {"emotion": "Embarrassed", "strength": 4, "hours": 48},
 	# Activities (objects' "moodlet" in main.gd OBJECTS)
 	"Well rested": {"emotion": "Energized", "strength": 2, "hours": 4},
 	"Freshened up": {"emotion": "Happy", "strength": 1, "hours": 2},

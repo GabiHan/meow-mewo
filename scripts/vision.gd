@@ -102,7 +102,7 @@ func find_lights(you: Node2D) -> void:
 	for i in world.BUILDINGS.size():
 		if f >= world.floor_nodes[i].size():
 			continue
-		var awake: bool = world.get_tree().get_nodes_in_group("characters").any(func(c): return c.building == i \
+		var awake: bool = world.get_tree().get_nodes_in_group("characters").any(func(c): return c.building == i and c.role == "" \
 			and c.floor == f and not c.dead and not (c.state == "using" and c.step.get("asleep", false)))
 		var r: Rect2i = world.BUILDINGS[i].rect
 		if awake:
@@ -112,6 +112,8 @@ func find_lights(you: Node2D) -> void:
 		for n in world.floor_nodes[i][f].get_children():
 			if "sprite" in n and str(n.sprite).begins_with("Light_"):
 				light_circle(n.cell if "flat" in n else Vector2i(n.grid_pos), LAMP_RADIUS)
+		if f == 0 and world.BUILDINGS[i].get("porch_light", false):  # build mode Security: on from dusk to dawn
+			light_circle(world.door_outside(i), LAMP_RADIUS)
 
 
 func light_circle(at: Vector2i, radius: float) -> void:

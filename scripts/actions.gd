@@ -108,6 +108,12 @@ const ACTIONS := {
 	"Teddy bear": [
 		{"name": "Cuddle the teddy", "verb": "Cuddling the teddy", "minutes": 10.0, "ads": {"fun": 15, "social": 5}},
 	],
+	"Phone": [
+		{"name": "Call a friend", "verb": "On the phone", "minutes": 15.0, "ads": {"social": 25, "fun": 5}, "skill": "Charisma"},
+	],
+	"Alarm": [
+		{"name": "Test the alarm", "verb": "Testing the alarm", "minutes": 2.0, "ads": {"fun": 1}},
+	],
 	"Pull-up bar": [
 		{"name": "Work out", "verb": "Working out", "minutes": 30.0, "ads": {"fun": 15, "energy": -10, "hygiene": -10}, "skill": "Fitness", "moodlet": "Pumped"},
 		{"name": "Do a few pull-ups", "verb": "Doing pull-ups", "minutes": 10.0, "ads": {"fun": 8, "energy": -3}, "skill": "Fitness"},

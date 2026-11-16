@@ -299,6 +299,8 @@ func check_people() -> void:
 		and Social.event_log[-1].text.contains("reached Cooking level 1"), "10 minutes of cooking: Cooking level 1, Confident, logged")
 	check(menu_entry(player, object_named("Fridge", 0), "Pasta").disabled, "Pasta needs Cooking 2")
 	Skills.set_level(player, "Cooking", 2)
+	alex.hobbies = ["Music"]  # hobbies speed skills up too (hobbies.gd): keep them out of this
+	riley.hobbies = ["Music"]
 	var xp_alex: float = alex.skills.get("Cooking", 0.0)
 	var xp_riley: float = riley.skills.get("Cooking", 0.0)
 	Skills.add_xp(alex, "Cooking", 10.0)
@@ -774,6 +776,409 @@ func check_death() -> void:
 		"no game over: you die, become a grave, and carry on as %s from your household" % main.player.npc_name)
 
 
+# Run the burglar, the police and `others` for up to `seconds` of simulation (0.25 s steps), until `done` says so.
+func run_crime(seconds: float, done: Callable, others := []) -> void:
+	var crime: Node = main.world.crime
+	for n in int(seconds / 0.25):
+		main.world.clock += 0.25
+		crime._process(0.25)
+		for c in ([crime.burglar] if crime.burglar else []) + crime.police + others:
+			if is_instance_valid(c) and not c.dead:
+				c._process(0.25)
+		if done.call():
+			return
+
+
+# Burglars and the police (crime.gd, docs/CRIME.md).
+func check_crime() -> void:
+	var w: Node2D = main.world
+	var crime: Node = w.crime
+	var Crime = load("res://scripts/crime.gd")
+	# The if / else at the heart of it.
+	var s := {"reaction": "Hide", "violent": true, "close": true, "fight_win": false, "quiet": true, "alarm": false}
+	check(Crime.outcome(s).result == "steal_and_flee" and not Crime.outcome(s).police, "crime: you hide -> he steals and runs")
+	check(Crime.outcome(s.merged({"reaction": "Call", "close": false}, true)) == {"result": "flee", "police": true},
+		"crime: you call from far away -> the police come, he runs")
+	check(Crime.outcome(s.merged({"reaction": "Call"}, true)).result == "kill_and_steal",
+		"crime: a violent burglar close by, house asleep -> he kills the caller and steals")
+	check(Crime.outcome(s.merged({"reaction": "Shout"}, true)).result == "kill_and_flee",
+		"crime: shouting at a violent burglar close by wakes the house -> he kills and runs")
+	check(Crime.outcome(s.merged({"reaction": "Shout", "violent": false}, true)).result == "flee", "crime: shouting at a calm burglar -> he runs")
+	check(Crime.outcome(s.merged({"reaction": "Fight", "fight_win": true}, true)).result == "beaten", "crime: winning a fight -> he drops it all and runs")
+	check(Crime.outcome(s.merged({"reaction": "Fight", "violent": false}, true)).result == "knocked", "crime: losing to a calm burglar -> knocked down")
+	check(Crime.outcome(s.merged({"reaction": "Fight", "quiet": false}, true)).result == "kill_and_flee", "crime: losing to a violent one, house awake -> killed, he runs")
+	check(Crime.outcome(s.merged({"alarm": true}, true)).police, "crime: with the alarm the police always come")
+	var alex := person("Alex")
+	var mia := person("Mia")
+	var noah := person("Noah")
+	check(Crime.npc_reaction(mia, 10.0, true) == "Hide" and Crime.npc_reaction(alex, 2.0, true) == "Fight",
+		"crime: children hide; Hot-headed Alex fights")
+	var calm_traits: Array = noah.traits.duplicate()
+	noah.traits = ["Cheerful"]
+	check(Crime.npc_reaction(noah, 2.0, true) == "Hide" and Crime.npc_reaction(noah, 8.0, true) == "Call"
+		and Crime.npc_reaction(noah, 8.0, false) == "Shout", "crime: others hide when he's close, call if there's a phone, else shout")
+	noah.traits = calm_traits
+
+	# Choosing a house: asleep and no porch light at night, empty by day.
+	var you: Node2D = main.player
+	var home: int = you.home
+	var family: Array = main.get_tree().get_nodes_in_group("characters").filter(func(c): return c.home == home)
+	for c in family:
+		reset(c, Vector2(530, 470) + Vector2(family.find(c), 0))  # everyone out
+	set_time(30, 13.0)
+	var picks := {}
+	for n in 40:
+		picks[crime.pick_target(false)] = true
+	check(picks.has(home), "crime: by day a house with nobody home can be picked (yours)")
+	w.BUILDINGS[home].porch_light = true
+	set_time(30, 2.0)
+	picks = {}
+	for n in 40:
+		picks[crime.pick_target(true)] = true
+	check(not picks.has(home), "crime: at night a porch light keeps him away")
+	w.update_view(true)
+	reset(you, Vector2(w.door_outside(home)) + Vector2(1, 1))
+	w.vision.find_lights(you)
+	check(w.vision.lit.has(w.door_outside(home)), "crime: the porch light lights the door at night")
+	w.BUILDINGS[home].porch_light = false
+	for c in family:
+		reset(c, Vector2(530, 470) + Vector2(family.find(c), 0))
+
+	# Nobody home: he takes the money and the TV, and gets away.
+	for c in main.get_tree().get_nodes_in_group("characters"):  # nobody frozen mid-use by earlier checks
+		if c.building == home:
+			reset(c, Vector2(530, 470))
+	for o in main.get_tree().get_nodes_in_group("smart_objects"):
+		if o.building == home:
+			o.user = null
+	var tv := object_named("TV", home)
+	for c in family:
+		c.money = 400
+	var money_before: int = family.reduce(func(a, c): return a + c.money, 0)
+	check(crime.start(home, {"violent": false}), "crime: a burglar sets off for your home")
+	run_crime(1500.0, func(): return crime.burglar == null)
+	var money_after: int = family.reduce(func(a, c): return a + c.money, 0)
+	check(crime.burglar == null and not tv.is_in_group("smart_objects") and object_named("TV", home) == null and money_after < money_before,
+		"crime: nobody home -> he took $%d and the TV and got away" % (money_before - money_after))
+	check(Emotions.has(you, "Burgled") and Social.event_log.any(func(e): return e.text.contains("got away")),
+		"crime: the household feels Burgled; it's in the events feed")
+
+	# A reinforced lock: he may give up.
+	w.BUILDINGS[home].lock = true
+	var gave_up := false
+	for n in 8:
+		crime.start(home, {"violent": false})
+		run_crime(1500.0, func(): return crime.phase not in ["approach", "picking"])
+		gave_up = gave_up or (crime.gives_up and crime.phase == "leaving" and crime.money_taken() == 0)
+		crime.abort()
+	check(gave_up, "crime: at a reinforced lock he sometimes gives up")
+	w.BUILDINGS[home].lock = false
+	var state: Array = w.building_state()
+	check(state[home].has("lock") and state[home].has("porch_light"), "crime: lock and porch light are part of the saved building state")
+
+	# You catch him: the popup pauses the game; you fight a weak burglar and win.
+	reset(you, Vector2(w.door_inside(home)) + Vector2(0, -2))
+	you.auto_mode = false
+	crime.start(home, {"violent": true, "strength": -99})
+	run_crime(1500.0, func(): return crime.phase in ["to_item", "taking"])
+	crime.spotted(you, crime.burglar)
+	check(main.paused and crime.choosing == you and main.controller.menu_actions.size() == 4,
+		"crime: you see him -> the game pauses and you choose (Call / Hide / Fight / Shout)")
+	main.controller.choose(2)  # Fight him
+	check(not main.paused and crime.last_result == "beaten" and Emotions.has(you, "Brave") and crime.phase == "leaving"
+		and crime.money_taken() == 0, "crime: you fight him off; he runs empty-handed")
+	crime.abort()
+
+	# Alex (Hot-headed) fights a strong violent burglar at night: he's killed.
+	var alex_home: int = alex.home
+	for c in main.get_tree().get_nodes_in_group("characters").filter(func(c): return c.home == alex_home):
+		reset(c, Vector2(530, 480) + Vector2(c.age_days, 0).limit_length(5))
+	reset(alex, Vector2(w.door_inside(alex_home)) + Vector2(-1, -2))
+	crime.start(alex_home, {"violent": true, "strength": 99})
+	run_crime(1500.0, func(): return crime.phase in ["to_item", "taking"])
+	crime.spotted(alex, crime.burglar)
+	check(alex.dead and crime.last_result in ["kill_and_steal", "kill_and_flee"]
+		and Social.event_log.any(func(e): return e.text.contains("killed by a burglar"))
+		and main.get_tree().get_nodes_in_group("smart_objects").any(func(o): return o.object_name == "Grave of Alex"),
+		"crime: Alex fights a violent burglar and is killed (%s): a grave, in the log" % crime.last_result)
+	run_crime(1500.0, func(): return crime.burglar == null)
+
+	# The alarm: it rings at the door, the police come and catch him.
+	Catalog.place(you, "alarm", Vector2i(w.door_inside(home)) + Vector2i(2, -2), 0, 0, true)
+	check(Crime.has(w, home, "Alarm"), "crime: an alarm can be bought for your home")
+	reset(you, Vector2(530, 470))
+	crime.start(home, {"violent": false})
+	run_crime(1500.0, func(): return crime.alarm_rang)
+	check(crime.alarm_rang and crime.police_called and crime.phase == "leaving", "crime: the alarm rings, the police are called, he runs")
+	crime.burglar.speed = 0.3  # a slow one: the police catch him
+	run_crime(3000.0, func(): return crime.burglar == null)
+	check(Social.event_log.any(func(e): return e.text.contains("police caught")), "crime: the police catch him")
+	run_crime(3000.0, func(): return crime.police.is_empty())
+	check(crime.police.is_empty() and not crime.active(), "crime: then the police drive off")
+
+	# Saving in the middle: everything goes back.
+	Catalog.remove(you, object_named("Alarm", home))
+	for c in family:
+		c.money = 400
+	crime.start(home, {"violent": false})
+	run_crime(1500.0, func(): return crime.money_taken() > 0)
+	var during: int = family.filter(func(c): return not c.dead).reduce(func(a, c): return a + c.money, 0)
+	var bag: int = crime.money_taken()
+	crime.abort()
+	var after_abort: int = family.filter(func(c): return not c.dead).reduce(func(a, c): return a + c.money, 0)
+	check(bag > 0 and after_abort == during + bag and not crime.active(), "crime: saving mid-burglary ends it and gives back his bag ($%d)" % bag)
+
+
+# Abductions (crime.gd, docs/CRIME.md).
+func check_abduction() -> void:
+	var w: Node2D = main.world
+	var crime: Node = w.crime
+	var Crime = load("res://scripts/crime.gd")
+	var s := {"reaction": "Hide", "violent": true, "close": true, "fight_win": false, "holding": true}
+	check(Crime.abduction_outcome(s) == {"result": "taken", "police": false}, "abduction: you hide -> he gets away with them")
+	check(Crime.abduction_outcome(s.merged({"reaction": "Shout", "violent": false}, true)).result == "freed"
+		and Crime.abduction_outcome(s.merged({"reaction": "Shout"}, true)).result == "killed_taken",
+		"abduction: shouting makes a calm kidnapper drop them; a violent one close by kills you")
+	check(Crime.abduction_outcome(s.merged({"reaction": "Call", "close": false}, true)) == {"result": "taken", "police": true}
+		and Crime.abduction_outcome(s.merged({"reaction": "Call", "close": false, "holding": false}, true)).result == "freed",
+		"abduction: a call brings the police; he runs with them if he has them, empty-handed if not")
+	check(Crime.abduction_outcome(s.merged({"reaction": "Fight", "fight_win": true}, true)).result == "freed"
+		and Crime.abduction_outcome(s.merged({"reaction": "Fight", "violent": false}, true)).result == "knocked_taken",
+		"abduction: win a fight and they're free; lose to a calm one and you're knocked down")
+	check(is_equal_approx(Crime.return_chance(Ages.CHILD, false, false), Crime.RETURN_BASE)
+		and Crime.return_chance(Ages.CHILD, false, true) > Crime.return_chance(Ages.CHILD, false, false)
+		and Crime.return_chance(Ages.TEEN, true, true) == Crime.RETURN_MAX,
+		"abduction: the police and a phone at home make it likelier they come back")
+
+	var mia := person("Mia")
+	var noah := person("Noah")
+	var kids := 0
+	for n in 300:
+		if crime.pick_victim([mia, noah]) == mia:
+			kids += 1
+	check(kids > 150, "abduction: children are the likeliest to be taken (Mia %d times of 300 against Noah)" % kids)
+
+	# Outside alone.
+	var spot: Vector2i = w.random_walkable_near(Vector2i(545, 485), 0, 2)
+	for c in main.get_tree().get_nodes_in_group("characters"):
+		if c != mia and c.role == "" and c.grid_pos.distance_to(Vector2(spot)) <= 14.0:
+			reset(c, Vector2(530, 470))
+	reset(mia, Vector2(spot))
+	check(mia in crime.outside_alone(), "abduction: Mia playing outside alone could be taken")
+	reset(noah, Vector2(spot) + Vector2(2, 0))
+	check(not mia in crime.outside_alone(), "abduction: with a teen or grown-up next to her, she couldn't")
+	reset(noah, Vector2(530, 470))
+
+	# He grabs her; Noah shouts; he drops her and runs.
+	check(crime.abduct(mia, {"violent": false}), "abduction: a kidnapper sets off for Mia")
+	run_crime(600.0, func(): return crime.holding)
+	check(crime.holding and not mia.visible and not mia.is_in_group("characters") and crime.burglar.carrying_person,
+		"abduction: he grabs Mia: she's gone from the street, in his arms")
+	crime.confronted = true
+	crime.exposed = true
+	crime.choose(noah, "Shout")
+	check(crime.last_result == "freed" and mia.is_in_group("characters") and not crime.holding
+		and crime.phase == "leaving" and Social.event_log.any(func(e): return e.text.contains("saved from a kidnapper")),
+		"abduction: Noah shouts: the kidnapper drops Mia and runs")
+	run_crime(1500.0, func(): return crime.burglar == null)
+
+	# Nobody sees: she's missing, then comes home.
+	var family: Array = crime.close_to(mia)
+	reset(mia, Vector2(spot))
+	crime.abduct(mia, {"violent": false})
+	run_crime(2500.0, func(): return crime.burglar == null)
+	check(crime.is_missing(mia) and not mia.visible and not family.is_empty() and family.all(func(c): return Emotions.has(c, "Worried sick"))
+		and Social.event_log.any(func(e): return e.text.contains("has gone missing")),
+		"abduction: nobody saw, he got away: Mia is missing, her family (%d) is worried sick" % family.size())
+	var age: float = mia.age_days
+	crime.missing[0].since = w.now() - 3.0 * 86400.0
+	crime.missing[0].back_at = w.now()
+	crime.missing_update()
+	check(not crime.is_missing(mia) and mia.is_in_group("characters") and Emotions.has(mia, "Traumatised")
+		and mia.age_days > age + 2.0 and family.all(func(c): return Emotions.has(c, "Reunited") and not Emotions.has(c, "Worried sick"))
+		and Social.event_log.any(func(e): return e.text.contains("came home after 3 days")),
+		"abduction: 3 days later Mia comes home, older and traumatised; her family is reunited")
+
+	# Taken from her bed at home; saving in the middle gives her back.
+	var home: int = mia.home
+	reset(mia, Vector2(w.door_inside(home)) + Vector2(0, -2))
+	check(crime.abduct(mia, {"violent": false}) and crime.phase == "approach", "abduction: at home he comes through the door")
+	run_crime(1500.0, func(): return crime.holding or crime.burglar == null)
+	check(crime.holding, "abduction: he picks the lock, finds Mia inside and takes her")
+	crime.abort()
+	check(mia.is_in_group("characters") and not crime.active(), "abduction: saving in the middle ends it: Mia is back")
+
+	# Never found.
+	reset(mia, Vector2(spot))
+	crime.abduct(mia, {"violent": false})
+	run_crime(2500.0, func(): return crime.burglar == null)
+	var saved: Dictionary = SaveGame.capture(main)
+	check(saved.world.missing.size() == 1 and saved.world.missing[0].person.npc_name == "Mia"
+		and not saved.people.any(func(p): return p.npc_name == "Mia"), "abduction: a missing person is saved apart from everyone else")
+	crime.missing[0].back_at = -1.0
+	crime.missing[0].lost_at = w.now()
+	crime.missing_update()
+	check(mia.dead and crime.missing.is_empty() and Social.event_log.any(func(e): return e.text.contains("was never found"))
+		and family.all(func(c): return c.dead or Emotions.has(c, "Grieving") and not Emotions.has(c, "Worried sick")),
+		"abduction: when she's never found, her family grieves")
+
+
+# Personality, hobbies and the criminal path (traits.gd, hobbies.gd, morals.gd, crime.gd "intruder").
+func check_personality() -> void:
+	var w: Node2D = main.world
+	var crime: Node = w.crime
+	var Traits = load("res://scripts/traits.gd")
+	var Hobbies = load("res://scripts/hobbies.gd")
+	var Morals = load("res://scripts/morals.gd")
+	var Crime = load("res://scripts/crime.gd")
+	var BodyScript = load("res://scripts/body.gd")
+	check(Traits.problem(["Kind", "Cruel"]) != "" and Traits.problem(["Psychopath", "Honest", "Brave", "Bookworm"]) == ""
+		and Traits.problem(["Loner", "Outgoing"]) != "", "personality: Kind and Cruel don't go together; a brave honest bookworm psychopath does")
+	var clean := true
+	for n in 60:
+		var t: String = Traits.random_trait(["Kind"])
+		clean = clean and t != "" and Traits.problem(["Kind", t]) == ""
+	check(clean, "personality: a random new trait never clashes with the ones they have")
+
+	var riley: Node2D = load("res://scripts/npc.gd").new().setup("Dex", Vector2(w.door_outside(2)) + Vector2(1, 2),
+		Color(0.4, 0.4, 0.5), 2, ["Loner"], {"Fitness": 4}).set_life(900, "Office").set_age("M", 35)  # Noah's new housemate
+	main.add_child(riley)
+	var noah := person("Noah")
+	var you: Node2D = main.player
+	riley.hobbies = ["Reading"]
+	var reading: float = Traits.like(riley, "Bookshelf")
+	riley.hobbies = ["Music"]
+	check(is_equal_approx(reading, Traits.like(riley, "Bookshelf") * Hobbies.LIKE) and Hobbies.is_hobby(riley, "Radio")
+		and Traits.skill(riley, "Charisma") == 1.0, "hobbies: Reading makes the bookshelf %.1f× as attractive" % Hobbies.LIKE)
+
+	# The path: how dark × how hard life pushes.
+	check(Morals.path_of(3, 2.0) == "Criminal" and Morals.path_of(3, 0.0) == "Ruthless" and Morals.path_of(1, 5.0) == "Mean"
+		and Morals.path_of(0, 5.0) == "Decent", "the path: dark and pushed -> criminal; dark but held -> ruthless; a bit dark -> mean")
+	var broke := {"money": 20, "job": "", "job_level": 0, "angry": true, "depressed": false, "thriving": false, "grudges": 0, "record": 0, "close": false}
+	var doing_well := broke.merged({"money": 900, "job": "Office", "job_level": 2, "angry": false, "thriving": true}, true)
+	check(Morals.pressure_of(broke) >= Morals.CRIMINAL_PRESSURE and Morals.pressure_of(doing_well) < 0.0,
+		"the path: broke, jobless and angry pushes hard (%.2f); a career going well holds them (%.2f)" % [Morals.pressure_of(broke), Morals.pressure_of(doing_well)])
+	var riley_traits: Array = riley.traits.duplicate()
+	riley.traits = ["Psychopath", "Bookworm"]
+	riley.moodlets.clear()
+	riley.money = 900
+	riley.job = "Office"
+	riley.job_level = 2
+	check(Morals.path(riley) == "Ruthless" and not Morals.would_do(riley, "Pickpocket") and Morals.performance(riley) > 0.0
+		and not Social.available_interactions(riley, noah).any(func(i): return i.name == "Pickpocket"),
+		"a psychopath with a good job is ruthless at work, not a criminal")
+	riley.money = 20
+	riley.job = ""
+	riley.job_level = 0
+	Emotions.add(riley, "Robbed")  # angry
+	check(Morals.path(riley) == "Criminal" and Morals.would_do(riley, "Threaten")
+		and Social.available_interactions(riley, noah).any(func(i): return i.name == "Pickpocket"),
+		"...broke, jobless and angry, the same psychopath turns criminal")
+	var noah_traits: Array = noah.traits.duplicate()
+	noah.traits = ["Kleptomaniac"]
+	check(Morals.path(noah) == "Decent" and Morals.would_do(noah, "Pickpocket") and not Morals.would_do(noah, "Threaten"),
+		"a decent kleptomaniac only pickpockets")
+	noah.traits = noah_traits
+	you.auto_mode = false
+	check(Social.available_interactions(you, noah).any(func(i): return i.name == "Threaten"), "you can commit any crime: it's your choice")
+
+	# Crimes, and how they feel.
+	var you_traits: Array = you.traits.duplicate()
+	you.traits = ["Kind"]
+	you.moodlets.clear()
+	noah.money = 200
+	var before: int = you.money
+	check(Social.commit(you, noah, "Pickpocket", 0.0) and you.money > before and noah.money < 200 and Emotions.has(you, "Guilty"),
+		"pickpocketing works, and kind you feel guilty")
+	you.traits = ["Psychopath"]
+	check(not Social.commit(you, noah, "Pickpocket", 1.0) and Emotions.has(noah, "Robbed") and Emotions.has(you, "Thrill")
+		and Social.event_log.any(func(e): return e.text.contains("caught {a} pickpocketing")),
+		"caught pickpocketing: Noah is angry; a psychopath only feels the thrill")
+	check(not Social.commit(you, noah, "Threaten", 1.0) and you.pose != "", "a mugging gone wrong: you're knocked down")
+	BodyScript.get_up(you)
+	you.traits = you_traits
+
+	# A neighbour on the criminal path is the burglar.
+	var target := 1  # Alex's old home
+	for c in main.get_tree().get_nodes_in_group("characters"):
+		if c != riley and c.role == "" and Morals.is_criminal(c):
+			c.traits = []
+		if c.building == target:
+			reset(c, Vector2(530, 470))
+	for o in main.get_tree().get_nodes_in_group("smart_objects"):
+		if o.building == target:
+			o.user = null
+	reset(riley, Vector2(w.door_outside(riley.home)) + Vector2(1, 1))
+	var spare_tv: Node2D = Catalog.make_object("tv", w.random_walkable_near(w.door_inside(target) + Vector2i(0, -3), 0, 2), 0)
+	w.add_object(spare_tv, target, 0)  # something worth taking (earlier checks emptied the house)
+	check(crime.start(target, {"violent": false}) and crime.identity == riley and not riley.is_in_group("characters"),
+		"Dex, now a criminal, is the burglar: he's gone from the street meanwhile")
+	var riley_money: int = riley.money
+	run_crime(2500.0, func(): return crime.burglar == null)
+	check(riley.is_in_group("characters") and riley.money >= riley_money and crime.identity == null
+		and riley.cell().distance_to(w.door_outside(riley.home)) <= 3.0,
+		"he got away: Dex is back at his own door, $%d richer" % (riley.money - riley_money))
+	crime.start(target, {"violent": false, "identity": riley})
+	run_crime(1500.0, func(): return crime.phase in ["to_item", "taking", "leaving"])
+	crime.call_police(null, true)
+	crime.burglar.speed = 0.3
+	run_crime(3000.0, func(): return crime.burglar == null)
+	check(crime.is_missing(riley) and riley.record == 1 and Emotions.has(riley, "Arrested")
+		and Social.event_log.any(func(e): return e.text == "The burglar was {a}!"), "caught: it was Dex; he goes to jail with a record")
+	run_crime(3000.0, func(): return crime.police.is_empty())
+	var cell: Dictionary = crime.missing.filter(func(m): return m.person == riley)[0]
+	cell.back_at = w.now()
+	crime.missing_update()
+	check(riley.is_in_group("characters") and Social.event_log.any(func(e): return e.text.contains("came home from jail"))
+		and Morals.describe(riley).contains("criminal record"), "two days later he's home, with a criminal record")
+	riley.traits = riley_traits
+
+	# You break in.
+	var house: int = riley.home
+	check(Crime.intruder_outcome({"reaction": "Hide", "fight_win": false, "phone": true}).result == "unseen"
+		and Crime.intruder_outcome({"reaction": "Fight", "fight_win": true, "phone": false}) == {"result": "you_down", "police": false}
+		and Crime.intruder_outcome({"reaction": "Shout", "fight_win": false, "phone": true}).police,
+		"breaking in: hide -> unseen; they win a fight -> you're down; a shout with a phone -> police")
+	for c in main.get_tree().get_nodes_in_group("characters"):
+		if c.building == house:
+			reset(c, Vector2(530, 470))
+	for o in main.get_tree().get_nodes_in_group("smart_objects"):
+		if o.building == house:
+			o.user = null
+	reset(you, Vector2(w.door_outside(house)) + Vector2(2, 2))
+	check(crime.can_break_in(you, house) and crime.break_in_as(you, house), "you set off to break into Dex and Noah's house")
+	run_crime(600.0, func(): return crime.phase == "inside", [you])
+	check(crime.phase == "inside" and w.can_enter(you, house), "you pick the lock: you're in")
+	var loot: Array = main.get_tree().get_nodes_in_group("smart_objects").filter(func(o): return o.building == house \
+		and Catalog.id_of(o) != "" and Catalog.ITEMS[Catalog.id_of(o)].get("carry", false))
+	var money_before: int = you.money
+	if not loot.is_empty():
+		check(not crime.steal_entries(you, loot[0]).is_empty(), "inside, things have a Steal entry")
+		crime.order_steal(loot[0])
+		run_crime(600.0, func(): return crime.item == null, [you])
+	check(not loot.is_empty() and you.money > money_before and not loot[0].is_in_group("smart_objects"),
+		"you steal the %s and fence it ($%d)" % [loot[0].object_name if not loot.is_empty() else "?", you.money - money_before])
+	noah.traits = ["Cheerful"]
+	reset(noah, Vector2(w.door_inside(house)))
+	noah.building = house
+	crime.spotted(noah, you)
+	check(crime.confronted and crime.police_called or crime.last_result != "", "Noah sees you (%s)" % crime.last_result)
+	crime.call_police(noah, false)
+	you.state = "idle"
+	run_crime(3000.0, func(): return crime.burglar == null, [you])
+	check(you.record >= 1 and Emotions.has(you, "Arrested") and Social.event_log.any(func(e): return e.text.contains("was arrested"))
+		and main.get_tree().get_nodes_in_group("smart_objects").any(func(o): return o.building == house and Catalog.id_of(o) == Catalog.id_of(loot[0])),
+		"the police catch you: arrested, a record, and what you took goes back")
+	noah.traits = noah_traits
+	run_crime(3000.0, func(): return crime.police.is_empty())
+	if you.pose != "":
+		BodyScript.get_up(you)
+	if not you.is_in_group("characters"):  # in jail: come back for the rest of the checks
+		for m in crime.missing:
+			m.back_at = w.now()
+		crime.missing_update()
+
+
 # Replace the running game with a fresh one started the way the session says.
 func restart_game() -> void:
 	root.remove_child(main)
@@ -786,6 +1191,10 @@ func restart_game() -> void:
 # Save → load round trip, deleting saves, a new household, choosing a household, the creator's rules.
 func check_saving() -> void:
 	var slot := "check_sim_test"
+	var gone := person("Noah")  # taken by a kidnapper, not back yet (crime.gd)
+	main.world.crime.hide_person(gone)
+	main.world.crime.missing = [{"person": gone, "since": main.world.now(), "back_at": main.world.now() + 86400.0,
+		"lost_at": main.world.now() + 9e6, "seen": false}]
 	var before := {}
 	for c in main.get_tree().get_nodes_in_group("characters"):
 		before[c.npc_name] = [c.money, c.relationships.duplicate(), Ages.stage(c), c.look, c.skills.duplicate()]
@@ -806,6 +1215,9 @@ func check_saving() -> void:
 	check(main.player.npc_name == me and main.world.clock == clock_before
 		and main.get_tree().get_nodes_in_group("smart_objects").size() == objects_before and Social.event_log.size() == log_before,
 		"same person controlled, same time, same furniture (%d objects), same social log" % objects_before)
+	var back: Array = main.world.crime.missing
+	check(back.size() == 1 and back[0].person.npc_name == "Noah" and not back[0].person.is_in_group("characters")
+		and back[0].back_at > main.world.now(), "a missing person stays missing after loading, still due home")
 	SaveGame.delete(slot)
 	check(not SaveGame.list().any(func(s): return s.slot == slot), "deleting a save removes it")
 
@@ -842,6 +1254,7 @@ func check_saving() -> void:
 	menu.open_creator(menu.members[0])
 	var creator: Control = menu.get_child(menu.get_child_count() - 1)
 	creator.look.hair_color = 6
+	creator.look.dress = 0  # the random look may already wear one: pick() steps from it
 	creator.pick("dress", 1)
 	var dressed: bool = creator.look.dress == 1 and creator.look.top == 0 and creator.look.bottom == 0
 	creator.show_tab("Clothes")
@@ -1683,6 +2096,7 @@ func _process(delta: float) -> bool:
 		if player == null:
 			return false
 		main.auto_sleep_speed = false  # keep the simulation at 1x; checked separately in check_speed()
+		main.world.crime.enabled = false  # no surprise burglars; check_crime() sends them
 		start_needs = player.needs.duplicate()
 		start_pos = player.grid_pos
 		for c in main.get_tree().get_nodes_in_group("characters"):
@@ -1832,6 +2246,9 @@ func _process(delta: float) -> bool:
 		check_vision()
 		check_body()
 		check_death()  # you die in it
+		check_crime()  # after check_death: you're Sam now
+		check_abduction()  # Mia is never found at the end of it
+		check_personality()  # Dex turns criminal; you break in
 		check_saving()  # replaces the game several times: keep it last
 		print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])
 		quit(1 if failures > 0 else 0)

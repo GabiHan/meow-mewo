@@ -42,6 +42,8 @@ static func setup_families(node: Node, only := []) -> void:
 
 static func new_day(world: Node2D) -> void:
 	for c in world.get_tree().get_nodes_in_group("characters"):
+		if c.role != "":
+			continue  # burglars and the police only pass through
 		var before := Ages.stage(c)
 		c.age_days += AGING_SPEED
 		if Ages.stage(c) != before:
@@ -54,9 +56,10 @@ static func new_day(world: Node2D) -> void:
 
 # Passing away of old age: the people who loved them grieve, partners are widowed, a gravestone
 # appears outside their home. If it's you, the game is over (hud.gd shows it).
-static func die(c: Node2D) -> void:
+# `cause`: written in the log instead of "passed away at N" (e.g. "was killed by a burglar", crime.gd).
+static func die(c: Node2D, cause := "") -> void:
 	var age := int(Ages.years(c))
-	Social.log_event("{a} passed away at %d" % age, c, c)
+	Social.log_event("{a} " + (cause if cause != "" else "passed away at %d" % age), c, c)
 	if c.partner:
 		c.end_social()
 	c.drop_task()
@@ -92,10 +95,10 @@ static func grew_up(c: Node2D) -> void:
 	var article := "an" if stage[0] in "AEIOU" else "a"
 	c.show_emote("Happy birthday! Now %s %s" % [article, stage], null)
 	Social.log_event("{a} grew up into %s %s" % [article, stage], c, c)
-	var allowed: Array = c.traits.duplicate()
 	if Ages.stage(c) in [Ages.CHILD, Ages.TEEN] and c.traits.size() < 3:  # personality fills in as they grow
-		var options := Traits.TRAITS.keys().filter(func(t): return not t in allowed)
-		c.traits.append(options.pick_random())
+		var t := Traits.random_trait(c.traits)  # a dark one now and then (Traits.DARK_CHANCE)
+		if t != "":
+			c.traits.append(t)
 	Jobs.school_for_stage(c)
 
 
@@ -133,7 +136,7 @@ static func check_birth(mother: Node2D) -> void:
 	var spot: Vector2i = mother.home_cell if mother.home >= 0 else mother.cell()
 	spot = mother.world.random_walkable_near(spot, 0, 2)
 	var baby: Node2D = load("res://scripts/npc.gd").new().setup(baby_name, Vector2(spot), BABY_COLORS.pick_random(),
-		mother.home, [Traits.TRAITS.keys().pick_random()], {})
+		mother.home, [Traits.random_trait([])].filter(func(t): return t != ""), {})
 	baby.sex = sex
 	baby.age_days = 0.0
 	baby.parents = [mother.npc_name, mother.baby_father]

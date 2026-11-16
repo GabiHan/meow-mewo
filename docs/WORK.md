@@ -87,7 +87,7 @@ in **College** at the Bus stop instead of a job; a degree makes later jobs start
 ### Performance and promotions
 
 Performance (0–100%) changes after every shift (mental states add to it: Thriving +4, Anxious −4,
-Burned out −5, Depressed −6; see PEOPLE.md):
+Burned out −5, Depressed −6; a **Ruthless** person, dark traits put into their career, +3: see PEOPLE.md "The path"):
 
 ```
 shift  = +10

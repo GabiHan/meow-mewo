@@ -9,7 +9,7 @@ rules). Keep this file in sync with `ITEMS` in catalog.gd.
 | Input | Action |
 |---|---|
 | **B**, or the **Build mode** button | Open / close build mode. Only while the person you control is at home. Time is paused while you build, the view lifts so the catalog doesn't cover the house, and the build-mode song plays |
-| Category tabs | **Build** (walls, stairs), Seating, Tables, Beds, Kitchen, Bathroom, Lighting, Plants, Rugs, Storage, Fun |
+| Category tabs | **Build** (walls, stairs), Seating, Tables, Beds, Kitchen, Bathroom, Lighting, Plants, Rugs, Storage, Fun, **Security** |
 | Click an item | Pick it up: a preview follows the mouse, **green** where it fits, **red** where it doesn't |
 | **R** | Rotate the preview (4 directions) |
 | Left-click | Buy it and place it (the money comes from the person you control) |
@@ -74,6 +74,13 @@ on their own (it advertises its needs to the AI like everything else).
 | Fun | Radio | $45 | ✓ | Listen to music, Dance to the radio (Fitness) |
 | Fun | Teddy bear | $20 | ✓ | Cuddle the teddy (toddlers too) |
 | Fun | Fireplace | $800 | ✓ | Relax by the fire, Warm up (placeholder box: no fireplace in the kit) |
+| Security | Phone | $60 | ✓ | Call a friend (Charisma); lets the house call the police when a burglar comes (placeholder box) |
+| Security | Alarm | $400 | ✓ | Test the alarm; rings when a burglar opens the door, wakes everyone and calls the police (placeholder box) |
+| Security | Reinforced lock | $250 | | For the whole house, one click, no tile: burglars take ×3 longer and often give up. Can't be sold |
+| Security | Porch light | $80 | | For the whole house, one click, no tile: lights the door from dusk to dawn, burglars skip the house at night. Can't be sold |
+
+Burglars may steal the TV, radio, lamps, plants, wall shelf, teddy bear and phone (catalog `carry`). Everything
+about burglars is in [CRIME.md](CRIME.md).
 
 What each usable item does in detail is in README, *Furniture interactions* (`actions.gd`).
 Rotating checks the same rules: usable furniture needs its new front tile free, and nothing may

@@ -3,6 +3,7 @@
 #   meta:    household name, members, in-game date and time, when it was saved (for the menus)
 #   world:   clock, kitchens (clean dishes), guests (invitations), speed, who you control, the social log
 #   people:  every living person (SAVE_FIELDS of npc.gd); what they were doing at that moment is not kept
+#            (missing people, taken by a kidnapper, are in world.missing: crime.gd capture_missing)
 #   objects: every usable object (incl. bought furniture, food on counters, graves); props: decoration
 # main.gd builds the world (houses, walls, terrain) and then restore() puts all this back.
 const GameTime = preload("res://scripts/game_time.gd")
@@ -19,7 +20,7 @@ const SAVE_FIELDS := ["npc_name", "body_color", "grid_pos", "floor", "home", "ho
 	"last_social", "work_log", "learned", "age_days", "sex", "parents", "pregnant_until", "baby_father", "death_years",
 	"romance", "lover", "lover_status", "original_home", "last_romance", "money", "job", "job_level", "performance",
 	"shift_day", "missed_day", "warned", "degree", "college_days", "look", "auto_mode", "caught_peeks", "knock_cooldown",
-	"reminded_day", "illness", "ill_until", "next_symptom", "next_fart", "last_meal"]
+	"reminded_day", "illness", "ill_until", "next_symptom", "next_fart", "last_meal", "hobbies", "record"]
 
 
 static func path(slot: String) -> String:
@@ -61,7 +62,7 @@ static func capture_log() -> Array:
 
 static func capture(main: Node2D) -> Dictionary:
 	var world: Node2D = main.world
-	var people: Array = main.get_tree().get_nodes_in_group("characters").map(capture_person)
+	var people: Array = main.get_tree().get_nodes_in_group("characters").filter(func(c): return c.role == "").map(capture_person)
 	var objects: Array = main.get_tree().get_nodes_in_group("smart_objects").map(capture_object)
 	var props := capture_props(world)
 	var log := capture_log()
@@ -74,13 +75,14 @@ static func capture(main: Node2D) -> Dictionary:
 			"date": "%s, %s" % [GameTime.weekday(t), GameTime.date_text(t)], "time": GameTime.clock_text(t).substr(0, 5),
 			"saved_at": Time.get_datetime_string_from_system(false, true), "saved_unix": Time.get_unix_time_from_system(),
 			"money": main.player.money},
-		"world": {"clock": world.clock, "weather": world.weather, "weather_until": world.weather_until, "buildings": world.building_state(), "kitchens": world.kitchens, "guests": world.guests, "speed": main.speed,
+		"world": {"missing": world.crime.capture_missing(), "clock": world.clock, "weather": world.weather, "weather_until": world.weather_until, "buildings": world.building_state(), "kitchens": world.kitchens, "guests": world.guests, "speed": main.speed,
 			"controlled": main.player.npc_name, "household": main.household_name, "next_item_id": Kitchen.next_id, "log": log},
 		"people": people, "objects": objects, "props": props,
 	}
 
 
 static func save(main: Node2D, slot: String) -> bool:
+	main.world.crime.abort()  # a burglary in progress ends: he vanishes, his bag goes back (crime.gd)
 	DirAccess.make_dir_recursive_absolute(DIR)
 	var f := FileAccess.open(path(slot), FileAccess.WRITE)
 	if f == null:
@@ -161,6 +163,9 @@ static func restore(main: Node2D, data: Dictionary) -> Node2D:
 		by_name[c.npc_name] = c
 		if c.npc_name == data.world.controlled:
 			controlled = c
+	world.crime.restore_missing(main, data.world.get("missing", []))  # abducted, not back yet (crime.gd)
+	for c in world.crime.missing:
+		by_name[c.person.npc_name] = c.person
 	Social.event_log.clear()
 	for e in data.world.log:  # people who have died since are shown by name
 		Social.event_log.append({"text": e[0], "a": by_name.get(e[1]), "b": by_name.get(e[2]), "a_name": e[1], "b_name": e[2]})

@@ -2,6 +2,74 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-11-16 — Personality, hobbies and the criminal path
+- **Traits** now come in groups (Social, Lifestyle, **Heart**: Kind, Honest, Brave; **Dark**: Psychopath, Sociopath,
+  Narcissist, Manipulative, Cruel, Kleptomaniac), with `dark`, `conscience` and `conflicts`. Up to **4** per person in
+  the creator (grouped dropdowns on a second row; conflicting picks refused). Children get a dark trait 15% of the time.
+- **hobbies.gd** (new): up to 2 per person (Reading, Fitness, Cooking, Films, Music, Gardening, Writing,
+  Socialising): ×1.6 attraction (in `Traits.like`), *Hobby time* when done, ×1.3 skill xp (in `Traits.skill`).
+  Saved (`hobbies`), picked in the creator, random for NPCs.
+- **morals.gd** (new, pure): the **path**. Dark traits × life pressure (broke and jobless, angry, depressed,
+  grudges, a criminal record, minus thriving, a good career, someone close): Criminal, Ruthless (+3 performance at
+  work), Mean or Decent. **Not every dark personality is a criminal**: it's recalculated every time.
+- **Crimes** as interactions (`crime: true`, `Social.commit`): Pickpocket, Manipulate, Threaten, Attack. Anyone
+  Teen+ can do them; NPCs only what their path allows (`Morals.would_do`). Conscience → *Guilty* / *Thrill* /
+  *Uneasy*. New skill **Stealth**.
+- **crime.gd**: the burglar may be a **neighbour on the Criminal path** (`identity`: hidden meanwhile, recognised by
+  people who know them, jailed if caught). **You can break in** (`kind` "intruder"): door menu Knock / Break in,
+  pick the lock, Steal (fenced at half price) and Search for cash inside, residents react (`intruder_outcome`),
+  police chase you; caught = arrested (give it all back, $300 fine, `record`, 2 days in jail via the missing list).
+- Menus show hobbies and criminal records; your household's path shows in the drawer and your status panel; F3
+  shows everyone's. The AI prompt includes hobbies.
+- Tests: `check_personality()`. Pinned hobbies in the Foodie xp check, and freed the house's furniture before the
+  burglary checks (a frozen TV watcher made them flaky).
+
+## 2026-11-16 — Abductions
+- **crime.gd** now also sends **kidnappers** (`kind` "abduction", role "kidnapper"; **docs/CRIME.md** "Abductions").
+  Anyone can be taken, children most of all (`STAGE_WEIGHT`): by day someone outside with no teen or grown-up within
+  10 tiles (`outside_alone`), at night someone asleep at home (he breaks in like a burglar, so the porch light, lock and
+  alarm protect too). **F8** sends one for the youngest in your household.
+- He grabs them (a Teen or older may break free); they're hidden and out of "characters" while he carries a bundle
+  off. Witnesses get the burglar popup and rules; the pure `Crime.abduction_outcome()` decides (taken, freed,
+  knocked_taken, killed_taken). The police chase works as for burglars; catching him frees them.
+- If he gets away they're **missing** (`crime.missing`): family *Worried sick*. `return_chance()` (police called,
+  a phone at home, their age) settles at once whether they come home after 1–10 days (older, *Traumatised*; family
+  *Reunited*) or are never found after 21 (`Life.die`, "was never found"). Missing people are saved in
+  `world.missing` and restored hidden.
+- If it's you, you carry on as someone else in your household (never taken if there's nobody; never a joined player).
+- Tests: `check_abduction()` and a missing person through save/load in `check_saving()`. Also fixed the flaky
+  creator check (the random look could already wear a dress).
+
+## 2026-11-13 — Household creator: the menu folds into a dropdown
+- The people's rows on the "New household" page were wider than the left side and ran under the menu on the
+  right. Now that page takes the whole width and the menu becomes a **Menu ▾** dropdown at the top right
+  (`menu.gd set_compact()`; every other page turns it back, via `clear_page()`).
+
+## 2026-11-13 — Burglars and the police
+- **crime.gd** (new, `world.crime`, **docs/CRIME.md**): about once a game week a burglar comes for a house (at night
+  where everyone sleeps and no porch light is on, or by day where nobody's home; your home 1 time in 2). He walks up
+  the street, picks the lock, takes 30% of the grown-ups' money (max $500) and up to 2 valuable carryable things
+  (catalog `carry`), and runs off. **F7** sends one to your home.
+- **Being seen:** the first person inside who sees him reacts. You (Manual) choose in a popup (Call the police /
+  Hide / Fight him / Shout; pauses offline, defaults to Hide online after 30 s); NPCs by rules that are never
+  reckless (`npc_reaction`). The result is the pure `Crime.outcome()`: steal and flee, flee, beaten (he drops it all),
+  knocked down, kill and steal, kill and flee. Police come 15 min after a call (7.5 with the alarm) in a police car,
+  chase him: caught → everything goes back; escaped → it's gone.
+- **Security** catalog category: Phone ($60, needed to call; *Call a friend*), Alarm ($400; *Test the alarm*),
+  Reinforced lock ($250) and Porch light ($80) bought for the whole house (BUILDINGS flags `lock`, `porch_light`,
+  saved in `building_state()`; the porch light lights the door at night in vision.gd).
+- Burglar and officers are `npc.gd` people with `role` ("burglar" / "police", `intruder_update()`), kept in
+  "characters" so view, traffic and online sync handle them; skipped by socials (`is_available`), menus, the
+  drawer, jobs, ageing, saving, the AI and house lighting. Labels: "Burglar" once seen, "Police".
+- `Life.die(c, cause)` takes a cause for the log ("was killed by a burglar"). New body pose "knocked out".
+  Moodlets: Burgled, Scared, Brave, Traumatised, Relieved, Hurt.
+- Saving mid-burglary ends it and gives back his bag (`Crime.abort()` from `SaveGame.save`).
+- Tests: `check_crime()` (after check_death): every branch of the outcome, reaction rules, target choice and porch
+  light, a burglary with nobody home, the lock, the popup and a won fight, Alex killed, alarm → police catch him,
+  saving mid-burglary. The test run turns random burglaries off (`crime.enabled`).
+- Design: docs/superpowers/specs/2026-11-13-burglars-design.md.
+- **Watch out:** "2 resources still in use at exit" after check_sim was already there before this change.
+
 ## 2026-11-06 — Paper-doll characters and the character creator
 - **New character art**: the "build a character" paper doll (`assets/doll`: body in 29 skins, figure, eyes, lashes,
   eyebrows, mouths, hair / fringe / long hair / braids, beards, tops, bottoms, dresses, shoes, gloves) and its palette

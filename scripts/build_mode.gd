@@ -135,7 +135,14 @@ func show_category(cat: String) -> void:
 		if item.model != "":
 			b.icon = Furniture.texture(Catalog.sprite(id, 0))
 		b.tooltip_text = "%s · $%d%s" % [item.name, item.price, " · usable" if item.has("object") else ""]
-		b.pressed.connect(select.bind(id))
+		if item.has("upgrade"):  # for the whole house: bought with one click (catalog.gd buy_upgrade)
+			var owned: bool = main.player != null and main.player.home >= 0 and Catalog.has_upgrade(main.world, main.player.home, id)
+			b.text = "%s\n%s" % [item.name, "installed" if owned else "$%d" % item.price]
+			b.disabled = owned
+			b.tooltip_text = item.name + " for the whole house"
+			b.pressed.connect(buy_upgrade.bind(id))
+		else:
+			b.pressed.connect(select.bind(id))
 		items_row.add_child(b)
 
 
@@ -168,6 +175,16 @@ func close() -> void:
 	ghost.visible = false
 	if main.paused and not was_paused:
 		main.toggle_pause()
+
+
+func buy_upgrade(id: String) -> void:
+	cancel()
+	var p: Node2D = main.player
+	if Catalog.buy_upgrade(p, id):
+		Social.log_event("{a} bought a %s" % Catalog.ITEMS[id].name.to_lower(), p, p)
+		show_category(category)
+	else:
+		p.show_emote("Can't afford it", null)
 
 
 func select(id: String) -> void:

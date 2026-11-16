@@ -31,6 +31,7 @@ const Weather = preload("res://scripts/weather.gd")
 const Furniture = preload("res://scripts/furniture.gd")
 const Traffic = preload("res://scripts/traffic.gd")
 const Car = preload("res://scripts/car.gd")
+const Crime = preload("res://scripts/crime.gd")
 
 const SIZE := 1024
 const CHUNK := 16
@@ -81,6 +82,7 @@ var trees := {}  # Vector2i -> true (floor 0 only)
 var street_cars := {}  # chunk -> [[model, first cell, dir]]: cars parked along the roads (park_cars)
 var parked_cells := {}  # Vector2i -> true: the tiles they fill (not walkable)
 var traffic: Node2D  # cars (traffic.gd)
+var crime: Node  # burglars and the police (crime.gd)
 var solid := {0: {}}  # floor -> {Vector2i: true}: walls and objects
 var walls := {}  # floor -> {Vector2i: true}: walls only (they block sight, objects don't)
 var windows := {}  # ground-floor window cell -> {building, dir (outward), block, closed_until}
@@ -124,6 +126,9 @@ func _ready() -> void:
 	traffic = Traffic.new()
 	add_child(traffic)
 	traffic.setup(self)
+	crime = Crime.new()
+	crime.world = self
+	add_child(crime)
 
 
 # A child that y-sorts its children together with everything else in the scene.
@@ -250,12 +255,14 @@ func upper_floor_empty(i: int) -> bool:
 # What changed in the houses since the start (saves and online games): floors and built stairs.
 func building_state() -> Array:
 	return BUILDINGS.map(func(b): return {"floors": b.floors, "stairs": b.get("stairs", Vector2i(-1, -1)),
-		"built_stairs": b.get("built_stairs", false)})
+		"built_stairs": b.get("built_stairs", false), "lock": b.get("lock", false), "porch_light": b.get("porch_light", false)})
 
 
 func apply_building_state(state: Array) -> void:
 	for i in mini(state.size(), BUILDINGS.size()):
 		var s: Dictionary = state[i]
+		BUILDINGS[i].lock = s.get("lock", false)  # build mode Security upgrades (crime.gd)
+		BUILDINGS[i].porch_light = s.get("porch_light", false)
 		if s.built_stairs and BUILDINGS[i].floors < s.floors:
 			add_upper_floor(i, s.stairs)
 		elif not s.built_stairs and BUILDINGS[i].get("built_stairs", false):

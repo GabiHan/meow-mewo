@@ -23,6 +23,7 @@ const Iso = preload("res://scripts/iso.gd")
 const Social = preload("res://scripts/social.gd")
 const Emotions = preload("res://scripts/emotions.gd")
 const Traits = preload("res://scripts/traits.gd")
+const Hobbies = preload("res://scripts/hobbies.gd")
 const Kitchen = preload("res://scripts/kitchen.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Ages = preload("res://scripts/ages.gd")
@@ -141,7 +142,11 @@ func do_click(click: Dictionary) -> void:
 			if other and other != body:
 				open_menu(other)
 		"building":
-			body.click_building(click.hit)
+			var hit: Dictionary = click.hit
+			if hit.kind == "door" and main.world.crime.can_break_in(body, hit.building):
+				open_door_menu(hit)
+			else:
+				body.click_building(hit)
 		"tile":
 			click_tile(click.cell)
 
@@ -157,6 +162,8 @@ func click_tile(cell: Vector2i) -> void:
 	var obj: Node2D = body.object_at(cell)
 	if obj and obj.object_name == "Bus stop":
 		open_job_menu()
+	elif obj and not main.world.crime.steal_entries(body, obj).is_empty():
+		open_object_menu(obj)  # you're breaking in: steal it, search for cash
 	elif obj and obj.object_name in Kitchen.KITCHEN_OBJECTS:
 		open_kitchen_menu(obj)
 	elif obj and Actions.for_object(obj).size() > 1:
@@ -179,12 +186,25 @@ func open_object_menu(obj: Node2D) -> void:
 				c.activity = "Can't reach the " + obj.object_name
 		entries.append({"label": "%s  (%s, %d min)" % [action.name, ", ".join(gains), action.minutes],
 			"disabled": obj.user != null and obj.user != c, "action": go})
+	entries.append_array(main.world.crime.steal_entries(c, obj))
 	show_menu([obj.object_name + ("  (in use)" if obj.user != null and obj.user != c else "")], entries)
+
+
+# A house you can't go into: knock, or break in (crime.gd; anyone Teen or older can, and live with it: morals.gd).
+func open_door_menu(hit: Dictionary) -> void:
+	var c := body
+	var house: String = main.world.BUILDINGS[hit.building].name
+	var lock: bool = main.world.BUILDINGS[hit.building].get("lock", false)
+	show_menu([house], [
+		{"label": "Knock", "action": func(): c.click_building(hit)},
+		{"label": "Break in (pick the lock%s)" % (", it's reinforced" if lock else ""),
+			"action": func(): main.world.crime.break_in_as(c, hit.building)},
+	])
 
 
 func character_at(screen_pos: Vector2) -> Node2D:
 	for c in get_tree().get_nodes_in_group("characters"):
-		if c != body and c.is_visible_in_tree() and screen_pos.distance_to(c.position + Vector2(0, -25)) < CLICK_RADIUS:
+		if c != body and c.role == "" and c.is_visible_in_tree() and screen_pos.distance_to(c.position + Vector2(0, -25)) < CLICK_RADIUS:
 			return c
 	return null
 
@@ -214,6 +234,9 @@ func open_menu(other: Node2D) -> void:
 		headers.append("Feeling: %s (%s)" % [Emotions.describe(other), Emotions.reasons(other)])
 		headers.append("%s · %s" % [Ages.describe(other), Romance.status_text(other)])
 		headers.append("Traits: " + ", ".join(other.traits.map(func(t): return "%s (%s)" % [t, Traits.TRAITS[t].text])))
+		headers.append("Hobbies: " + Hobbies.describe(other))
+		if other.record > 0:
+			headers.append("Criminal record (%d)" % other.record)
 	else:
 		headers.append("Traits: ? (talk to them to find out)")
 	var r := Romance.romance(body, other)

@@ -11,6 +11,8 @@
 #   Saved Games  -> every save: Load / Delete
 #   Settings     -> volume, music, sounds, mute, fullscreen (settings_panel.gd)
 #   Quit
+# Wide pages (the household creator) take the whole width: the menu on the right folds into a "Menu ▾"
+# dropdown at the top right (set_compact).
 # Starting a game fills in session.gd and switches to scenes/main.tscn.
 extends Control
 
@@ -22,6 +24,7 @@ const Doll = preload("res://scripts/doll.gd")
 const Creator = preload("res://scripts/creator.gd")
 const PREVIEW_SCALE := 0.2
 const Traits = preload("res://scripts/traits.gd")
+const Hobbies = preload("res://scripts/hobbies.gd")
 const Main = preload("res://scripts/main.gd")
 const Net = preload("res://scripts/net.gd")
 const Music = preload("res://scripts/music.gd")
@@ -38,6 +41,10 @@ const TAKEN_NAMES := ["Jo", "Sam", "Alex", "Mia", "Lily", "Riley", "Noah", "You"
 var page: VBoxContainer  # the page you opened (left side), rebuilt for each page
 var key_art: Control  # the picture on the left when no page is open (key_art.gd)
 var card: ScrollContainer  # holds `page`
+var left: Control  # the picture / page area
+var rule: ColorRect  # the line between it and the menu
+var side: VBoxContainer  # the title and the menu on the right
+var menu_drop: MenuButton  # the same menu as a dropdown, while a wide page is open (set_compact)
 var continue_button: Button
 var notice_label: Label  # e.g. "The host closed the town."
 var loading_label: Label
@@ -75,7 +82,7 @@ func build_layout() -> void:
 	paper.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(paper)
 
-	var left := Control.new()
+	left = Control.new()
 	left.set_anchors_preset(Control.PRESET_FULL_RECT)
 	left.offset_left = MARGIN
 	left.offset_top = MARGIN
@@ -98,7 +105,7 @@ func build_layout() -> void:
 	page.add_theme_constant_override("separation", 12)
 	center.add_child(page)
 
-	var rule := ColorRect.new()  # the thin line between the picture and the menu
+	rule = ColorRect.new()  # the thin line between the picture and the menu
 	rule.color = UiTheme.LINE
 	rule.anchor_left = 1.0
 	rule.anchor_right = 1.0
@@ -106,7 +113,7 @@ func build_layout() -> void:
 	rule.offset_left = -SIDE_WIDTH
 	rule.offset_right = -SIDE_WIDTH + 1
 	add_child(rule)
-	var side := VBoxContainer.new()
+	side = VBoxContainer.new()
 	side.anchor_left = 1.0
 	side.anchor_right = 1.0
 	side.anchor_bottom = 1.0
@@ -176,6 +183,35 @@ func build_layout() -> void:
 	version.modulate = Color(1, 1, 1, 0.6)
 	side.add_child(version)
 
+	menu_drop = MenuButton.new()  # the menu, folded (set_compact)
+	menu_drop.text = "Menu ▾"
+	menu_drop.flat = false
+	menu_drop.anchor_left = 1.0
+	menu_drop.anchor_right = 1.0
+	menu_drop.offset_left = -MARGIN - 150
+	menu_drop.offset_right = -MARGIN
+	menu_drop.offset_top = MARGIN
+	menu_drop.offset_bottom = MARGIN + 40
+	menu_drop.add_theme_font_size_override("font_size", 18)
+	menu_drop.visible = false
+	var popup := menu_drop.get_popup()
+	var entries := [["Play game", show_play], ["Play online", show_online], ["Continue", continue_game],
+		["Saved games", show_saves], ["Settings", show_settings], ["Quit", func(): get_tree().quit()]]
+	for e in entries:
+		popup.add_item(e[0])
+	popup.id_pressed.connect(func(id: int): entries[id][1].call())
+	menu_drop.about_to_popup.connect(func(): popup.set_item_disabled(2, continue_button.disabled))
+	add_child(menu_drop)
+
+
+# Wide pages: the page takes the whole width and the menu becomes the "Menu ▾" dropdown (on), or back to normal.
+func set_compact(on: bool) -> void:
+	side.visible = not on
+	rule.visible = not on
+	menu_drop.visible = on
+	left.offset_right = -MARGIN if on else -SIDE_WIDTH - MARGIN
+	left.offset_top = MARGIN + 48 if on else MARGIN  # below the dropdown
+
 
 # A menu button: the name on the left, a small sign on the right. "primary" is outlined in the
 # accent (Play game), "quiet" is just accent text (Quit).
@@ -230,6 +266,7 @@ func clear_page() -> void:
 	for child in page.get_children():
 		child.queue_free()
 	members = []
+	set_compact(false)
 	key_art.visible = false  # a page takes the picture's place
 	card.visible = true
 
@@ -364,6 +401,7 @@ func show_saves() -> void:
 
 func show_create() -> void:
 	clear_page()
+	set_compact(true)  # the people's rows are wide: the menu folds into a dropdown
 	title_label("New household", 40)
 	household_edit = LineEdit.new()
 	household_edit.placeholder_text = "Household name (e.g. The Meows)"
@@ -386,9 +424,14 @@ func add_member(list: VBoxContainer) -> void:
 		return
 	var card := PanelContainer.new()
 	list.add_child(card)
+	var rows := VBoxContainer.new()
+	card.add_child(rows)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	card.add_child(row)
+	rows.add_child(row)
+	var row2 := HBoxContainer.new()  # personality: traits by group, hobbies (traits.gd, hobbies.gd)
+	row2.add_theme_constant_override("separation", 8)
+	rows.add_child(row2)
 	var m := {"card": card}
 	m.name = LineEdit.new()
 	m.name.placeholder_text = "Name"
@@ -412,8 +455,12 @@ func add_member(list: VBoxContainer) -> void:
 	style.tooltip_text = "Create this person's look"
 	style.pressed.connect(func(): open_creator(m))
 	row.add_child(style)
-	m.traits = [option(row, ["(trait)"] + Traits.TRAITS.keys()), option(row, ["(trait)"] + Traits.TRAITS.keys()),
-		option(row, ["(trait)"] + Traits.TRAITS.keys())]
+	m.traits = []
+	for n in Traits.MAX:
+		m.traits.append(trait_option(row2))
+	m.hobbies = []
+	for n in Hobbies.MAX:
+		m.hobbies.append(option(row2, ["(hobby)"] + Hobbies.HOBBIES.keys()))
 	var remove := Button.new()
 	remove.text = "×"
 	remove.pressed.connect(func():
@@ -433,6 +480,19 @@ func option(row: HBoxContainer, items: Array) -> OptionButton:
 	var o := OptionButton.new()
 	for item in items:
 		o.add_item(item)
+	row.add_child(o)
+	return o
+
+
+# Traits grouped: Social, Lifestyle, Heart, Dark (a separator before each group).
+func trait_option(row: HBoxContainer) -> OptionButton:
+	var o := OptionButton.new()
+	o.add_item("(trait)")
+	for group in Traits.GROUPS:
+		o.add_separator(group)
+		for t in Traits.names_in(group):
+			o.add_item(t)
+			o.set_item_tooltip(o.item_count - 1, Traits.TRAITS[t].text)
 	row.add_child(o)
 	return o
 
@@ -467,11 +527,17 @@ func read_household() -> Dictionary:
 	var names := {}
 	for m in members:
 		var person := {"name": m.name.text.strip_edges(), "sex": "F" if m.sex.selected == 0 else "M",
-			"stage": AGES[m.age.selected], "look": m.look.duplicate(), "traits": []}
+			"stage": AGES[m.age.selected], "look": m.look.duplicate(), "traits": [], "hobbies": []}
 		for t in m.traits:
-			var trait_name: String = t.get_item_text(t.selected)
-			if t.selected > 0 and not trait_name in person.traits:
-				person.traits.append(trait_name)
+			if t.selected > 0:
+				person.traits.append(t.get_item_text(t.selected))
+		for h in m.hobbies:
+			var hobby: String = h.get_item_text(h.selected)
+			if h.selected > 0 and not hobby in person.hobbies:
+				person.hobbies.append(hobby)
+		var clash := Traits.problem(person.traits)
+		if clash != "":
+			return fail("%s: %s" % [person.name if person.name != "" else "Someone", clash])
 		if person.name == "":
 			return fail("Every person needs a name.")
 		if person.name in TAKEN_NAMES or names.has(person.name):

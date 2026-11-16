@@ -1,6 +1,6 @@
 # People: emotions, traits, memories, skills, social life
 
-How characters behave like people. Code: `scripts/emotions.gd`, `traits.gd`, `skills.gd`,
+How characters behave like people. Code: `scripts/emotions.gd`, `traits.gd`, `hobbies.gd`, `morals.gd`, `skills.gd`,
 `social.gd`, `perception.gd`, with the character itself in `npc.gd`. Keep this file in sync with
 the tables at the top of those scripts.
 
@@ -10,7 +10,9 @@ Every character (NPCs and you) has:
 |---|---|---|
 | Needs | `needs` | Hunger, thirst, energy, fun, bladder, hygiene, social (README, *Needs*) |
 | Emotion | `moodlets` | What they feel right now and why |
-| Traits | `traits` | Their personality |
+| Traits | `traits` | Their personality (up to 4, in groups) |
+| Hobbies | `hobbies` | What they love doing (up to 2) |
+| Criminal record | `record` | Times arrested ([CRIME.md](CRIME.md)) |
 | Skills | `skills` | What they're good at, levels 0–10 |
 | Memories | `memories` | What others did to them |
 | Relationships | `relationships` | Friendship −100…100 toward each person (one-directional) |
@@ -43,7 +45,12 @@ reasons, and the HUD shows yours.
 ### Moodlets
 
 The body (body.gd, see *The body*): Tripped, Passed out, Fainted, Had an accident, Threw up, Grossed out,
-Farted, Funny fart, Feeling better, Sick (while ill).
+Farted, Funny fart, Feeling better, Sick (while ill), Hurt (knocked down by a burglar).
+
+Burglars and kidnappers (crime.gd, see [CRIME.md](CRIME.md)): Burgled, Scared, Brave, Traumatised, Relieved, Hurt,
+Worried sick (until the missing person is back or lost), Reunited.
+Personality and crime (hobbies.gd, morals.gd): Hobby time (Happy 2, 3 h), Guilty (Sad 3, 24 h), Thrill (Energized 3,
+4 h), Uneasy (Tense 2, 6 h), Robbed (Angry 3, 24 h), Caught stealing (Embarrassed 3, 6 h), Arrested (Embarrassed 4, 48 h).
 
 | Moodlet | Emotion | Strength | Lasts | Comes from |
 |---|---|---|---|---|
@@ -199,9 +206,86 @@ Several traits combine by multiplying.
 | Lazy | Avoids effort | energy drops ×0.85; TV ×1.5; Pull-up bar ×0.3 |
 | Neat | Hates mess | hygiene drops ×1.2; "Messy home" at 1 dirty dish |
 | Slob | Doesn't mind mess | hygiene drops ×0.8; never "Messy home" |
+| **Heart** | | |
+| Kind | Cares about everyone | conscience +2 (crimes make them *Guilty*); Sad ×1.2; Compliment ×1.5, Comfort ×2, Hug ×1.5, Give a gift ×1.5 |
+| Honest | Can't tell a lie | conscience +1; Apologize ×2; harder to con (−10%) |
+| Brave | Stands up to anyone | Tense ×0.5; fights a burglar instead of hiding; +2 against a mugger, +1 in a fight |
+| **Dark** ([the path](#the-path-moralsgd)) | | |
+| Psychopath | Charming, fearless, feels nothing | dark 3, conscience −3; Tense ×0.3, Sad ×0.4; +0.05 to be liked; Manipulate ×3; never hides from a burglar; +2 menace |
+| Sociopath | Impulsive, no remorse | dark 2, conscience −2; Angry ×1.6; Threaten ×2, Attack ×1.5, Insult/Argue ×1.5; +1 in a fight, +2 menace |
+| Narcissist | It's all about them | dark 1, conscience −1; Confident ×1.4, Angry ×1.2; Brag ×3, Manipulate ×1.5 |
+| Manipulative | Uses people | dark 1, conscience −1; Manipulate ×3, Gossip ×1.5; cons work +20% |
+| Cruel | Enjoys others' pain | dark 2, conscience −2; Insult ×2.5, Tease/Prank ×1.5, Attack ×1.3 |
+| Kleptomaniac | Can't help taking things | an **urge**: pickpockets whatever their path; Pickpocket ×3, +10% success |
 
 "Activities ×n" multiplies the AI score of doing that thing. You see an NPC's traits in their
 menu **once you've met them**.
+
+Traits come in four groups (Social, Lifestyle, Heart, Dark). You pick **up to 4** per person in the household
+creator (grouped dropdowns). Some can't be combined (`conflicts`: Outgoing/Loner, Active/Lazy, Neat/Slob,
+Kind/Cruel/Psychopath/Sociopath, Honest/Manipulative, Psychopath/Sociopath); the creator refuses them. Children
+fill in their personality as they grow up (`Traits.random_trait`): a dark trait only 15% of the time
+(`DARK_CHANCE`), never one that clashes.
+
+## Hobbies (`hobbies.gd`)
+
+Everyone has up to **2 hobbies** (you pick them in the creator; NPCs get random ones). Doing a hobby is more
+attractive (×1.6 on top of traits), gives **Hobby time** (Happy 2, 3 h) when it's done, and its skill is learned
+×1.3 faster.
+
+| Hobby | Means | Activities | Skill |
+|---|---|---|---|
+| Reading | Never without a book | Bookshelf | Logic |
+| Fitness | Works out every day | Pull-up bar | Fitness |
+| Cooking | Loves to cook | cooking | Cooking |
+| Films | Watches everything | TV | Comedy |
+| Music | Always listening | Radio | – |
+| Gardening | Green fingers | Plants | – |
+| Writing | Keeps a diary | Nightstand | – |
+| Socialising | Out and about | talking to people, the bench | Charisma |
+
+## The path (`morals.gd`)
+
+A dark personality isn't a criminal by itself. How wicked someone is comes from their traits (`dark`, added up);
+whether it becomes crime depends on their **life**, worked out every time (never stored):
+
+| Pressure | |
+|---|---|
+| Broke (< $100) and no job | +1.5 (just short of money, < $300: +0.5) |
+| Angry right now / Depressed | +0.75 each |
+| 3+ bad memories of people (grudges) | +0.5 |
+| Criminal record | +0.5 per arrest (max 2) |
+| Thriving | −1 |
+| A job at level 3 or more (`job_level` ≥ 2) | −1 |
+| Someone close (friendship 60+) | −0.5 |
+
+| Path | When | What it means |
+|---|---|---|
+| **Criminal** | dark ≥ 2 and pressure ≥ 1.5 | pickpockets, cons, mugs, attacks; may be the **burglar** who breaks into a neighbour's home ([CRIME.md](CRIME.md)) |
+| **Ruthless** | dark ≥ 2, pressure below that | puts it into getting ahead: **+3 performance** per shift ([WORK.md](WORK.md)); no crime |
+| **Mean** | dark 1 | cruel words; attacks people only when Angry |
+| **Decent** | no dark trait | never a crime (a Kleptomaniac still pickpockets) |
+
+So a psychopath with a good job is a ruthless high-flyer, and the same psychopath broke, jobless and angry turns
+criminal; a job pulls them back. Children are always Decent. Your household's path shows in the household
+drawer and your status panel; F3 shows everyone's.
+
+**You** can commit any crime (Teen or older), whatever your path: it's how you play. NPCs (and you in Auto) only
+commit what their path allows (`Morals.would_do`). Afterwards their **conscience** (traits, added up) decides
+how it feels: above 0 *Guilty* (Sad 3, 24 h); −2 or below *Thrill* (Energized 3, 4 h); otherwise *Uneasy*
+(Tense 2, 6 h).
+
+### Crimes (social interactions, `Social.commit`)
+
+| Crime | What happens | Works when |
+|---|---|---|
+| Pickpocket | 15% of their money + $5, max $80 | 35% + 6%/Stealth level (+10% Kleptomaniac, +30% asleep). Caught: they're *Robbed* (Angry), friendship −30, you're *Caught stealing* |
+| Manipulate | they "lend" you 15% + $5, max $150, and like you a bit more | 30% + 5%/Charisma + their friendship/300 (+20% Manipulative or Psychopath, −10% if they're Honest). Else they see through it: friendship −20 |
+| Threaten (mug) | 30% + $5, max $200; they're Scared and Robbed | your menace (fight strength + Charisma/2, +2 Psychopath/Sociopath) beats their fight strength (+2 Brave). Else you're knocked down |
+| Attack | the loser is knocked down (30 min, Hurt); friendship −50 | fight strength (Fitness, Hot-headed +2, Sociopath/Brave +1, Teen −2, Old −3, ±2 luck) |
+
+No line is said out loud for a crime (no AI words). The victim remembers it. Breaking into a house: see
+[CRIME.md](CRIME.md) "You, breaking in".
 
 ---
 
@@ -318,6 +402,7 @@ Skills go from 0 to 10. You earn xp per game minute of practice. From level L to
 | Comedy | Telling jokes; watching TV | 8 | Jokes land 50% + 5% per level |
 | Fitness | Pull-up bar (outside, next to the bench) | 6 | Walk 3% faster per level |
 | Logic | Reading at a bookshelf; Discuss ideas | 4 | Unlocks Discuss ideas at level 3 |
+| Stealth | Picking locks, pickpocketing, stealing | 8 | Pickpocket +6%/level; you pick a lock 6% faster per level and are less likely to fail a reinforced one |
 
 xp is ×1.5 with a matching **trait** (Foodie → Cooking, Goofball → Comedy, Bookworm → Logic,
 Active → Fitness) and ×1.5 with a matching **emotion** (table above). On a level-up the character
@@ -343,7 +428,9 @@ feels Confident, says *"Level up! Cooking 3"* and it goes in the social log.
 
 ## How to…
 
-**Add a trait:** a row in `TRAITS` in `traits.gd` (any of the fields documented there), plus a row here.
+**Add a trait:** a row in `TRAITS` in `traits.gd` (any of the fields documented there, with its `group`), plus a row here.
+
+**Add a hobby:** a row in `HOBBIES` in `hobbies.gd` (`likes`: object names, "cooking" or "social"; `skill`), plus a row here.
 **Add a moodlet:** a row in `MOODLETS` in `emotions.gd`; give it with `Emotions.add(character, "Name")`.
 A condition moodlet has `hours: 0`; switch it with `Emotions.set_condition` or add it to `NEED_MOODLETS`.
 **Add a skill:** a row in `SKILLS` in `skills.gd`; practise it with a step's `"skill"` (objects:

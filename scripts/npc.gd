@@ -55,6 +55,8 @@ const GameTime = preload("res://scripts/game_time.gd")
 const Emotions = preload("res://scripts/emotions.gd")
 const Skills = preload("res://scripts/skills.gd")
 const Traits = preload("res://scripts/traits.gd")
+const Hobbies = preload("res://scripts/hobbies.gd")
+const Morals = preload("res://scripts/morals.gd")
 const Ownership = preload("res://scripts/ownership.gd")
 const Jobs = preload("res://scripts/jobs.gd")
 const Ages = preload("res://scripts/ages.gd")
@@ -238,6 +240,11 @@ class Overlay:
 const NO_WINDOW := Vector2i(-1, -1)
 static var peek_count := 0  # gives every peek a unique id, so NPCs react to each one once
 var controlled := false
+var role := ""  # "" a resident; "burglar", "kidnapper" or "police": moved by world.crime (crime.gd), not by needs
+var carrying_loot := false  # a burglar with a bag of stolen things
+var carrying_person := false  # a kidnapper with someone in his arms (they're hidden meanwhile)
+var hobbies := []  # hobbies.gd: what they love doing (up to Hobbies.MAX)
+var record := 0  # times arrested (morals.gd: makes crime likelier; shown in their path)
 var auto_mode := false  # when controlled: decide by yourself like an NPC
 var peek_window := NO_WINDOW  # the window you're peeking through (state "peeking")
 var pending_peek := NO_WINDOW  # the window you're walking to
@@ -258,6 +265,7 @@ func setup(p_name: String, p_grid: Vector2, p_color: Color, p_home := -1, p_trai
 	body_color = p_color
 	home = p_home
 	traits = p_traits
+	hobbies = Hobbies.random_pick()  # the household creator and saves set their own
 	for s in p_skills:
 		Skills.set_level(self, s, p_skills[s])
 	for need in NEEDS:
@@ -295,6 +303,9 @@ func _process(delta: float) -> void:
 		return
 	if puppet:
 		puppet_update(delta)
+		return
+	if role != "":
+		intruder_update(delta)
 		return
 	var fx: Dictionary = Ages.EFFECTS[Ages.stage(self)]
 	for need in needs:
@@ -365,6 +376,8 @@ func _process(delta: float) -> void:
 					Emotions.add(self, step.moodlet)
 				if steps.is_empty() and step.has("object"):  # task done: did they enjoy it?
 					var obj_name: String = step.object.object_name
+					if Hobbies.is_hobby(self, "cooking" if obj_name in Kitchen.KITCHEN_OBJECTS else obj_name):
+						Emotions.add(self, "Hobby time")
 					Mind.learn_from_feeling(self, "cooking" if obj_name in Kitchen.KITCHEN_OBJECTS else obj_name)
 				next_step()
 		"queueing":
@@ -402,6 +415,18 @@ func puppet_update(delta: float) -> void:
 	grid_pos = grid_pos.move_toward(net_target, maxf(walk_speed(), 1.0) * 1.5 * delta)
 	if grid_pos != before:
 		last_move = grid_pos - before
+	building = world.building_at(cell(), floor)
+	position = Iso.to_screen(grid_pos)
+	animate(delta)
+	label.text = label_text()
+	queue_redraw()
+
+
+# A burglar or a police officer (crime.gd decides where they go): only walking and being drawn.
+func intruder_update(delta: float) -> void:
+	emote_timer -= delta / maxf(Engine.time_scale, 1.0)
+	if state == "walking":
+		follow_path(delta)  # Body.speed() makes it a run while `running`
 	building = world.building_at(cell(), floor)
 	position = Iso.to_screen(grid_pos)
 	animate(delta)
@@ -511,6 +536,10 @@ func think() -> void:
 # say goes to the HUD chat feed, see show_emote).
 # F3 adds what they're doing and everything behind it.
 func label_text() -> String:
+	if role == "police":
+		return "Police"
+	if role in ["burglar", "kidnapper"]:
+		return role.capitalize() if world.crime.exposed or show_details else ""
 	var viewer := get_tree().get_first_node_in_group("player")
 	var met: bool = viewer == null or viewer == self or viewer.known.has(npc_name)
 	if not met and not show_details:
@@ -522,6 +551,7 @@ func label_text() -> String:
 			text += " · " + ("Auto" if auto_mode else "Manual")
 		text += "\n%s\nTraits: %s\nSkills: %s" % [Ages.describe(self), ", ".join(traits), Skills.summary(self)]
 		text += "\nMind: %s · learned: %s" % [", ".join(Mind.states(self)) if not Mind.states(self).is_empty() else "ok", Mind.tastes(self)]
+		text += "\nPath: %s · hobbies: %s" % [Morals.path(self), Hobbies.describe(self)]
 		if Llm.wish_text(self) != "":
 			text += "\nWants to: " + Llm.wish_text(self)
 		text += "\nHun %d Thi %d Ene %d Fun %d\nBla %d Hyg %d Soc %d" % [
@@ -582,6 +612,11 @@ func look_around() -> void:
 
 # Hook: react to someone in sight. The player overrides this (you decide for yourself).
 func notice(other: Node2D) -> void:
+	if other.role in ["burglar", "kidnapper"] or world.crime.intruder() == other:
+		world.crime.spotted(self, other)  # everyone reacts to a burglar or kidnapper, you too (crime.gd asks you)
+		return
+	if other.role != "":
+		return
 	if controlled:
 		return  # you decide how to react
 	Perception.notice(self, other)
@@ -910,6 +945,8 @@ func release_object() -> void:
 
 # Can someone start a conversation with us right now? (Wandering counts as available.)
 func is_available() -> bool:
+	if role != "" or dead:
+		return false  # burglars and the police don't chat
 	if pose != "":
 		return false  # on the floor
 	if controlled and not auto_mode:  # NPCs only approach you when you stand still, so they never cancel your orders
@@ -1018,6 +1055,14 @@ func draw_overlay(canvas: Node2D) -> void:
 		var done := clampf(1.0 - use_timer / step.seconds, 0.0, 1.0)
 		canvas.draw_rect(Rect2(-19, -102, 38, 6), Color(0, 0, 0, 0.6))
 		canvas.draw_rect(Rect2(-18, -101, 36 * done, 4), Color(0.45, 0.85, 0.5))
+	if carrying_loot:  # a burglar's sack over the shoulder
+		canvas.draw_circle(Vector2(-10, -40), 9.0, Color(0.35, 0.3, 0.28))
+		canvas.draw_circle(Vector2(-10, -40), 7.0, Color(0.45, 0.4, 0.36))
+	if carrying_person:  # a bundle in a blanket, held in front
+		canvas.draw_set_transform(Vector2(6, -34), 0.0, Vector2(1.0, 0.6))
+		canvas.draw_circle(Vector2.ZERO, 11.0, Color(0.42, 0.45, 0.55))
+		canvas.draw_circle(Vector2(6, -3), 5.0, Color(0.85, 0.7, 0.6))
+		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if not held.is_empty():  # carried plate or cup, in front of the body
 		var dish := Color(0.92, 0.92, 0.95) if held.kind != "dirty" else Color(0.7, 0.66, 0.6)
 		if held.get("dish", "") == "cup" or held.kind == "drink":

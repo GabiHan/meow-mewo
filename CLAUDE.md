@@ -39,8 +39,12 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 - People systems: moodlets/emotions in `emotions.gd`, traits in `traits.gd`, skills in `skills.gd`, memories and
   interactions in `social.gd`. All documented in `docs/PEOPLE.md`: keep its tables in sync. Give feelings with
   `Emotions.add(c, "Moodlet")`, skill xp with `c.practice(skill, minutes)` (handles level-ups), memories with
-  `Social.remember()`. Script dependency order (no preload cycles): ages, traits ← emotions ← mind ← skills ← romance ← social ← jobs ←
-  life ← llm ← npc; scripts that need something "above" them load it at runtime (`load(...)`).
+  `Social.remember()`. Script dependency order (no preload cycles): hobbies ← traits, ages ← emotions ← mind ← skills ← morals ←
+  romance ← social ← jobs ← life ← llm ← npc; scripts that need something "above" them load it at runtime (`load(...)`).
+- Personality: traits in groups (traits.gd: `group`, `dark`, `conscience`, `conflicts`), hobbies (hobbies.gd) and the
+  path (morals.gd, pure, never stored: dark traits × life pressure → Criminal / Ruthless / Mean / Decent). NPCs only
+  commit the crimes their path allows (`Morals.would_do`, checked in `Social.available_interactions`); the player can
+  commit any. Crimes are interactions with `crime: true`, resolved by `Social.commit()`.
 - Homes: always move characters with `walk_to()` (it passes `self` to `world.find_path`, which keeps them out of
   homes they may not enter). Invitations live in `world.guests` (`invite`/`uninvite`/`can_enter`); knocking in `ownership.gd`.
 - Money and jobs: `jobs.gd` (documented in `docs/WORK.md`). Characters at work have `at_work = true` (hidden,
@@ -81,6 +85,12 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 - Sound: `music.gd` (/root/Music, `Music.play(tree, "menu"/"home"/"outside")`, real-time fades, not affected by
   game speed) and `settings.gd` (buses Master/Music/Sounds, user://settings.cfg). New sound effects go on the
   "Sounds" bus. Version: `application/config/version` in project.godot (shown on the home screen).
+- Burglars, kidnappers and the police: `crime.gd` (`world.crime`, docs/CRIME.md). They're `npc.gd` people with `role`
+  "burglar" / "kidnapper" / "police" in the "characters" group (so view, traffic and online sync work), moved by crime.gd, not by needs. Anything
+  that loops over "characters" for residents (menus, socials, jobs, ageing, saving, AI) must skip `role != ""`.
+  The outcome of being seen is the pure `Crime.outcome()` / `Crime.abduction_outcome()`; keep docs/CRIME.md's tables
+  in sync. A kidnapped person is hidden and out of "characters" (`crime.missing`, saved in `world.missing`) until they
+  come back (`show_person`) or are never found (`Life.die`).
 - Houses can change: `World.BUILDINGS` is this game's copy of `START_BUILDINGS` (stairs/upper floors from build mode;
   `building_state()` is saved and synced online). Build-mode walls are props with `wall = true`.
 - The view is Project Zomboid style (`vision.gd`, `weather.gd`, docs/VIEW.md): the neighbourhood is always shown,

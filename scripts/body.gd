@@ -30,6 +30,7 @@ const POSES := {  # what puts them down, and for how many game minutes
 	"passed out": {"pose": "down", "minutes": 150.0},
 	"fainted": {"pose": "down", "minutes": 45.0},
 	"throwing up": {"pose": "bent", "minutes": 2.0},
+	"knocked out": {"pose": "down", "minutes": 30.0},  # shoved by a burglar (crime.gd)
 }
 const PASSED_OUT_ENERGY := 35.0  # energy regained by sleeping it off on the floor
 const FAINT_HUNGER := 12.0  # hunger after waking from a faint
@@ -136,6 +137,8 @@ static func speed(c: Node2D) -> float:
 
 # Called by npc.gd for each tile they run onto. True if they tripped.
 static func maybe_trip(c: Node2D) -> bool:
+	if c.role != "":
+		return false  # burglars and the police are sure-footed (crime.gd has no getting up)
 	var chance := TRIP_CHANCE * (2.0 if c.needs.energy < 25.0 else 1.0) * (0.5 if "Active" in c.traits else 1.0)
 	if randf() >= chance:
 		return false
