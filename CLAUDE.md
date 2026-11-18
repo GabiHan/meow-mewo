@@ -71,8 +71,16 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   for people. Scripted tests drive a car with `car.drive(delta, world.traffic)`. See README "Cars and roads".
 - Every catalog item is usable (an `object` + `actions.gd` entry); new furniture needs both. Rugs are `STAND_ON`.
 
+- HUD placement: `hud.gd layout()` places every panel from the others' real sizes each frame; a new HUD panel
+  must be added there (and to `check_layout()` in the tests) so nothing overlaps. The window scales the UI
+  (stretch `canvas_items`/`expand`): lay out for at least 1280×720 UI units. Fullscreen key: `window_keys.gd`.
+- UI look: `ui_theme.gd` (Cozy Paws tokens `DAY`/`DUSK`, read with `UiTheme.c("token")`) and the components in
+  `scripts/ui/`. New UI: build it from those components or `UiTheme.sticker()`/`panel()`, colour text with
+  `UiTheme.tint(control, "font_color", "ink")` (not literal colours), so it follows day/dusk. Text on a fill uses its
+  `on_*` pair. Keep README "The look" tables in sync.
 - AI words: `llm.gd` (local Qwen3.5 via llama-server) and `talk_panel.gd`; documented in `docs/AI.md` (keep its
-  tables in sync). The model only writes words and nudges (`wish_factor`); systems decide. Everything must still
+  tables in sync). The model writes words, nudges (`wish_factor`) and picks what NPCs near you do, but only
+  among `npc.gd options()` (`Llm.decide()`); systems decide what's possible. Everything must still
   work with the AI off. Never give it a name the speaker doesn't know (`who(c, viewer)`). Tests use `llm.fake`.
 - Labels over heads are only `Name - Mood` (`label_text()`); anything said goes through `show_emote()` → HUD chat feed.
 - Online: `net.gd` (docs/ONLINE.md). The host simulates; joined games are puppets (`Npc.puppet`, `world.puppet`,

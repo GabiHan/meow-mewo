@@ -1,6 +1,8 @@
 # Words from a local language model: Qwen3.5 4B (Hugging Face: unsloth/Qwen3.5-4B-GGUF) running in
 # llama.cpp's llama-server on this computer. The systems still decide everything that matters (who
-# talks to whom, yes or no, friendship, what people do); the model only writes words and gives nudges:
+# talks to whom, yes or no, friendship, what's possible); the model writes words, gives nudges and directs NPCs:
+#   decide()        an NPC near you is free: the model picks what they do from the best options the systems
+#                   found (options() in npc.gd), in character, with a thought; slow or odd answers fall back
 #   conversation()  what two people near you say (replaces the scripted line, and the partner replies)
 #   think()         a short private thought: "~ ... ~" over their head, and in their click menu
 #   wish()          what an NPC feels like doing for the next WISH_HOURS: that option scores ×WISH_BOOST
@@ -23,6 +25,7 @@ const GameTime = preload("res://scripts/game_time.gd")
 const Kitchen = preload("res://scripts/kitchen.gd")
 const Actions = preload("res://scripts/actions.gd")
 const Perception = preload("res://scripts/perception.gd")
+const Settings = preload("res://scripts/settings.gd")
 
 const MODEL := "unsloth/Qwen3.5-4B-GGUF:Q4_K_M"  # downloaded from Hugging Face on first start (~2.7 GB)
 const PORT := 8765
@@ -42,6 +45,14 @@ const WISH_RADIUS := 30.0  # tiles: same as npc.gd CONSIDER_RADIUS
 const TALK_RADIUS := 6.0  # tiles: how close you must be to type to someone
 const TONE := {"nice": 2.0, "neutral": 0.5, "mean": -4.0}  # their friendship toward you per message you type
 const TALK_SOCIAL := 4.0  # social need for both, per message
+const DIRECT_MAX_SPEED := 5.0  # Engine.time_scale: faster than this the systems decide (an answer takes 1-3 real seconds)
+const DECIDE_SECONDS := 6.0  # real seconds an NPC waits for the model before deciding by itself
+const DECIDE_CHOICES := 6  # the best options by score the model chooses from (plus a walk)
+const URGENT_NEED := 15.0  # someone with a need this low doesn't wait for the model: the systems decide
+# Sampling (Qwen's recommended non-thinking settings): words get more variety, decisions are steadier.
+const SAMPLING := {"top_p": 0.8, "top_k": 20, "min_p": 0.0, "presence_penalty": 1.0}
+const WORDS_TEMPERATURE := 0.8
+const DECIDE_TEMPERATURE := 0.6
 
 const STYLE := "You write the words for characters in a cosy, slightly funny life-sim game (like The Sims). " \
 	+ "Characters talk like real people: casual, short and in character, matching their age, personality, mood " \
@@ -140,10 +151,10 @@ func status_text() -> String:
 # --- Requests ---
 
 # Queue a request. on_done gets a String (no schema) or a Dictionary (schema), only on success.
-func ask(messages: Array, max_tokens: int, schema: Dictionary, on_done: Callable, urgent := false) -> bool:
+func ask(messages: Array, max_tokens: int, schema: Dictionary, on_done: Callable, urgent := false, temperature := WORDS_TEMPERATURE) -> bool:
 	if not online:
 		return false
-	var request := {"messages": messages, "max_tokens": max_tokens, "schema": schema, "on_done": on_done}
+	var request := {"messages": messages, "max_tokens": max_tokens, "schema": schema, "on_done": on_done, "temperature": temperature}
 	if urgent:
 		queue.push_front(request)
 	elif queue.size() >= MAX_QUEUE:
@@ -160,8 +171,9 @@ func pump() -> void:
 		if fake.is_valid():
 			deliver(request, fake.call(request))
 			continue
-		var body := {"messages": request.messages, "max_tokens": request.max_tokens, "temperature": 0.8,
+		var body := {"messages": request.messages, "max_tokens": request.max_tokens, "temperature": request.temperature,
 			"chat_template_kwargs": {"enable_thinking": false}}
+		body.merge(SAMPLING)
 		if not request.schema.is_empty():
 			body["response_format"] = {"type": "json_schema", "json_schema": {"name": "answer", "schema": request.schema}}
 		if http.request(URL + "/v1/chat/completions", ["Content-Type: application/json"], HTTPClient.METHOD_POST, JSON.stringify(body)) == OK:
@@ -324,6 +336,76 @@ func said(a: Node2D, b: Node2D, d: Dictionary) -> void:
 func replied(b: Node2D, a: Node2D, reply: String) -> void:
 	if is_instance_valid(a) and is_instance_valid(b) and b.partner == a and b.state == "talking":
 		b.show_emote("\"%s\"" % reply, a, emote_seconds(reply))
+
+
+# --- Directing NPCs (npc.gd choose_action()) ---
+
+# Whether the model chooses what `c` does next: AI online and on in Settings, an NPC (not played, not a burglar
+# or the police), child or older, near someone who's playing, no urgent need, and the game not running too fast.
+func can_direct(c: Node2D) -> bool:
+	return online and not remote and Settings.value("ai_directs") and not c.controlled and c.role == "" and not c.dead \
+		and not c.at_work and Ages.stage(c) >= Ages.CHILD and Engine.time_scale > 0.0 and Engine.time_scale <= DIRECT_MAX_SPEED \
+		and c.needs.values().all(func(v): return v >= URGENT_NEED) and near_you(c)
+
+
+# `c` is free and `list` is everything they could do (npc.gd options()). Ask the model to pick one of the best
+# DECIDE_CHOICES (or a walk); they wait ("deciding") until it answers. False: the systems decide now.
+func decide(c: Node2D, list: Array) -> bool:
+	if not can_direct(c):
+		return false
+	var ranked := list.filter(func(o): return o.score > 0.0)
+	ranked.sort_custom(func(a, b): return a.score > b.score)
+	ranked = ranked.slice(0, DECIDE_CHOICES)
+	ranked.append({"wander": true, "label": "Take a little walk near home", "score": 0.0})
+	if ranked.size() < 2:
+		return false
+	var choices := {}
+	var lines := []
+	for n in ranked.size():
+		choices[str(n + 1)] = ranked[n]
+		lines.append("%d. %s" % [n + 1, ranked[n].label])
+	var prompt := "\n".join([who(c), setting(c),
+		"%s is free right now. What they could do (the ones that would help their needs most come first):" % c.npc_name,
+		"\n".join(lines),
+		"Pick the ONE number %s would really choose now, in character: their personality, mood, needs and who they like. " % c.npc_name
+			+ "thought = what they think as they decide, first person, under 12 words."])
+	var schema := {"type": "object", "properties": {"option": {"type": "string", "enum": choices.keys()}, "thought": {"type": "string"}},
+		"required": ["option", "thought"]}
+	c.decide_token += 1
+	var token: int = c.decide_token
+	if not ask([{"role": "system", "content": STYLE}, {"role": "user", "content": prompt}], 60, schema,
+			func(d): decided(c, d, choices, token), false, DECIDE_TEMPERATURE):
+		return false
+	c.deciding = true
+	c.decide_timer = DECIDE_SECONDS
+	c.activity = "Thinking what to do"
+	c.activity_with = null
+	return true
+
+
+# The model's answer: do that option if it's still possible; otherwise the systems decide.
+func decided(c: Node2D, d: Dictionary, choices: Dictionary, token: int) -> void:
+	if not is_instance_valid(c) or c.decide_token != token or not c.deciding:
+		return  # too late: they already decided by themselves
+	c.deciding = false
+	if c.state != "idle" or c.controlled:
+		return  # something else happened meanwhile (someone came to talk, you took control)
+	var o: Dictionary = choices.get(d.get("option", ""), {})
+	if o.is_empty() or not still_possible(o) or not c.do_option(o):
+		c.choose_action(false)
+		return
+	c.decision = o.label
+	c.decision_why = d.get("thought", "")
+	if c.decision_why != "":
+		thought(c, c.decision_why)
+
+
+static func still_possible(o: Dictionary) -> bool:
+	if o.has("partner"):
+		return is_instance_valid(o.partner) and o.partner.is_available()
+	if o.has("object"):
+		return is_instance_valid(o.object) and o.object.user == null
+	return true
 
 
 # --- Background: thoughts and wishes ---

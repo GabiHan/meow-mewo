@@ -38,22 +38,26 @@ const DRAWER_WIDTH := 320
 const NEEDS := ["hunger", "thirst", "energy", "fun", "bladder", "hygiene", "social"]
 const BAR_HEIGHT := 56  # the bottom row
 const MARGIN := 16
+const GAP := 10  # between panels (layout())
+const TOAST_WIDTH := 440
 const PASSPORT_WIDTH := 560
 const TODAY_WIDTH := 250
 const TODAY_ITEMS := 6
 const FEED_EVENTS := 3  # newest social events shown above the household row...
 const EVENT_SECONDS := 20.0  # ...for this long after something new happens
 const UiTheme = preload("res://scripts/ui_theme.gd")
+const NeedBar = preload("res://scripts/ui/need_bar.gd")
+const ToastStack = preload("res://scripts/ui/toast_stack.gd")
 const PANEL_COLOR := UiTheme.PAPER_GLASS
 const ACCENT := UiTheme.ACCENT  # Today's dots, the mood line, chips, the activity bar (ui_theme.gd ACCENTS)
 const BAR_BACK := UiTheme.LINE
 const LOW := UiTheme.ROSE  # a need under 25, money below $0, disliking you
-const MID := Color("#d8c2ff")  # a need around half
+const MID := UiTheme.BUTTER  # a need around half
 const HIGH := UiTheme.ACCENT  # a full need, liking you
 const SPEED_LABELS := ["||", "▶", "▶▶ ×2", "▶▶ ×3", "▶▶ ×4"]
 const CONTROLS := "Click floor: walk\nClick object: use it\nClick person: interact (Talk… to type)\nClick door: enter / knock\n" \
 	+ "Click stairs: change floor\nTab: Manual / Auto\nB: build mode\nR: relationships\nP / Space / 0: pause\n1-4: speed\n" \
-	+ "Mouse wheel: zoom\nF3: NPC details\n< and > tabs: Today and Passport"
+	+ "Mouse wheel: zoom\nF3: NPC details\nF11 / Alt+Enter: fullscreen\n< and > tabs: Today and Passport"
 
 # Whether Today and Passport are open; static so it stays when you switch person or load a game.
 static var show_today := false
@@ -63,14 +67,11 @@ var player: Node2D
 var game: Node2D  # main.gd (speed and pause)
 var speed_buttons := []  # [pause, normal, fast, faster, ultra]
 var paused_label: Label
-var bars := {}  # passport need bars
-var fills := {}
-var values := {}  # need -> Label with the number
+var bars := {}  # need -> passport need bar (ui/need_bar.gd)
 var drawer: PanelContainer
 var drawer_list: VBoxContainer
 var drawer_refresh_at := 0  # real-time msec of the next refresh
-var toast: Label  # "Game saved" etc.
-var toast_until := 0
+var toasts: VBoxContainer  # "Game saved" etc. (ui/toast_stack.gd), top-centre
 const CARE_ACTIONS := ["Feed", "Change & clean", "Rock to sleep", "Play with", "Read a story", "Hug"]
 var child: Node2D = null  # the little one shown in the left panel
 var child_panel: PanelContainer
@@ -79,6 +80,10 @@ var child_info: Label
 var child_bars := {}
 var child_buttons := {}
 var household_row: HBoxContainer
+var bottom_left: HBoxContainer  # household row + money
+var bottom_center: PanelContainer  # clock, speeds, Build mode
+var menu_button: MenuButton  # ☰
+var bottom_top := 0.0  # y where the bottom row (or the build catalog) starts: layout()
 var household_key := ""  # who's in the bar now, to rebuild it only when that changes
 var money_label: Label
 var mode_button: Button
@@ -112,6 +117,7 @@ const CHAT_SECONDS := 60.0  # real seconds a line stays in the chat feed
 const HEAR_RADIUS := 25.0  # tiles: you hear people on your floor who are on screen within this
 var chat := []  # what you heard, newest last: {who, text, with, at (msec)}
 var chat_label: Label
+var feed_lines := CHAT_LINES  # how many chat lines fit under the panels above the feed (layout())
 
 
 # The passport's mood: a line from low to high with a diamond where you are.
@@ -160,24 +166,20 @@ func _ready() -> void:
 	build_drawer()
 	talk = TalkPanel.new()
 	add_child(talk)
-	toast = Label.new()
-	toast.anchor_left = 0.5
-	toast.anchor_right = 0.5
-	toast.offset_left = -200
-	toast.offset_right = 200
-	toast.offset_top = 70
-	toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	toast.add_theme_font_size_override("font_size", 20)
-	toast.add_theme_color_override("font_color", Color(0.85, 0.45, 0.65))
-	toast.add_theme_color_override("font_outline_color", Color.WHITE)
-	toast.add_theme_constant_override("outline_size", 8)
-	add_child(toast)
+	toasts = ToastStack.new()
+	toasts.anchor_left = 0.5
+	toasts.anchor_right = 0.5
+	toasts.offset_left = -TOAST_WIDTH / 2.0
+	toasts.offset_right = TOAST_WIDTH / 2.0
+	toasts.offset_top = 70
+	add_child(toasts)
 	paused_label = Label.new()
 	paused_label.text = "PAUSED"
+	paused_label.add_theme_font_override("font", UiTheme.display_font())
 	paused_label.add_theme_font_size_override("font_size", 32)
 	paused_label.add_theme_constant_override("outline_size", 10)
-	paused_label.add_theme_color_override("font_outline_color", Color.WHITE)
-	paused_label.add_theme_color_override("font_color", Color(0.85, 0.45, 0.65))
+	UiTheme.tint(paused_label, "font_outline_color", "surface_200")
+	UiTheme.tint(paused_label, "font_color", "petal_strong")
 	paused_label.anchor_left = 0.5
 	paused_label.anchor_right = 0.5
 	paused_label.offset_left = -70
@@ -226,6 +228,7 @@ func on_bottom_row(c: Control, h_anchor: float) -> void:
 
 func build_bottom_row() -> void:
 	var left := HBoxContainer.new()
+	bottom_left = left
 	on_bottom_row(left, 0.0)
 	left.offset_left = MARGIN
 	left.add_theme_constant_override("separation", 10)
@@ -242,6 +245,7 @@ func build_bottom_row() -> void:
 	wallet.add_child(money_label)
 
 	var center := card()
+	bottom_center = center
 	on_bottom_row(center, 0.5)
 	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	add_child(center)
@@ -271,6 +275,7 @@ func build_bottom_row() -> void:
 	row.add_child(flat_button("Build mode", func(): game.build.toggle()))
 
 	var game_menu := MenuButton.new()
+	menu_button = game_menu
 	game_menu.text = "☰"
 	game_menu.flat = false
 	game_menu.focus_mode = Control.FOCUS_NONE
@@ -474,35 +479,15 @@ func build_passport() -> void:
 	skills_box.add_child(skills_row)
 
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 6)
 	column.add_child(grid)
-	for need in NEEDS:
-		var cell := VBoxContainer.new()
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cell.add_theme_constant_override("separation", 1)
-		grid.add_child(cell)
-		var head := HBoxContainer.new()
-		cell.add_child(head)
-		var label := small(need.capitalize(), 13, 0.85)
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		head.add_child(label)
-		values[need] = small("", 13, 0.85)
-		head.add_child(values[need])
-		var bar := ProgressBar.new()
-		bar.custom_minimum_size = Vector2(110, 8)
-		bar.show_percentage = false
-		var back := StyleBoxFlat.new()
-		back.bg_color = BAR_BACK
-		back.set_corner_radius_all(4)
-		bar.add_theme_stylebox_override("background", back)
-		var fill := StyleBoxFlat.new()
-		fill.set_corner_radius_all(4)
-		bar.add_theme_stylebox_override("fill", fill)
-		cell.add_child(bar)
+	for need in NEEDS:  # ui/need_bar.gd: each need keeps its colour, berry when low
+		var bar: HBoxContainer = NeedBar.make(need, true, 12)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(bar)
 		bars[need] = bar
-		fills[need] = fill
 
 	info_label = small("", 13, 0.75)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -568,10 +553,7 @@ func update_passport() -> void:
 			skills_row.add_child(chip)
 	for need in NEEDS:
 		var value: float = player.needs[need]
-		bars[need].value = value
-		fills[need].bg_color = need_color(value)
-		values[need].text = str(int(value))
-		values[need].modulate = LOW if value < 25.0 else Color(1, 1, 1, 0.85)
+		bars[need].set_value(value)
 	var lines := ["%s%s%s · %s" % [Ages.describe(player), " · pregnant" if player.pregnant_until >= 0.0 else "",
 		" · degree" if player.degree else "", player.world.location_name(player)], job_text()]
 	if not Mind.states(player).is_empty():
@@ -591,12 +573,130 @@ func update_passport() -> void:
 	activity_bar.visible = using
 
 
-# The tabs sit at the screen edge when closed and next to their panel when open.
-func place_tabs() -> void:
+# --- Layout: nothing on screen overlaps ---
+# Every frame, from the real sizes of the panels (they change with what's in them and the window size):
+#   bottom row     household + money on the left, ☰ on the right, the clock bar centred between them
+#   right column   the Relationships drawer at the edge; the passport to its left (hidden while there's no room)
+#   tabs           next to their panel when open, at the screen edge when closed
+#   top band       PAUSED and the toasts: between Today and the passport, else under Today, else under both
+#                  panels (place_band()); only the newest toasts that fit above the feed show
+#   left column    the baby panel below Today
+#   above the row  the chat feed on the left (right of the baby panel if they'd touch), the talk window centred
+#                  but never over the feed or the drawer (if it can't fit beside the feed, the feed goes above it)
+#   build mode     its catalog sits on the bottom row, and the feed and talk window go above the catalog
+func layout() -> void:
 	var screen := get_viewport().get_visible_rect().size
+	# Bottom row.
+	var left_end := bottom_left.position.x + bottom_left.size.x
+	var bar_width := bottom_center.get_combined_minimum_size().x  # sizes from contents, never from last frame
+	var lo := left_end + GAP
+	var hi := menu_button.position.x - GAP - bar_width
+	var centre := clampf((screen.x - bar_width) / 2.0, lo, maxf(lo, hi))
+	bottom_center.offset_left = centre - screen.x * 0.5
+	bottom_center.offset_right = bottom_center.offset_left + bar_width
+	bottom_top = minf(minf(bottom_left.position.y, bottom_center.position.y), menu_button.position.y)
+	var build_panel: Control = game.build.panel if game and game.get("build") and game.build.panel else null
+	if build_panel:
+		build_panel.offset_bottom = bottom_top - 6.0 - screen.y
+		build_panel.offset_top = build_panel.offset_bottom - game.build.PANEL_HEIGHT
+	var above := build_panel.position.y if build_panel and build_panel.visible else bottom_top  # free space ends here
+
+	# Right column: drawer at the edge, the passport to its left.
+	var right_edge := screen.x - MARGIN
+	if drawer.visible:
+		drawer.offset_bottom = above - GAP - screen.y
+		right_edge = drawer.position.x - GAP
+	# Left: Today and its tab.
 	today_tab.position = Vector2(today_panel.position.x + today_panel.size.x + 6 if today_panel.visible else 4, MARGIN + 8)
-	var right: float = passport.position.x - passport_tab.size.x - 6 if passport.visible else screen.x - passport_tab.size.x - 4
-	passport_tab.position = Vector2(right, MARGIN + 8)
+	var left_edge := today_tab.position.x + today_tab.size.x + GAP
+	var passport_width := maxf(PASSPORT_WIDTH, passport.get_combined_minimum_size().x)
+	var fits := right_edge - passport_width - 6 - passport_tab.size.x >= left_edge
+	passport.visible = show_passport and fits
+	passport.offset_right = right_edge - screen.x
+	passport.offset_left = passport.offset_right - PASSPORT_WIDTH
+	var tab_x: float = passport.position.x - passport_tab.size.x - 6 if passport.visible \
+		else right_edge - passport_tab.size.x + (MARGIN - 4 if not drawer.visible else 0.0)
+	passport_tab.position = Vector2(tab_x, MARGIN + 8)
+	var top_right := passport_tab.position.x - GAP
+
+	# Top band: PAUSED, then the toasts, in the first free area they fit (see place_band()).
+	var lowest := MARGIN + today_tab.size.y
+	for panel in [today_panel, passport]:
+		if panel.visible:
+			lowest = maxf(lowest, panel.position.y + panel.size.y)
+	var floor_y := above  # the band ends above the chat feed and the talk window (last frame's places)
+	for low in [feed_panel, talk]:
+		if low.visible:
+			floor_y = minf(floor_y, low.position.y)
+	var left_floor := floor_y if feed_panel.visible else above
+	var today_bottom := today_panel.position.y + today_panel.size.y if today_panel.visible else MARGIN + today_tab.size.y
+	var areas := [  # [x from, x to, y from, y to]
+		[left_edge, top_right, MARGIN, floor_y],  # between Today and the passport
+		[MARGIN, (passport_tab.position.x if passport.visible else right_edge) - GAP, today_bottom + GAP, left_floor],  # under Today
+		[MARGIN, right_edge, lowest + GAP, floor_y]]  # under both
+	if child_panel.visible:
+		areas.remove_at(1)
+	place_band(areas, screen)
+
+	# Left column: the baby panel under Today.
+	child_panel.position.y = (today_panel.position.y + today_panel.size.y + GAP) if today_panel.visible else MARGIN + 56.0
+
+	# Above the bottom row: the chat feed, then the talk window.
+	var feed_left := MARGIN
+	feed_panel.offset_bottom = above - GAP - screen.y
+	var feed_top := above - GAP - feed_panel.size.y
+	if child_panel.visible and child_panel.position.y + child_panel.size.y + GAP > feed_top:
+		feed_left = child_panel.position.x + child_panel.size.x + GAP
+	feed_panel.offset_left = feed_left
+	var feed_right := feed_left + feed_panel.size.x if feed_panel.visible else 0.0
+	var ceiling := 0.0  # the lowest panel above the feed: it shows only the newest lines that fit under it
+	for panel in [today_panel, child_panel, passport]:
+		if panel.visible and panel.position.x < feed_left + feed_panel.size.x and panel.position.x + panel.size.x > feed_left:
+			ceiling = maxf(ceiling, panel.position.y + panel.size.y + GAP)
+	var spare := feed_panel.position.y - ceiling
+	if spare < 0.0 and feed_lines > 1:
+		feed_lines -= 1
+	elif spare > 80.0 and feed_lines < CHAT_LINES:
+		feed_lines += 1
+	if talk.visible:
+		var width := talk.get_combined_minimum_size().x
+		var limit := right_edge if drawer.visible else screen.x - MARGIN
+		var x := clampf(screen.x / 2.0 - width / 2.0, feed_right + GAP, maxf(feed_right + GAP, limit - width))
+		if x + width > limit:  # no room beside the feed: centre it, the feed goes above it
+			x = maxf(MARGIN, (screen.x - width) / 2.0)
+			feed_panel.offset_bottom = talk.position.y - GAP - screen.y
+		talk.offset_left = x - screen.x * 0.5
+		talk.offset_right = talk.offset_left + width
+		talk.offset_bottom = above - GAP - screen.y
+
+
+# PAUSED and the toasts go in the first of `areas` ([x from, x to, y from, y to]) wide enough for them and tall
+# enough for one toast; the last one otherwise. Only the newest toasts that fit are shown (older ones wait hidden).
+func place_band(areas: Array, screen: Vector2) -> void:
+	var need_width := maxf(toasts.get_combined_minimum_size().x, paused_label.size.x)
+	var one := 0.0
+	if toasts.get_child_count() > 0:
+		one = toasts.get_child(toasts.get_child_count() - 1).get_combined_minimum_size().y
+	var paused_height := paused_label.size.y + 4.0 if paused_label.visible else 0.0
+	var area: Array = areas[-1]
+	for candidate in areas:
+		if candidate[1] - candidate[0] >= need_width and candidate[3] - candidate[2] - GAP >= paused_height + one:
+			area = candidate
+			break
+	var middle: float = (area[0] + area[1]) / 2.0
+	var width := clampf(area[1] - area[0], need_width, TOAST_WIDTH)
+	paused_label.position = Vector2(middle - paused_label.size.x / 2.0, area[2])
+	toasts.offset_left = middle - width / 2.0 - screen.x * 0.5
+	toasts.offset_right = toasts.offset_left + width
+	toasts.offset_top = area[2] + paused_height
+	var room: float = area[3] - GAP - toasts.offset_top
+	var used := 0.0
+	for n in range(toasts.get_child_count() - 1, -1, -1):  # the newest first
+		var toast: Control = toasts.get_child(n)
+		var height := toast.get_combined_minimum_size().y + 8.0
+		toast.visible = used + height <= room + 8.0 or n == toasts.get_child_count() - 1
+		if toast.visible:
+			used += height
 
 
 # --- Chat feed and new events (above the household row) ---
@@ -627,7 +727,7 @@ func update_feed() -> void:
 	var now := Time.get_ticks_msec()
 	chat = chat.filter(func(e): return now - e.at < CHAT_SECONDS * 1000.0)
 	chat_label.visible = not chat.is_empty()
-	chat_label.text = "\n".join(chat.map(chat_text))
+	chat_label.text = "\n".join(chat.slice(maxi(0, chat.size() - feed_lines)).map(chat_text))
 	var ours := Social.event_log.filter(ours_event)  # only what happens to your household
 	var newest: String = Social.format_event(ours[-1], player) if not ours.is_empty() else ""
 	if newest != last_event:
@@ -730,8 +830,7 @@ func pick_household(c: Node2D) -> void:
 
 func build_child_panel() -> void:
 	child_panel = PanelContainer.new()
-	child_panel.offset_left = 16
-	child_panel.offset_top = 300  # below Today
+	child_panel.position = Vector2(MARGIN, 300)  # layout() keeps it below Today
 	child_panel.custom_minimum_size = Vector2(300, 0)
 	var style := StyleBoxFlat.new()
 	style.bg_color = PANEL_COLOR
@@ -763,23 +862,11 @@ func build_child_panel() -> void:
 	grid.columns = 2
 	column.add_child(grid)
 	for need in NEEDS:
-		var label := Label.new()
-		label.text = need.capitalize()
-		label.add_theme_font_size_override("font_size", 11)
-		grid.add_child(label)
-		var bar := ProgressBar.new()
-		bar.custom_minimum_size = Vector2(190, 10)
-		bar.show_percentage = false
-		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var back := StyleBoxFlat.new()
-		back.bg_color = BAR_BACK
-		back.set_corner_radius_all(3)
-		bar.add_theme_stylebox_override("background", back)
-		var fill := StyleBoxFlat.new()
-		fill.set_corner_radius_all(3)
-		bar.add_theme_stylebox_override("fill", fill)
+		var bar: HBoxContainer = NeedBar.make(need, true, 10)
+		bar.custom_minimum_size.x = 120
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(bar)
-		child_bars[need] = [bar, fill]
+		child_bars[need] = [bar.bar, bar]  # [ProgressBar, need bar]
 	var buttons := GridContainer.new()
 	buttons.columns = 2
 	column.add_child(buttons)
@@ -814,8 +901,7 @@ func update_child_panel() -> void:
 	child_info.text = "Feeling %s%s\n%s · parents: %s" % [Emotions.describe(child).to_lower(),
 		" (%s)" % Emotions.reasons(child, 2) if not child.moodlets.is_empty() else "", child.activity, parents]
 	for need in NEEDS:
-		child_bars[need][0].value = child.needs[need]
-		child_bars[need][1].bg_color = need_color(child.needs[need])
+		child_bars[need][1].set_value(child.needs[need])
 	var allowed: Array = Social.available_interactions(player, child).map(func(i): return i.name)
 	for action in CARE_ACTIONS:
 		child_buttons[action].disabled = not action in allowed
@@ -956,7 +1042,7 @@ func _process(_delta: float) -> void:
 	update_household()
 	money_label.text = "$ %d" % player.money
 	money_label.modulate = LOW.darkened(0.2) if player.money < 0 else Color.WHITE
-	toast.visible = Time.get_ticks_msec() < toast_until
+	UiTheme.set_dusk(GameTime.is_night(player.world.now()))  # the UI turns to dusk after sunset
 	if child_panel.visible:
 		update_child_panel()
 	var t: float = player.world.now()
@@ -974,7 +1060,7 @@ func _process(_delta: float) -> void:
 	if today_panel.visible and Time.get_ticks_msec() >= today_refresh_at:  # twice a second
 		today_refresh_at = Time.get_ticks_msec() + 500
 		fill_today()
-	place_tabs()
+	layout()
 	if drawer.visible and Time.get_ticks_msec() >= drawer_refresh_at:  # twice a second, even when paused
 		drawer_refresh_at = Time.get_ticks_msec() + 500
 		fill_drawer()
@@ -1100,17 +1186,20 @@ func save_game(as_new: bool) -> bool:
 	if Session.slot == "" or as_new:
 		Session.slot = SaveGame.new_slot(game.household_name)
 	var ok := SaveGame.save(game, Session.slot)
-	show_toast("Game saved ✿" if ok else "Couldn't save the game")
+	show_toast("Game saved ✿" if ok else "Couldn't save the game", "saved" if ok else "warning")
 	return ok
 
 
-func show_toast(text: String) -> void:
-	toast.text = text
-	toast_until = Time.get_ticks_msec() + 2500
+# A toast at the top (ui/toast_stack.gd). `kind` picks the badge: info, saved, warning, item, coins, friendship…
+func show_toast(text: String, kind := "") -> void:
+	if kind == "":
+		kind = "warning" if text.begins_with("Couldn't") or text.begins_with("Only") else "info"
+	toasts.push(text, "", kind, 2.5)
 
 
 func exit_to_menu() -> void:
 	Engine.time_scale = 1.0
+	UiTheme.set_dusk(false)  # the home screen is always day
 	if Net.find(get_tree()):
 		Net.find(get_tree()).leave()  # hosting: the town closes for everyone
 	get_tree().change_scene_to_file("res://scenes/menu.tscn")

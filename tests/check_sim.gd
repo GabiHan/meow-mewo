@@ -1627,6 +1627,9 @@ var llm_requests := []
 func fake_llm(request: Dictionary) -> String:
 	llm_requests.append(request)
 	var props: Dictionary = request.schema.get("properties", {})
+	if props.has("option"):  # decide(): the second-best option, to show it's the model's pick, not the top score
+		var keys: Array = props.option.enum
+		return JSON.stringify({"option": keys[1] if keys.size() > 1 else keys[0], "thought": "I could do with something different."})
 	if props.has("line"):
 		return '{"line": "Rough day, huh? Want some tea?", "reply": "Tea fixes everything."}'
 	if props.has("choice"):
@@ -1634,6 +1637,66 @@ func fake_llm(request: Dictionary) -> String:
 	if props.has("reply"):
 		return '{"reply": "Hey you! Nice to see a friendly face.", "tone": "nice"}'
 	return "<think></think>\"I really need a nap.\""
+
+
+# The model directs NPCs near you: it picks from the systems' best options (npc.gd options(), llm.gd decide()).
+func check_directing(llm: Node, sam: Node2D) -> void:
+	const Settings = preload("res://scripts/settings.gd")
+	var speed := Engine.time_scale
+	Engine.time_scale = 1.0
+	var setting: Variant = Settings.value("ai_directs")
+	Settings.values["ai_directs"] = true  # not saved: only for this check
+	reset(sam, Vector2(484, 503))
+	sam.wish = ""
+	for need in sam.needs:
+		sam.needs[need] = 60.0
+	sam.needs.fun = 30.0
+	main.world.update_view(true)
+	var list: Array = sam.options()
+	check(list.size() >= 2 and list.all(func(o): return o.label != "" and o.has("score")), "AI directs: Sam has %d scored options" % list.size())
+	var asked := llm_requests.size()
+	sam.choose_action()
+	check(sam.deciding and sam.state == "idle" and sam.activity == "Thinking what to do" and llm_requests.size() == asked,
+		"AI directs: Sam stops to decide while the model is asked")
+	llm.pump()
+	var request: Dictionary = llm_requests[-1]
+	var keys: Array = request.schema.properties.option.enum
+	var prompt: String = request.messages[1].content
+	check(keys.size() >= 2 and keys.size() <= Llm.DECIDE_CHOICES + 1 and "Take a little walk" in prompt and request.temperature == Llm.DECIDE_TEMPERATURE,
+		"AI directs: the model chooses from at most %d numbered options and a walk (%d)" % [Llm.DECIDE_CHOICES + 1, keys.size()])
+	check(not sam.deciding and sam.state != "idle" and sam.decision != "" and sam.decision in prompt.get_slice("\n2. ", 1).get_slice("\n", 0)
+		and sam.thought == "I could do with something different.",
+		"AI directs: Sam does the model's pick, not the top score: %s (%s)" % [sam.decision, sam.state])
+	sam.cancel_current()
+	reset(sam, Vector2(484, 503))
+
+	sam.needs.bladder = Llm.URGENT_NEED - 1.0
+	check(not llm.can_direct(sam), "AI directs: someone with an urgent need doesn't wait for the model")
+	sam.needs.bladder = 60.0
+	Engine.time_scale = 20.0
+	check(not llm.can_direct(sam), "AI directs: not at 20x (answers would come too late)")
+	Engine.time_scale = 1.0
+	Settings.values["ai_directs"] = false
+	check(not llm.can_direct(sam), "AI directs: off in Settings")
+	Settings.values["ai_directs"] = true
+	check(llm.can_direct(sam) and not llm.can_direct(player), "AI directs: NPCs near you only, never the person you play")
+
+	sam.choose_action()
+	check(sam.deciding, "AI directs: Sam waits for an answer")
+	llm.queue.clear()  # the answer never comes
+	sam.decide_timer = 0.0
+	sam.think()
+	check(not sam.deciding and sam.state != "idle" or sam.activity == "Wandering", "AI directs: no answer in time: the systems decide (%s)" % sam.activity)
+	sam.cancel_current()
+	reset(sam, Vector2(484, 503))
+	sam.deciding = true
+	sam.decide_token += 1
+	llm.decided(sam, {"option": "99", "thought": "Rocket ship"}, {"1": {"wander": true, "label": "walk", "score": 0.0}}, sam.decide_token)
+	check(not sam.deciding and sam.thought != "Rocket ship", "AI directs: an answer that isn't one of the options is ignored (the systems decide)")
+	sam.cancel_current()
+	reset(sam, Vector2(484, 503))
+	Settings.values["ai_directs"] = setting
+	Engine.time_scale = speed
 
 
 func check_llm() -> void:
@@ -1698,6 +1761,8 @@ func check_llm() -> void:
 	check(Llm.wish_factor(sam, sam.wish) == 1.0 and Llm.wish_text(sam) == "", "AI: wishes wear off after %d hours" % Llm.WISH_HOURS)
 	llm.wished(sam, {"choice": "Rocket ship", "why": ""}, {"TV": ""})
 	check(sam.wish_until < main.world.now(), "AI: a choice that isn't one of the options is ignored")
+
+	check_directing(llm, sam)
 
 	# Typing to someone.
 	reset(alex, Vector2(486, 503))
@@ -1781,7 +1846,142 @@ func check_llm() -> void:
 	llm.online = false
 
 
+# The HUD layout (hud.gd layout()): with every panel open, nothing overlaps, at the smallest screen (1280×720)
+# and a wide one; the fullscreen key is F11 / Alt+Enter / Ctrl+Cmd+F.
+func open_layout() -> void:
+	var hud: CanvasLayer = main.hud
+	hud.set_today(true)
+	hud.set_passport(true)
+	if not hud.drawer.visible:
+		hud.toggle_relationships()
+	hud.fill_drawer()
+	hud.show_toast("Game saved", "saved")
+	for n in 4:
+		hud.heard(player, "A long line of chat %d to fill the feed and see where it wraps on the screen" % n, null)
+	hud.update_feed()
+	var you: Node2D = main.player  # the saving checks may have changed who you are
+	hud.player = you
+	hud.update_passport()
+	hud.fill_today()
+	var other: Node2D = main.get_tree().get_nodes_in_group("characters").filter(func(c): return c != you and c.role == "" and not c.dead \
+		and Ages.stage(c) >= Ages.CHILD)[0]
+	reset(other, you.grid_pos + Vector2(1, 0))
+	other.floor = you.floor
+	hud.talk.open(you, other)
+
+
+func check_layout() -> void:
+	const Settings = preload("res://scripts/settings.gd")
+	var hud: CanvasLayer = main.hud
+	for size in [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(1280, 1024)]:
+		root.size = size
+		for n in 3:  # sizes settle over a couple of passes
+			hud.layout()
+		var screen: Vector2 = hud.get_viewport().get_visible_rect().size
+		var parts := {"Today": hud.today_panel, "Today tab": hud.today_tab, "Passport": hud.passport, "Passport tab": hud.passport_tab,
+			"Relationships": hud.drawer, "Chat feed": hud.feed_panel, "Talk": hud.talk, "Toasts": hud.toasts, "Household": hud.bottom_left,
+			"Clock bar": hud.bottom_center, "Menu": hud.menu_button}
+		var clashes := []
+		var names := parts.keys().filter(func(k): return parts[k].visible)
+		for i in names.size():
+			var a: Rect2 = parts[names[i]].get_global_rect().grow(-1.0)
+			if not Rect2(Vector2.ZERO, screen).encloses(a):
+				clashes.append(names[i] + " off screen")
+			for j in range(i + 1, names.size()):
+				if a.intersects(parts[names[j]].get_global_rect().grow(-1.0)):
+					clashes.append("%s / %s" % [names[i], names[j]])
+		check(clashes.is_empty() and names.size() >= 10, "layout: at %dx%d, %d panels open, nothing overlaps %s" % [size.x, size.y, names.size(), clashes])
+	root.size = Vector2i(1280, 720)
+	hud.talk.close()
+	hud.toggle_relationships()
+	hud.set_today(false)
+	hud.set_passport(false)
+	var f11 := InputEventKey.new()
+	f11.keycode = KEY_F11
+	f11.pressed = true
+	var alt_enter := InputEventKey.new()
+	alt_enter.keycode = KEY_ENTER
+	alt_enter.alt_pressed = true
+	alt_enter.pressed = true
+	var plain_f := InputEventKey.new()
+	plain_f.keycode = KEY_F
+	plain_f.pressed = true
+	check(Settings.is_fullscreen_key(f11) and Settings.is_fullscreen_key(alt_enter) and not Settings.is_fullscreen_key(plain_f),
+		"fullscreen: F11 and Alt+Enter toggle it, a plain F doesn't")
+	check(ProjectSettings.get_setting("display/window/stretch/mode") == "canvas_items" and ProjectSettings.get_setting("display/window/stretch/aspect") == "expand",
+		"fullscreen: the UI scales with the window and keeps at least 1280x720 of room")
+
+
 # Seeing like your sim (vision.gd): walls, the cone, the dark, lamps, fog.
+# The Cozy Paws UI (ui_theme.gd + scripts/ui/): need colours, berry when low, day/dusk, toasts, the dialogue box.
+func check_ui() -> void:
+	var UiTheme = load("res://scripts/ui_theme.gd")
+	var NeedBar = load("res://scripts/ui/need_bar.gd")
+	var CozyButton = load("res://scripts/ui/cozy_button.gd")
+	var DialogueBox = load("res://scripts/ui/dialogue_box.gd")
+	var Hotbar = load("res://scripts/ui/hotbar.gd")
+	var ItemTooltip = load("res://scripts/ui/item_tooltip.gd")
+	var hud: CanvasLayer = main.hud
+	UiTheme.set_dusk(false)
+	var energy = NeedBar.make("energy", true)
+	root.add_child(energy)
+	energy.set_value(80)
+	var leaf_ok: bool = energy.fill.bg_color.is_equal_approx(UiTheme.DAY.leaf) and energy.value_label.text == "80"
+	energy.set_value(20)
+	check(leaf_ok and energy.fill.bg_color.is_equal_approx(UiTheme.DAY.berry) and energy.value_label.text == "20",
+		"UI: a need bar keeps its colour (energy is leaf) and turns berry when low, always with its number")
+	hud.update_passport()
+	check(hud.bars.size() == 7 and (hud.bars.hunger.fill.bg_color.is_equal_approx(UiTheme.DAY.peach) or hud.bars.hunger.low),
+		"UI: the passport has the 7 need bars, hunger in peach")
+	var button: Button = CozyButton.make("Go to sleep", "petal", "moon")
+	root.add_child(button)
+	var normal: StyleBoxFlat = button.get_theme_stylebox("normal")
+	check(normal.bg_color.is_equal_approx(UiTheme.DAY.petal) and normal.border_width_top == UiTheme.STROKE_MD
+		and normal.shadow_offset.y == UiTheme.PRESS and button.get_theme_stylebox("pressed").shadow_offset.y == 1,
+		"UI: a petal button has the outline and a sticker shadow that sinks when pressed")
+	UiTheme.set_dusk(true)
+	check(normal.bg_color.is_equal_approx(UiTheme.DUSK.petal) and energy.fill.bg_color.is_equal_approx(UiTheme.DUSK.berry)
+		and button.get_theme_color("font_color").is_equal_approx(UiTheme.DUSK.on_petal)
+		and UiTheme.get_theme().get_color("font_color", "Label").is_equal_approx(UiTheme.DUSK.ink),
+		"UI: at dusk the buttons, bars, text and theme switch to the dusk palette")
+	var clock: float = main.world.clock
+	set_time(2, 23.0)
+	hud._process(0.0)
+	var night: bool = UiTheme.dusk
+	set_time(3, 12.0)
+	hud._process(0.0)
+	var day: bool = not UiTheme.dusk and normal.bg_color.is_equal_approx(UiTheme.DAY.petal)
+	main.world.clock = clock
+	hud._process(0.0)
+	check(night and day,
+		"UI: the HUD turns to dusk at night and back to day at noon")
+	for n in 5:
+		hud.show_toast("Toast %d" % n)
+	check(hud.toasts.get_child_count() == toast_limit() and hud.toasts.current() == "Toast 4",
+		"UI: toasts stack up to 3, newest last")
+	var d = DialogueBox.make("Mochi")
+	root.add_child(d)
+	var picked := [-1]
+	d.chosen.connect(func(i): picked[0] = i)
+	d.set_text("Want to see the strawberry patch?")
+	d.set_choices(["Yes please", "Not today"])
+	d.choices_row.get_child(1).pressed.emit()
+	check(d.speaker_label.text == "Mochi" and not d.paw.visible and picked[0] == 1,
+		"UI: the dialogue box shows the speaker, its choices replace the paw, and a choice reports its index")
+	var bar = Hotbar.make([["sprout", 8], ["strawberry", 12], [], []])
+	root.add_child(bar)
+	bar.slots[1].pressed.emit()
+	var tip: PanelContainer = ItemTooltip.make("Wild strawberry", "fresh", "Sweet and sun-warm.", 40, "x12")
+	check(bar.current == 1 and bar.slots[1].selected and not bar.slots[0].selected and bar.slots[1].count_label.visible
+		and not bar.slots[2].count_label.visible and tip.get_child_count() == 1,
+		"UI: hotbar slots select on click, show counts above 1; an item tooltip builds")
+	for n in [energy, button, d, bar, tip]:
+		n.queue_free()
+
+
+func toast_limit() -> int:
+	return load("res://scripts/ui/toast_stack.gd").MAX
+
 func check_vision() -> void:
 	var w: Node2D = main.world
 	var v: Node2D = w.vision
@@ -2085,8 +2285,17 @@ func npcs() -> Array:
 	return main.get_tree().get_nodes_in_group("characters").filter(func(c): return c != player)
 
 
+var layout_frames := -1  # counting down to check_layout() at the very end
+
+
 func _process(delta: float) -> bool:
 	t += delta
+	if layout_frames >= 0:
+		layout_frames -= 1
+		if layout_frames == 0:
+			check_layout()
+			finish()
+		return false
 	if main.get_script() == null or (player == null and t > 5.0):
 		print("FAILED: the main scene didn't load (see SCRIPT ERROR above)")
 		quit(1)
@@ -2249,7 +2458,13 @@ func _process(delta: float) -> bool:
 		check_crime()  # after check_death: you're Sam now
 		check_abduction()  # Mia is never found at the end of it
 		check_personality()  # Dex turns criminal; you break in
-		check_saving()  # replaces the game several times: keep it last
-		print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])
-		quit(1 if failures > 0 else 0)
+		check_saving()  # replaces the game several times: keep it last (only the UI checks after it)
+		check_ui()  # pure UI; runs last so it can't shift the seeded randomness the crime checks rely on
+		open_layout()
+		layout_frames = 5  # the HUD's containers settle over a few frames, then check_layout() and the end
 	return false
+
+
+func finish() -> void:
+	print("\n%s (%d failure%s)" % ["ALL PASSED" if failures == 0 else "FAILED", failures, "" if failures == 1 else "s"])
+	quit(1 if failures > 0 else 0)

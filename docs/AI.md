@@ -1,14 +1,24 @@
-# AI: a local language model for words (`llm.gd`, `talk_panel.gd`)
+# AI: a local language model for words and for directing NPCs (`llm.gd`, `talk_panel.gd`)
 
 People in Meow Mewo can speak with words written by **Qwen3.5 4B** (by Alibaba's Qwen team, from Hugging Face:
 [`unsloth/Qwen3.5-4B-GGUF`](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF), the `Q4_K_M` file, ~2.7 GB),
 running **on your own computer** with [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server`.
 It's free, private and works offline after the first download.
 
-**The systems still decide; the model only writes words.** Who talks to whom, whether they say yes,
-friendship, moodlets, memories and what people do all come from the simulation as before. The model
-gets a short description of the people involved (built from those systems) and writes what they say
-and think. Without the server, everything falls back to the scripted lines and the game plays the same.
+**The systems decide what's possible; the model writes the words and directs the NPCs near you.** Who may
+talk to whom, whether they say yes, friendship, moodlets, memories and what each option is worth all come from
+the simulation as before. The model gets a short description of the people involved (built from those systems),
+writes what they say and think, and, when an NPC near you is free, **picks what they do** from the best options
+the systems found. Without the server, everything falls back to the scripted lines and the utility AI and the
+game plays the same.
+
+> **Why Qwen3.5 4B?** It's the strongest small model for following a JSON schema and picking from options
+> (the decisions), still writes natural casual lines, and fits next to the game in 8 GB at Q4_K_M. It's adapted
+> to the game by its prompts (`STYLE`, `who()`, `relation()`, `setting()`), JSON schemas whose `enum` only allows
+> real options, and per-task sampling: Qwen's recommended non-thinking settings (`SAMPLING`: top_p 0.8, top_k 20,
+> presence penalty) with temperature `WORDS_TEMPERATURE` 0.8 for words and `DECIDE_TEMPERATURE` 0.6 for decisions.
+> Considered: *Gemma3NPC* (a Gemma 3n E4B fine-tune for NPC chat, ~2.5 GB) writes good NPC lines but isn't made
+> for picking options under a schema.
 
 > Why not Qwen3.8? The smallest Qwen3.8 is 27B parameters (~16 GB even when quantised), which doesn't
 > fit next to the game in 8 GB of memory. Qwen3.5 4B is the newest small Qwen that does. To use another
@@ -41,6 +51,7 @@ Tests (headless) never start or contact a server.
 |---|---|---|---|
 | **Conversation lines** | An accepted interaction starts near you (`HEAR_RADIUS` 25 tiles, on screen, same floor) and lasts at least `MIN_TALK_SECONDS` (4) real seconds at the current speed | In your chat feed: the scripted line at once, then the written one when it arrives (usually 1–3 s), and `REPLY_DELAY` (2.5 s) later the partner's reply | None (words only). Dropped if the conversation already ended |
 | **Thoughts** | Every other background job (`BACKGROUND_SECONDS`, 6 real s, when nothing else is queued): someone near you (child or older, awake, not already showing a line) whose last thought is over `THOUGHT_MINUTES` (120) game minutes old | `Name thinks: …` in your chat feed; "Thinking: …" in their click menu while it's fresh | None |
+| **Directing NPCs** | An NPC (not played, child or older, not at work) near someone playing is free (`choose_action()`), the AI is on in Settings, the game runs at 5x or slower (`DIRECT_MAX_SPEED`) and no need is under `URGENT_NEED` (15) | They stand "Thinking what to do" for 1–3 s, then do the model's pick; its thought shows as `~ … ~` in the chat feed and their menu; F3: "AI chose: …" | The model chooses from the `DECIDE_CHOICES` (6) best-scoring options (`npc.gd options()`) plus "a little walk". No answer in `DECIDE_SECONDS` (6 real s), an answer that isn't an option, or an option that's gone meanwhile: the utility AI decides |
 | **Wishes** | The other background jobs: an NPC (not the one you control, child or older, awake, not at work) whose wish has worn off | "Wants to: …" in their click menu (once you've met) and in F3 details | For `WISH_HOURS` (3) game hours, options with that key score ×`WISH_BOOST` (1.6) in `choose_action()` |
 | **Talk…** | Click a person → **Talk… (type to them)**: the AI is online, both are children or older, within `TALK_RADIUS` (6 tiles) on the same floor, and they aren't busy with someone | A panel above the bottom row: type, Enter sends, Esc or x leaves. Your words and their answers are in the chat feed too | Per message: their friendship toward you changes by how it came across (`TONE`: nice +2, neutral +0.5, mean −4) and both get +`TALK_SOCIAL` (4) social. On leaving: you've met (names known), they remember "talked with me" (good or bad) and it's logged |
 
@@ -62,6 +73,28 @@ While the panel is open you and they are both in state `talking` with each other
 is the initiator, so nobody's `talk_timer` ends it. It closes by itself if either of you leaves (clicking
 somewhere else, a shift starting, walking more than `TALK_RADIUS` away). Talking doesn't need Charisma and
 can't be refused: they always answer, but a mean message costs friendship.
+
+### Directing NPCs (`decide()`)
+
+`npc.gd options()` lists everything the NPC could do right now, each with its utility score and a label
+("Watch TV (TV)", "Cook pancakes", "Chat with Sam (knock at their door first)"). `decide()` sorts them, keeps the
+best `DECIDE_CHOICES` and adds "Take a little walk near home", and asks:
+
+```
+<who they are> <setting>
+Sam is free right now. What they could do (the ones that would help their needs most come first):
+1. Sleep (Bed)
+2. Chat with Jo
+…
+7. Take a little walk near home
+Pick the ONE number Sam would really choose now, in character …
+→ {"option": "2", "thought": "Jo looks like she needs a laugh."}
+```
+
+The schema's `enum` is the list of numbers, so the model can't invent an option. Meanwhile the NPC is idle with
+`deciding` set; `decide_token` ties the answer to the request, so a late answer after they've moved on is
+dropped. Only NPCs near someone playing are directed (one request at a time, so far-away people keep the utility
+AI) and the ones who can't wait (a need under 15) or the game is too fast for (20x and up) decide by themselves.
 
 ## What the model is told
 
@@ -91,11 +124,15 @@ offline (scripted lines again) until the health check (`HEALTH_SECONDS`, 3 s) fi
 ## Tuning
 
 All in `llm.gd`: `MODEL`, `PORT`, `HEAR_RADIUS`, `MIN_TALK_SECONDS`, `REPLY_DELAY`, `BACKGROUND_SECONDS`,
-`THOUGHT_MINUTES`, `WISH_HOURS`, `WISH_BOOST`, `WISH_RADIUS`, `TALK_RADIUS`, `TONE`, `TALK_SOCIAL`, `STYLE`.
+`THOUGHT_MINUTES`, `WISH_HOURS`, `WISH_BOOST`, `WISH_RADIUS`, `TALK_RADIUS`, `TONE`, `TALK_SOCIAL`, `STYLE`,
+`DIRECT_MAX_SPEED`, `DECIDE_SECONDS`, `DECIDE_CHOICES`, `URGENT_NEED`, `SAMPLING`, `WORDS_TEMPERATURE`,
+`DECIDE_TEMPERATURE`. The player can turn directing off: Settings → "AI decides what people near you do"
+(`ai_directs` in settings.gd).
 A smaller model (`unsloth/Qwen3.5-2B-GGUF:Q4_K_M`, ~1.3 GB) answers faster with simpler lines; a bigger
 one (`unsloth/Qwen3.5-9B-GGUF:Q4_K_M`) needs 16 GB of memory.
 
 ## Testing
 
-`check_llm()` in `tests/check_sim.gd` sets `llm.fake` (a function that answers requests) and
+`check_llm()` (and `check_directing()`: the model's pick is done, not the top score; urgent needs, 20x and the
+setting turn it off; timeouts and bad answers fall back) in `tests/check_sim.gd` sets `llm.fake` (a function that answers requests) and
 `llm.online = true`, and calls `llm.pump()` to deliver answers right away.

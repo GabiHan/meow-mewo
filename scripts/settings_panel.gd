@@ -36,7 +36,7 @@ static func build(parent: Container) -> void:
 		slider.value_changed.connect(func(v):
 			amount.text = "%d%%" % int(v * 100.0)
 			Settings.set_value(key, v))
-	for row in [["muted", "Mute everything"], ["fullscreen", "Fullscreen"]]:
+	for row in [["muted", "Mute everything"], ["fullscreen", "Fullscreen  (F11)"], ["ai_directs", "AI decides what people near you do"]]:
 		var key: String = row[0]
 		var box := CheckBox.new()
 		box.text = row[1]

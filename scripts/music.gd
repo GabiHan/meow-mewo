@@ -42,6 +42,7 @@ static func play(tree: SceneTree, track: String) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS  # keeps fading while the game is paused
 	Settings.load_settings()
+	Settings.ensure_keys(get_tree())  # the fullscreen key (F11), on every screen
 	for n in 2:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Music"

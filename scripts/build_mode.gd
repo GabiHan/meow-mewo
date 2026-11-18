@@ -18,7 +18,7 @@ const Furniture = preload("res://scripts/furniture.gd")
 const Social = preload("res://scripts/social.gd")
 
 const PANEL_HEIGHT := 178
-const FOOTER_HEIGHT := 88  # hud.gd's bottom row (BAR_HEIGHT + margins) sits below the catalog
+const FOOTER_HEIGHT := 88  # where the catalog starts until hud.gd layout() puts it right on top of the bottom row
 
 var main: Node2D
 var active := false

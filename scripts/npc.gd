@@ -43,8 +43,10 @@
 # Perception (perception.gd): every LOOK_INTERVAL the character looks around; `seen` lists who is in
 # sight, and notice() reacts to anything interesting (e.g. someone peeking in through the window).
 #
-# AI words (llm.gd): with the local language model on, `thought` is their latest private thought and
+# AI (llm.gd): with the local language model on, `thought` is their latest private thought and
 # `wish` what they feel like doing (until `wish_until`): choose_action() scores that option ×Llm.WISH_BOOST.
+# NPCs near you are directed by the model: when idle, options() lists everything they could do (scored by the
+# systems above) and the model picks one of the best few in character (llm.gd decide(), `deciding` meanwhile).
 extends Node2D
 
 const Iso = preload("res://scripts/iso.gd")
@@ -133,6 +135,11 @@ var thought_at := -100000.0
 var wish := ""  # Llm: what they feel like doing (object name, "cooking", "social") until wish_until
 var wish_why := ""
 var wish_until := -1.0
+var deciding := false  # Llm: the model is choosing what they do next (llm.gd decide()); they wait up to decide_timer
+var decide_timer := 0.0  # real seconds left
+var decide_token := 0  # which request the answer belongs to
+var decision := ""  # Llm: the last thing the model chose for them, and why (shown in F3 and their click menu)
+var decision_why := ""
 
 # The body (body.gd)
 var pose := ""  # "" standing, "down" on the floor, "bent" bent over
@@ -529,6 +536,13 @@ func think() -> void:
 		return  # babies stay where they are put (baby_update)
 	if controlled and not auto_mode:
 		return  # you decide
+	if deciding:  # the language model is choosing for them (llm.gd decide())
+		decide_timer -= get_process_delta_time() / maxf(Engine.time_scale, 1.0)  # real seconds at any speed
+		if decide_timer > 0.0:
+			return
+		deciding = false  # took too long: the systems decide this time
+		choose_action(false)
+		return
 	choose_action()
 
 
@@ -554,6 +568,8 @@ func label_text() -> String:
 		text += "\nPath: %s · hobbies: %s" % [Morals.path(self), Hobbies.describe(self)]
 		if Llm.wish_text(self) != "":
 			text += "\nWants to: " + Llm.wish_text(self)
+		if decision != "":
+			text += "\nAI chose: %s%s" % [decision, " (%s)" % decision_why if decision_why != "" else ""]
 		text += "\nHun %d Thi %d Ene %d Fun %d\nBla %d Hyg %d Soc %d" % [
 			needs.hunger, needs.thirst, needs.energy, needs.fun, needs.bladder, needs.hygiene, needs.social]
 		text += "\nSees: " + (", ".join(seen.map(func(c): return Social.display_name(viewer, c))) if not seen.is_empty() else "nobody")
@@ -629,14 +645,11 @@ func shown_activity(viewer: Node2D) -> String:
 	return activity.replace("{who}", Social.display_name(viewer, activity_with))
 
 
-func choose_action() -> void:
-	var best_score := 0.0
-	var best_object: Node2D = null
-	var best_partner: Node2D = null
-	var best_interaction := {}
-	var best_steps := Callable()
-	var best_action := {}
-
+# Everything worth doing right now, each with its utility score: {score, label, and object + action, or steps
+# (kitchen), or partner + interaction (social)}. The order (and the random variety) is always the same, so
+# seeded runs stay the same.
+func options() -> Array:
+	var list := []
 	for obj in get_tree().get_nodes_in_group("smart_objects"):
 		if obj.user != null or not may_use(obj):
 			continue  # someone else is using or heading to it, or it's in someone else's home
@@ -646,12 +659,7 @@ func choose_action() -> void:
 		for action in Actions.for_object(obj):  # each thing you can do with it (actions.gd)
 			var score := advertisement_score(action.ads) / distance_factor(d) * time_factor(action) * Traits.like(self, obj.object_name) \
 				* Mind.learned(self, obj.object_name) * Llm.wish_factor(self, obj.object_name) * randf_range(0.85, 1.15)  # a little variety (Pee or Poo...)
-			if score > best_score:
-				best_score = score
-				best_object = obj
-				best_action = action
-				best_partner = null
-				best_steps = Callable()
+			list.append({"score": score, "object": obj, "action": action, "label": "%s (%s)" % [action.name, obj.object_name]})
 
 	for option in Kitchen.options(self, home):
 		var d := travel_distance(option.anchor.grid_pos, option.anchor.floor)
@@ -661,11 +669,8 @@ func choose_action() -> void:
 		var score: float = advertisement_score(option.ads) / distance_factor(d) / (1.0 + option.seconds / 60.0) * randf_range(0.85, 1.15)
 		if option.get("cooking", false):
 			score *= Traits.like(self, "cooking") * Mind.learned(self, "cooking") * Llm.wish_factor(self, "cooking")
-		if score > best_score:
-			best_score = score
-			best_steps = option.steps
-			best_object = null
-			best_partner = null
+		var what: String = ("Cook " if option.get("cooking", false) else "Have ") + option.name.to_lower()
+		list.append({"score": score, "steps": option.steps, "label": what})
 
 	for other in get_tree().get_nodes_in_group("characters"):
 		if other == self or not other.is_available():
@@ -682,26 +687,45 @@ func choose_action() -> void:
 		var score := Social.interaction_score(self, other, i) / distance_factor(d) * Traits.like(self, "social") * Mind.learned(self, "social") * Llm.wish_factor(self, "social")
 		if behind_door:
 			score *= 0.7  # knocking first is more effort
-		if score > best_score:
-			best_score = score
-			best_partner = other
-			best_interaction = i
-			best_object = null
-			best_steps = Callable()
+		var who := Social.display_name(self, other)
+		list.append({"score": score, "partner": other, "interaction": i,
+			"label": "%s with %s%s" % [i.name, who if who != "Unknown" else "a stranger", " (knock at their door first)" if behind_door else ""]})
+	return list
 
-	var ok := true
-	if best_score < ACT_THRESHOLD:
+
+# Pick something to do: the best-scoring option, or (AI on, someone near you, not too fast) the language model
+# chooses among the best few in character (llm.gd decide(); they stand "deciding" until it answers). `direct`
+# false: never ask the model (its answer timed out or was no good).
+func choose_action(direct := true) -> void:
+	var list := options()
+	var best := {}
+	for o in list:
+		if o.score > best.get("score", 0.0):
+			best = o
+	var llm: Node = get_tree().get_first_node_in_group("llm") if direct else null
+	if llm and llm.decide(self, list):
+		return
+	if best.is_empty() or best.score < ACT_THRESHOLD:
 		wander()
-	elif best_partner and best_partner.building >= 0 and not world.can_enter(self, best_partner.building):
-		ok = go_knock(best_partner.building)
-	elif best_partner:
-		ok = start_social(best_partner, best_interaction)
-	elif best_steps.is_valid():
-		ok = run_steps(best_steps.call())
-	else:
-		ok = use_object(best_object, best_action)
-	if not ok:
+	elif not do_option(best):
 		think_delay = RETHINK_DELAY
+
+
+# Do one option from options() (or {"wander": true}). False if it can't be started.
+func do_option(o: Dictionary) -> bool:
+	if o.get("wander", false):
+		wander()
+		return true
+	if o.has("partner"):
+		var other: Node2D = o.partner
+		if not is_instance_valid(other):
+			return false
+		if other.building >= 0 and not world.can_enter(self, other.building):
+			return go_knock(other.building)
+		return start_social(other, o.interaction)
+	if o.has("steps"):
+		return run_steps(o.steps.call())
+	return use_object(o.object, o.action)
 
 
 # Sleep is for the night.

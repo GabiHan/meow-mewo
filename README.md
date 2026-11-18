@@ -41,9 +41,10 @@ block it: right-click it → *Open* → *Open*.
 
 In the editor, press **F5** to play.
 
-**Optional: AI words.** With `brew install llama.cpp`, the game starts a local **Qwen3.5 4B** model
-(from Hugging Face; ~2.7 GB, downloaded on the first start) and people speak, think and answer you with
-written words. Without it everything works with the scripted lines. See *AI words* below and
+**Optional: AI.** With `brew install llama.cpp`, the game starts a local **Qwen3.5 4B** model
+(from Hugging Face; ~2.7 GB, downloaded on the first start): people speak, think and answer you with
+written words, and the model **directs the NPCs near you** (it picks what they do, in character). Without it
+everything works with the scripted lines and the utility AI. See *AI words* below and
 [docs/AI.md](docs/AI.md).
 
 ## Home screen and saving
@@ -60,7 +61,7 @@ width, so while it's open the menu on the right folds into a **Menu ▾** dropdo
 | **Play Online** | Live with other people on the same Wi-Fi: **Host a town** (pick, create or continue a household; others can join) or **Join a town** (towns on your Wi-Fi, or type an address → pick a free household or move a new one in). See *Online mode* below and [docs/ONLINE.md](docs/ONLINE.md) |
 | **Continue** | Loads your most recent save (greyed out until you have one; shows which) |
 | **Saved Games** | Every save (household, in-game date, money, when saved) with **Load** and **Delete** |
-| **Settings** | Volume, Music, Sounds (sliders), Mute everything, Fullscreen. Saved in `user://settings.cfg`; also in the game's ☰ menu |
+| **Settings** | Volume, Music, Sounds (sliders), Mute everything, Fullscreen (also F11), AI decides what people near you do. Saved in `user://settings.cfg`; also in the game's ☰ menu |
 | **Quit** | Closes the game |
 
 **Music** (`music.gd`): one song on the home screen, another while you're inside your own home, a third
@@ -106,7 +107,8 @@ carry on from idle).
 | Mouse wheel | Zoom in / out |
 | F7 | Send a burglar to your home right now, to try it out (offline or host); see [docs/CRIME.md](docs/CRIME.md) |
 | F8 | Send a kidnapper for the youngest in your household right now (offline or host); see [docs/CRIME.md](docs/CRIME.md) |
-| F3 | Show NPC details above their heads: why they feel what they feel, what they're doing, traits, skills, needs, who they can see |
+| F3 | Show NPC details above their heads: why they feel what they feel, what they're doing, traits, skills, needs, who they can see, and what the AI chose for them |
+| F11, Alt+Enter or Ctrl+Cmd+F | Fullscreen on/off, on any screen (same as Settings → Fullscreen) |
 
 **Manual** mode: your character only does what you click. **Auto** mode: it runs the same AI as the
 NPCs. Clicks still work in Auto; your character follows the order, then decides for itself again.
@@ -132,14 +134,45 @@ in them when baking), and trees blossom in `GameTime.LEAVES`; floors are pink. I
 Furniture keeps the kit's own colours, softened a little (`SOFTEN` in `tools/bake_furniture.gd`), and character
 sheets get a soft brighter finish.
 
-**Cozy UI (like a paper planner):** a second palette, `ACCENTS` in `ui_theme.gd`, is the UI's accent, periwinkle → lilac:
-`#9ba9ff` `#a5adff` `#afb1ff` `#b9b5ff` `#c4baff` `#cebeff` `#d8c2ff` `#e2c6ff` `#eccaff` `#f4ccff`. `#9ba9ff`
-draws what's active (the button that's on, the person you control, bars, the mood line, Today's dots and line, skill
-chips), `#c4baff` the soft borders (dashed skills box, hover). Cards are almost-white paper (`PAPER`, from shade 2)
-with thin `LINE` borders, small corners and a soft lavender shadow; buttons are flat with a thin border (pressed:
-a lilac fill and a periwinkle border). Text is **EB Garamond** (`assets/fonts`, SIL Open Font License; italic for
-subtitles), also on the labels in the world. Behind the world is the atmosphere palette as a soft gradient
-(`UiTheme.backdrop()`, blue at the top to pink at the bottom), dimmed with the daylight.
+**Cozy UI (Cozy Paws):** the screen UI follows the *Cozy Paws* design system: chunky rounded shapes, a cocoa
+outline around everything (`outline` `#5a3b3b`, 2-4 px), hard "sticker" shadows (pressable things sit 4 px up and
+sink when pressed) and candy colours. The tokens are `DAY` and `DUSK` in `ui_theme.gd`; read the current one with
+`UiTheme.c("petal")`:
+
+| Token | Day | Dusk | Used for |
+|---|---|---|---|
+| `surface_100` / `surface_200` / `surface_300` | `#fff1ec` / `#fffaf6` / `#fbe1da` | `#2a2340` / `#3b3355` / `#231d36` | ground, panels, sunken wells (bar tracks, fields, empty slots) |
+| `ink` / `ink_muted` | `#5a3b3b` / `#7a5552` | `#f7eeff` / `#c9bce0` | text |
+| `petal` / `petal_strong` / `petal_soft` | `#ee9aa0` / `#e07f87` / `#f7c9cb` | `#c7b3f0` / `#b39ce6` / `#4f4470` | the main action, what's active, selection |
+| `leaf`, `butter`, `sky` | `#a8d58c`, `#f6d776`, `#b9ccf5` | `#8fcb7a`, `#ffc86b`, `#7e9be6` | growth / confirm, rewards / coins, calm / info |
+| `berry` | `#e86a6a` | `#ff8c8c` | only "careful": a need running low, warnings, delete |
+| `peach`, `aqua`, `bubble` | `#f6b38a`, `#9fdcd0`, `#a9e0f0` | `#f0a77a`, `#6fc4b4`, `#7cc8e0` | hunger, bladder, hygiene bars |
+
+Text on a fill uses its `on_*` pair (`UiTheme.ON`). **Dusk:** the HUD switches the UI to `DUSK` after sunset
+(`GameTime.is_night`) and back in the morning; the home screen is always day. Styleboxes made with
+`sticker()`/`panel()`/`flat()`/`box()` and colours set with `UiTheme.tint()` follow the switch by themselves; the
+older constants (`ACCENT`, `PAPER`, `LINE`, `INK`, `ROSE`…) are the day values. **Needs** keep fixed colours so they're
+easy to learn: hunger peach, thirst sky, energy leaf, fun butter, bladder aqua, hygiene bubble, social petal, and every
+bar turns berry at 25 or below (with its number always shown). Text is **Nunito** (bold) and **Fredoka** (semibold, for
+names, titles and numbers; `UiTheme.display_font()`), SIL Open Font License, in `assets/fonts`; also on the labels in
+the world. Behind the world is the atmosphere palette as a soft gradient (`UiTheme.backdrop()`, blue at the top to
+pink at the bottom), dimmed with the daylight.
+
+**UI components** (`scripts/ui/`, built in code like everything else):
+
+| Script | What | Make one |
+|---|---|---|
+| `cozy_button.gd` | Sticker button: `petal` (one main action per screen), `leaf`, `quiet`, `berry`; optional icon, `pill` | `CozyButton.make("Go to sleep", "petal", "moon")` |
+| `cozy_icon.gd` | Icons drawn in the house style (`NAMES`), recoloured at dusk | `CozyIcon.make("drop", 20)` |
+| `need_bar.gd` | A need: icon disc, pill track, fill, number; berry when low | `NeedBar.make("energy", true)` then `set_value(72)` |
+| `dialogue_box.gd` | Nameplate + card + choices (`chosen(i)`) or a "continue" paw; `body` takes extra content | `DialogueBox.make("Mochi")` |
+| `toast_stack.gd` | Top-of-screen toasts with a badge (item, coins, saved, warning…), 3 at most | `hud.show_toast("Game saved", "saved")` |
+| `item_tooltip.gd` | Item card: name, rarity tag, description, sell price | `ItemTooltip.make("Wild strawberry", "fresh", "…", 40)` |
+| `inventory_slot.gd`, `hotbar.gd` | 56 px item slots with counts and a selectable row (not used yet: there's no inventory) | `Hotbar.make([["sprout", 8], []])` |
+
+The HUD uses them for the passport and baby-panel needs, toasts, and the talk window (a dialogue box with the
+person's name on the nameplate). `tools/ui_gallery.gd` renders all of them in day and dusk to
+`user://ui_gallery_day.png` / `_dusk.png` (needs a window: `godot --path . -s res://tools/ui_gallery.gd`).
 
 Colour constants are written as literal `Color(r, g, b)` values (a palette shade already darkened or
 lightened), because GDScript constants can't call `.darkened()`.
@@ -178,6 +211,18 @@ stay as you left them.
 | Top centre | "PAUSED" while paused, and messages like "Game saved ✿" |
 | Bottom centre, above the row | The **talk panel** while you type to someone (Talk… in their menu) |
 
+**Nothing overlaps** (`hud.gd layout()`, every frame, from the panels' real sizes): the clock bar stays
+between the household and ☰; with Relationships open the passport moves to its left (and hides if there's no
+room); PAUSED and toasts go between Today and the passport, else under Today, else under both, showing only the
+newest toasts that fit; the chat feed shows only the newest lines that fit under the panels above it; the talk
+window sits beside the feed (or the feed goes above it); the baby panel goes under Today; in build mode the
+catalog sits on the bottom row and the feed and talk window go above it. `tests/check_sim.gd check_layout()`
+opens everything and checks it at 1280×720, 1920×1080 and 1280×1024.
+
+**Window and fullscreen:** the UI scales with the window (`project.godot` stretch `canvas_items` + `expand`):
+there's always at least 1280×720 of room in UI units; a bigger screen shows the same UI larger and a wider or
+taller one gets extra room. F11 / Alt+Enter / Ctrl+Cmd+F toggles fullscreen anywhere (`window_keys.gd`).
+
 ## Project layout
 
 ```
@@ -207,7 +252,9 @@ scripts/
   menu.gd               Home screen: play, continue, saved games, create/choose a household
   session.gd            What the home screen asked the game to start (household, new, or a save)
   save_game.gd          Saving and loading the whole game (user://saves)
-  ui_theme.gd           The palette and the UI theme (bubbly pill buttons, rounded light panels)
+  ui_theme.gd           The palette, the Cozy Paws tokens (day and dusk), fonts and the UI theme
+  ui/                   UI components: cozy_button, cozy_icon, need_bar, dialogue_box, toast_stack, item_tooltip,
+                        inventory_slot, hotbar (see "The look")
   romance.gd            Romance score, chemistry, dating/engaged/married, jealousy
   mind.gd               Long-term mental states (depressed, anxious, thriving...) and learned tastes
   social.gd             Interactions, relationships, memories and grudges, spoken lines, social event log
@@ -222,12 +269,13 @@ scripts/
   jobs.gd               Money, jobs and schools, shifts, pay, performance, promotions, firing, weekly bills
   ages.gd               Life stages, years, fertility, family (no dependencies)
   life.gd               Ageing, growing up, pregnancy, births, families
-  llm.gd                AI words: local Qwen3.5 (llama-server) for lines, thoughts, wishes, typing to people
+  llm.gd                AI: local Qwen3.5 (llama-server) for lines, thoughts, wishes, typing to people, directing NPCs
   talk.gd               Talking in your own words: the conversation (to an NPC via the AI, or to another player)
-  talk_panel.gd         The window you type in (Talk… in someone's menu)
+  talk_panel.gd         The window you type in (Talk… in someone's menu), drawn as a dialogue box
   net.gd                Online mode: host or join a town on the Wi-Fi, sync, orders from joined players
   music.gd              Background music: home screen / at home / outside, crossfades, ignores game speed
-  settings.gd           Volume, music, sounds, mute, fullscreen (user://settings.cfg)
+  settings.gd           Volume, music, sounds, mute, fullscreen, AI directing (user://settings.cfg)
+  window_keys.gd        /root/WindowKeys: the fullscreen key (F11 / Alt+Enter / Ctrl+Cmd+F) on every screen
   settings_panel.gd     The Settings controls (home screen page and the in-game ☰ window)
   key_art.gd            The home screen's picture: a cozy room made of the game's pieces
   body.gd               The body: running, tripping, passing out, fainting, accidents, farts, illness, throwing up
@@ -243,6 +291,9 @@ tools/
   bake_furniture.gd     Renders the furniture models into isometric sprites (art/furniture)
   import_doll.gd        Prepares the paper-doll layers (assets/doll → art/doll: half size, cropped, doll.cfg)
   bake_neighbourhood.gd Renders the houses (in their colours, with snowy winter roofs) and trees (art/neighbourhood)
+  ui_gallery.gd         Renders every UI component in day and dusk to user://ui_gallery_*.png
+  shot.gd               Screenshot of the game with every HUD panel open (or the home screen / build mode):
+                        godot --path . -s res://tools/shot.gd -- out.png [W H [menu|build]]
 assets/tinytreats/      Isa Lousberg's Tiny Treats packs (glTF only): baked_goods, bubbly_bathroom,
                         charming_kitchen, homely_house, pleasant_picnic, pretty_park
 assets/doll/            The "build a character" paper-doll layers (444×700 PNGs, not imported: .gdignore) + palette.png
@@ -438,6 +489,9 @@ distance       = tiles in a straight line + 8 per floor of difference (FLOOR_COS
 * Highest score wins. If nothing scores at least `ACT_THRESHOLD` (5), the character wanders up to
   5 tiles; more than 12 tiles from home (`HOME_LEASH`), it wanders back toward home.
 * If the chosen thing can't be reached, the character waits `RETHINK_DELAY` (1 s) and thinks again.
+* In code: `options()` lists every option with its score and a label; `choose_action()` takes the best, or
+  (AI on) lets the language model pick one of the best six for NPCs near you (`llm.gd decide()`, see below);
+  `do_option()` starts it.
 
 ### Objects
 `smart_object.gd`. Each one has a grid position, advertisements, a use duration, a `user`, a
@@ -649,6 +703,10 @@ systems, which still decide everything:
 * **Thoughts:** people near you sometimes show a private thought (`~ … ~`), also shown in their menu.
 * **Wishes:** every few seconds one NPC is asked what they feel like doing for the next 3 game hours (an
   object, cooking or company); that option scores ×1.6 in the utility AI.
+* **Directing NPCs:** when an NPC near you is free, the model picks what they do from the six best options
+  the utility AI found (plus a walk), in character, with a thought (`~ … ~`). They stand "Thinking what to do"
+  for 1–3 s. Not at 20x or faster, not with a need under 15, and never more than 6 real seconds: otherwise the
+  utility AI decides. Settings → "AI decides what people near you do" turns it off.
 * **Talk…:** type to someone near you; they answer in character, and how your words come across changes
   their friendship toward you.
 
@@ -864,7 +922,7 @@ houses and trees, baked by
 
 ## Credits
 
-* Font: EB Garamond (SIL Open Font License, `assets/fonts/OFL.txt`).
+* Fonts: Nunito and Fredoka (SIL Open Font License, `assets/fonts/OFL-Nunito.txt`, `assets/fonts/OFL-Fredoka.txt`). EB Garamond (`assets/fonts/OFL.txt`) is still in the folder but no longer used.
 * Music: "Join my server" and "The game" by adrihuwu, "Beautiful lofi" and "Tokyo lofi" by zephiramusic (`assets/music`;
   from the files the owner provided: check each track's licence before publishing the game).
 * Kitchen, bathroom and other furniture, houses and trees: Isa Lousberg (www.isalousberg.com), Tiny Treats packs

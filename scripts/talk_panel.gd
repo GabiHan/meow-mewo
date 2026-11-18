@@ -1,4 +1,4 @@
-# The window for talking to someone in your own words (click a person → "Talk…"; the conversation
+# The window for talking to someone in your own words, drawn as a Cozy Paws dialogue box (ui/dialogue_box.gd) (click a person → "Talk…"; the conversation
 # itself is talk.gd). You type, they answer: an NPC with the language model (llm.gd), a real person
 # (online) by typing back. Opens by itself when another player starts talking to you.
 # Enter sends, Esc or x closes. It closes by itself if they leave (work, someone else, too far).
@@ -10,12 +10,15 @@ const Llm = preload("res://scripts/llm.gd")
 const Net = preload("res://scripts/net.gd")
 const Talk = preload("res://scripts/talk.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
+const DialogueBox = preload("res://scripts/ui/dialogue_box.gd")
+const CozyButton = preload("res://scripts/ui/cozy_button.gd")
 const MAX_LINES := 12
 const GRACE_MSEC := 2000  # online, their side catches up a moment after opening
 
 var you: Node2D
 var npc: Node2D
 var history := []  # {you: bool, text}
+var dialogue: VBoxContainer  # ui/dialogue_box.gd: nameplate, card, close button
 var title: Label
 var log_label: Label
 var input: LineEdit
@@ -32,26 +35,26 @@ func _ready() -> void:
 	offset_right = 230
 	offset_bottom = -96  # above the bottom row
 	grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_theme_stylebox_override("panel", UiTheme.box(UiTheme.PAPER, 4, UiTheme.ACCENT_SOFT))
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())  # the dialogue box draws the card
 	visible = false
-	var column := VBoxContainer.new()
-	add_child(column)
-	var head := HBoxContainer.new()
-	column.add_child(head)
-	title = Label.new()
-	title.add_theme_font_size_override("font_size", 15)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head.add_child(title)
-	var close_button := Button.new()
-	close_button.text = "x"
+	dialogue = DialogueBox.make("")
+	add_child(dialogue)
+	title = Label.new()  # kept for the full line ("Talking with … — Friend (40)"); the nameplate shows the name
+	title.visible = false
+	add_child(title)
+	var close_button := CozyButton.make("x", "quiet")
+	close_button.custom_minimum_size = Vector2(36, 32)
 	close_button.focus_mode = Control.FOCUS_NONE
 	close_button.pressed.connect(close)
-	head.add_child(close_button)
+	dialogue.corner.add_child(close_button)
+	dialogue.show_paw(false)
+	dialogue.set_text("")
 	log_label = Label.new()
-	log_label.add_theme_font_size_override("font_size", 13)
+	log_label.add_theme_font_size_override("font_size", 14)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	log_label.custom_minimum_size = Vector2(440, 0)
-	column.add_child(log_label)
+	log_label.custom_minimum_size = Vector2(400, 0)
+	UiTheme.tint(log_label, "font_color", "ink")
+	dialogue.body.add_child(log_label)
 	input = LineEdit.new()
 	input.placeholder_text = "Say something… (Enter to send, Esc to leave)"
 	input.max_length = 200
@@ -59,7 +62,7 @@ func _ready() -> void:
 	input.gui_input.connect(func(event):
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			close())
-	column.add_child(input)
+	dialogue.body.add_child(input)
 
 
 func game() -> Node2D:
@@ -130,6 +133,8 @@ func refresh() -> void:
 	var name := Social.display_name(you, npc)
 	var who := " (a real person)" if Talk.is_human(npc) else ""
 	title.text = "Talking with %s%s — %s (%d)" % [name, who, Social.relationship_word(Social.friendship(npc, you)), Social.friendship(npc, you)]
+	dialogue.set_speaker(name)
+	dialogue.set_subtitle("%s%s · %d" % [Social.relationship_word(Social.friendship(npc, you)), who, Social.friendship(npc, you)])
 	var lines := history.map(func(h): return ("You: " if h.you else name + ": ") + h.text)
 	if waiting:
 		lines.append(name + " is thinking…")

@@ -2,6 +2,43 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-11-18 — Fullscreen key, a HUD where nothing overlaps, the AI directs NPCs
+- **Fullscreen:** F11, Alt+Enter or Ctrl+Cmd+F on any screen (`window_keys.gd` at /root/WindowKeys, made by
+  `Settings.ensure_keys()` from music.gd); still in Settings too. The window now scales the UI
+  (`project.godot` stretch `canvas_items` + `expand`), so fullscreen on a big screen shows the same layout larger.
+- **HUD layout** (`hud.gd layout()`, every frame): panels are placed from each other's real sizes. Fixed: the
+  Relationships drawer covered the passport (it now goes left of the drawer), the toast hit the passport tab, the
+  talk window covered the chat feed, the feed touched the clock bar, the clock bar could grow, the baby panel had a
+  fixed y, and the build catalog overlapped the bottom row. Toasts and the feed show only what fits.
+  New check `check_layout()` (runs over a few frames at the very end) opens everything and checks no two panels
+  overlap at 1280×720, 1920×1080 and 1280×1024. `tools/shot.gd` takes screenshots with everything open.
+- **The AI directs NPCs:** `npc.gd choose_action()` is now `options()` (every option with its score and a label) +
+  `do_option()`. With the model online, a free NPC near you asks it (`llm.gd decide()`) to pick from the best six
+  (plus a walk), in character, with a thought. Falls back to the utility AI after 6 real seconds, on an odd
+  answer, at 20x+, with a need under 15, or when turned off (Settings, `ai_directs`). Tests: `check_directing()`.
+- **Model:** still Qwen3.5 4B (best small model for schema-constrained choices that fits in 8 GB). Requests now use
+  Qwen's non-thinking sampling (`SAMPLING`) and per-task temperature (0.8 words, 0.6 decisions).
+- Watch out: `options()` keeps the old order of `randf_range` calls so seeded runs don't change. Anything that
+  makes a character busy should leave `deciding` alone: a late answer is dropped by `decide_token`/state checks.
+
+## 2026-11-16 — Cozy Paws UI: day and dusk, components
+- **The look** changes from the paper planner (EB Garamond, thin periwinkle borders) to the *Cozy Paws* design
+  system: chunky rounded shapes, a cocoa outline, hard sticker shadows, candy colours, **Nunito** + **Fredoka**
+  (OFL, `assets/fonts`). Tokens are `DAY`/`DUSK` in `ui_theme.gd` (`UiTheme.c("petal")`); the old constant names stay
+  (day values) so nothing else had to change. `flat()`/`box()` now give the cozy shapes.
+- **Dusk:** the HUD flips the UI to the dusk palette after sunset (`UiTheme.set_dusk`, called from `hud._process`)
+  and back in the morning; tracked styleboxes, tints, separators, the theme and icons recolour themselves.
+  Leaving to the home screen resets to day.
+- **scripts/ui/** (new): `cozy_button`, `cozy_icon` (icons drawn with primitives), `need_bar`, `dialogue_box`,
+  `toast_stack`, `item_tooltip`, `inventory_slot`, `hotbar` (the last two aren't used yet: no inventory).
+- **HUD:** the passport and the baby panel use need bars with fixed colours per need (hunger peach, thirst sky,
+  energy leaf, fun butter, bladder aqua, hygiene bubble, social petal; berry at 25 or below). Toasts are cards with a
+  badge, up to 3 (`show_toast(text, kind)`). The talk window is a dialogue box (nameplate, how you get on, close).
+- `tools/ui_gallery.gd` renders all components in day and dusk.
+- Tests: `check_ui()`, run last so it doesn't shift the seeded randomness the crime checks depend on.
+- Watch out: code that uses the old colour constants directly (custom `_draw()`, `Color` literals in hud.gd) stays
+  in day colours at dusk. The crime and invitation checks fail now and then on unchanged code too (see TODO).
+
 ## 2026-11-16 — Personality, hobbies and the criminal path
 - **Traits** now come in groups (Social, Lifestyle, **Heart**: Kind, Honest, Brave; **Dark**: Psychopath, Sociopath,
   Narcissist, Manipulative, Cruel, Kleptomaniac), with `dark`, `conscience` and `conflicts`. Up to **4** per person in

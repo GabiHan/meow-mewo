@@ -4,9 +4,13 @@
 #   sounds   other sounds 0..1 (the Sounds bus; for sound effects to come)
 #   muted    everything silent
 #   fullscreen
-# Changed from Settings on the home screen or the in-game ☰ menu (settings_panel.gd).
+#   ai_directs   the local language model decides what NPCs near you do (llm.gd decide()), when it's running
+# Changed from Settings on the home screen or the in-game ☰ menu (settings_panel.gd). Fullscreen also has a key
+# everywhere: F11, Alt+Enter or Ctrl+Cmd+F (window_keys.gd, made by ensure_keys()).
+# The window scales everything (project.godot stretch "canvas_items" + "expand"): the screen is always at least
+# 1280×720 in UI units, bigger screens show the same UI larger, wider/taller ones get extra room.
 const PATH := "user://settings.cfg"
-const DEFAULTS := {"master": 0.8, "music": 0.6, "sounds": 0.8, "muted": false, "fullscreen": false}
+const DEFAULTS := {"master": 0.8, "music": 0.6, "sounds": 0.8, "muted": false, "fullscreen": false, "ai_directs": true}
 const BUSES := {"master": "Master", "music": "Music", "sounds": "Sounds"}
 
 static var values := {}
@@ -55,3 +59,24 @@ static func apply() -> void:
 		var mode := DisplayServer.WINDOW_MODE_FULLSCREEN if full else DisplayServer.WINDOW_MODE_WINDOWED
 		if DisplayServer.window_get_mode() != mode and (full or DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN):
 			DisplayServer.window_set_mode(mode)
+
+
+static func toggle_fullscreen() -> void:
+	set_value("fullscreen", not value("fullscreen"))
+
+
+static func is_fullscreen_key(event: InputEvent) -> bool:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return false
+	var key: InputEventKey = event
+	return key.keycode == KEY_F11 or (key.keycode == KEY_ENTER and key.alt_pressed) \
+		or (key.keycode == KEY_F and key.ctrl_pressed and key.meta_pressed)
+
+
+# The node at /root/WindowKeys that listens for the fullscreen key on every screen (home, creator, game).
+static func ensure_keys(tree: SceneTree) -> void:
+	if tree.root.has_node("WindowKeys"):
+		return
+	var keys: Node = load("res://scripts/window_keys.gd").new()
+	keys.name = "WindowKeys"
+	tree.root.add_child.call_deferred(keys)
