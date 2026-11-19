@@ -1,79 +1,84 @@
-# Bakes 3D furniture models into isometric sprites that match the game's 2:1 projection (iso.gd: a 1 m tile
-# is 64×32 px). Models come from Isa Lousberg's "Tiny Treats" packs (assets/tinytreats, CC0) where they have
-# one, and from Kenney's "Furniture Kit" (assets/kenney/furniture, CC0) for what they don't (beds, sofas, TV...).
+# Bakes 3D models into isometric sprites that match the game's 2:1 projection (iso.gd: a 1 m tile is 64×32 px).
+# Furniture comes from itHappy's "Cute Furniture" pack and plates, cups and food from its "Food" pack
+# (assets/ithappy/furniture, assets/ithappy/food: the packs' prefab scenes, which hold the meshes and put each
+# model's parts together, e.g. a fridge and its doors).
 #
-# Run (needs a window, not --headless):  godot --path . -s res://tools/bake_furniture.gd
-# Output: art/furniture/<Sprite>_r<0-3>.png and art/furniture/sprites.json
-#   {"<Sprite>_r<n>": {"anchor": [x, y]}}: the pixel where the model's floor centre is, which goes on
-#   the object's tile centre. r = rotation in 90° steps (r0 faces the +y grid direction).
-# Sprite ids are the game's own names (main.gd, catalog.gd, saves); MODELS says which kit model each one is:
-# "<pack>/<model>" is a Tiny Treats model (assets/tinytreats/<pack>/<model>.gltf), a bare name a Kenney one.
-# Add one: a row in MODELS, run the bake, then use it in main.gd or catalog.gd.
+# Run (needs a window, not --headless):  godot --path . -s res://tools/bake_furniture.gd   then  godot --headless --import
+# Output:
+#   art/furniture/<Sprite>_r<0-3>.png + sprites.json {"<Sprite>_r<n>": {"anchor": [x, y]}}: the pixel where the
+#     model's floor centre is, which goes on the object's tile centre. r = rotation in 90° steps (r0 faces +y).
+#   art/food/<Sprite>.png + sprites.json: plates, cups and food (one view; the anchor is the bottom centre), drawn on
+#     tables and counters and in people's hands (kitchen.gd item_sprite()).
+# Sprite ids are the game's own names (main.gd, catalog.gd, saves): MODELS says which pack models each one is, as
+# "<folder>/<model>" in the furniture pack's prefabs (furniture, kitchen, bathroom, decorations, plants).
+# Add one: a row in MODELS (or FOOD), run the bake, then use it in main.gd or catalog.gd.
 extends SceneTree
 
-const SRC := "res://assets/kenney/furniture/Models/GLTF format/%s.glb"
-const TT_SRC := "res://assets/tinytreats/%s.gltf"
+const SRC := "res://assets/ithappy/furniture/prefabs/assets/%s.tscn"
+const FOOD_SRC := "res://assets/ithappy/food/prefabs/%s.tscn"
 const OUT := "res://art/furniture/"
+const FOOD_OUT := "res://art/food/"
 const SIZE := 512
 const PX_PER_M := 45.25  # 32 px across per metre along a grid axis: 32 / cos(45°)
-const KIT_SCALE := 2.1  # metres per kit unit (a kit wall is 1 unit wide, 1.3 high)
-const TT_SCALE := 0.65  # metres per Tiny Treats unit (a counter is 2 units wide, 1 high)
-const MODEL_SCALE := 0.85  # a touch smaller than life, to suit the characters
+const MODEL_SCALE := 0.85  # a touch smaller than life, to suit the characters (the packs are in metres)
 const MAX_FOOTPRINT := 1.6  # metres; bigger models are shrunk to fit around one tile
+const FOOD_SCALE := 1.6  # plates and cups are drawn a bit bigger than life so you can tell them apart
 
-# sprite id -> [kit model(s) stacked bottom to top, scale]. Every sprite is baked in all four rotations
+# sprite id -> [pack models stacked bottom to top, scale]. Every sprite is baked in all four rotations
 # (anything can be rotated in build mode).
 const MODELS := {
-	"Kitchen_Fridge": [["charming_kitchen/fridge"], 0.85],
-	"Kitchen_2Drawers": [["charming_kitchen/countertop_straight_A"], 1.0],
-	"Kitchen_Oven": [["charming_kitchen/stove"], 1.0],
-	"Kitchen_Sink": [["charming_kitchen/countertop_sink"], 1.0],
-	"Kitchen_Cabinet1": [["charming_kitchen/countertop_single"], 1.0],
-	"Kitchen_3Drawers": [["charming_kitchen/countertop_straight_B"], 1.0],
-	"Table_RoundSmall": [["charming_kitchen/table_C"], 1.0],
-	"Table_RoundLarge": [["charming_kitchen/table_B"], 1.0],
-	"Table_Coffee": [["tableCoffee"], 1.0],
-	"Desk": [["desk"], 1.0],
-	"Chair_1": [["charming_kitchen/chair"], 1.0],
-	"Chair_2": [["charming_kitchen/chair"], 1.0],
-	"Chair_3": [["charming_kitchen/chair"], 1.0],
-	"Stool": [["stoolBar"], 1.0],
-	"Bed_King": [["bedDouble"], 1.0],
-	"Bed_Single": [["bedSingle"], 1.0],
-	"Bed_Bunk": [["bedBunk"], 1.0],
-	"NightStand_1": [["cabinetBedDrawer"], 1.0],
-	"NightStand_2": [["cabinetBedDrawerTable"], 1.0],
-	"Bathroom_Shower1": [["bubbly_bathroom/mat", "bubbly_bathroom/shower"], 1.0],
-	"Bathroom_Toilet": [["bubbly_bathroom/toilet"], 1.2],
-	"Bathroom_Sink": [["bubbly_bathroom/cabinet_bathroom"], 1.0],
-	"Bathroom_Bathtub": [["bubbly_bathroom/bath"], 1.0],
-	"Bathroom_WashingMachine": [["washer"], 1.0],
-	"Bookshelf": [["bookcaseOpen"], 1.0],
-	"Shelf_Small1": [["bookcaseOpenLow"], 1.0],
-	"Shelf_Large": [["bookcaseClosedWide"], 1.0],
-	"Drawer_2": [["sideTableDrawers"], 1.0],
-	"Drawer_4": [["bookcaseClosed"], 1.0],
-	"Couch_Large1": [["loungeSofaLong"], 1.0],
-	"Couch_Small1": [["loungeChair"], 1.0],
-	"Couch_Medium1": [["loungeSofa"], 1.0],
-	"Couch_L": [["loungeSofaCorner"], 1.0],
-	"Carpet_1": [["bubbly_bathroom/mat"], 1.0],
-	"Carpet_2": [["pleasant_picnic/picnic_blanket_blue"], 1.0],
-	"Carpet_Round": [["rugRound"], 1.0],
-	"Houseplant_1": [["bubbly_bathroom/plant"], 1.8],
-	"Houseplant_3": [["pretty_park/bush"], 1.3],
-	"Houseplant_5": [["pretty_park/bush_large"], 1.0],
-	"Houseplant_7": [["homely_house/foliage_B"], 2.6],
-	"Light_Floor1": [["pretty_park/street_lantern"], 0.6],
-	"Light_Floor3": [["lampSquareFloor"], 1.0],
-	"Light_Stand1": [["sideTable", "lampSquareTable"], 1.0],
-	"Light_Stand2": [["sideTable", "lampRoundTable"], 1.0],
-	"Trashcan_Small1": [["bubbly_bathroom/bin"], 1.6],
-	"Trashcan_Large": [["pretty_park/trashcan"], 1.0],
-	"TV": [["cabinetTelevision", "televisionModern"], 1.0],
-	"Radio": [["sideTable", "pleasant_picnic/radio"], 1.0],
-	"Teddy": [["bear"], 1.2],
-	"Coat_Rack": [["coatRackStanding"], 1.0],
+	"Kitchen_Fridge": [["kitchen/fridge_01"], 1.0],
+	"Kitchen_2Drawers": [["kitchen/kitchen_d_09"], 1.0],  # the counter
+	"Kitchen_Oven": [["kitchen/kitchen_d_10", "kitchen/microwave_01"], 1.0],  # the stove: drawers and a microwave
+	"Kitchen_Sink": [["kitchen/kitchen_d_01", "bathroom/mixer_08"], 1.0],  # a cupboard with a tap
+	"Kitchen_Cabinet1": [["kitchen/kitchen_d_08"], 1.0],
+	"Kitchen_3Drawers": [["kitchen/kitchen_d_10"], 1.0],
+	"Table_RoundSmall": [["kitchen/kitchen_d_06"], 1.0],
+	"Table_RoundLarge": [["furniture/kitchen_table_09"], 1.0],
+	"Table_Coffee": [["furniture/coffee_table_03"], 1.0],
+	"Desk": [["furniture/work_table_06", "decorations/computer_01"], 1.0],
+	"Chair_1": [["furniture/chair_17"], 1.0],
+	"Chair_2": [["furniture/chair_pc_04"], 1.0],
+	"Chair_3": [["furniture/armchair_18"], 1.0],
+	"Couch_Small1": [["furniture/armchair_02"], 1.0],
+	"Couch_Medium1": [["furniture/couch_11"], 1.0],
+	"Couch_Large1": [["furniture/couch_08"], 1.0],
+	"Bed_King": [["furniture/bed_02"], 1.0],
+	"Bed_Single": [["furniture/bed_07"], 1.0],
+	"NightStand_1": [["furniture/nightstand_02"], 1.0],
+	"Bathroom_Bathtub": [["bathroom/bath_03"], 1.0],  # bath and shower
+	"Bathroom_Toilet": [["bathroom/toilet_03"], 1.0],
+	"Bathroom_Sink": [["bathroom/wash_basin_07"], 1.0],
+	"Bookshelf": [["furniture/closet_01"], 1.0],
+	"Shelf_Small1": [["decorations/book_03"], 1.6],  # a row of books
+	"Drawer_4": [["furniture/closet_02"], 1.0],  # wardrobe
+	"Carpet_1": [["decorations/paper_02"], 7.0],  # a sheet of paper, stretched into a cream rug
+	"Houseplant_1": [["plants/plants_15"], 1.2],
+	"Houseplant_3": [["plants/plants_05"], 2.4],
+	"Houseplant_7": [["plants/plants_19"], 0.8],
+	"Light_Floor1": [["decorations/light_05"], 1.0],
+	"TV": [["kitchen/kitchen_d_08", "decorations/computer_01"], 1.0],  # a screen on a low cabinet
+	"Guitar": [["decorations/guitar_01"], 1.4],
+	"Toy_Car": [["decorations/toy_02"], 2.5],
+	"Exercise_Bike": [["decorations/exercise_bike_01"], 1.0],
+	"Clock_Tall": [["decorations/clock_03"], 1.0],
+	"Game_Console": [["kitchen/kitchen_d_08", "decorations/game_console_01"], 1.0],
+}
+
+# Plates, cups and food (kitchen.gd item_sprite()): sprite -> food pack models stacked bottom to top.
+const FOOD := {
+	"Dish_plate": ["plate_001"],
+	"Dish_cup": ["cup_003"],
+	"Food_Sandwich": ["plate_001", "sandwich_001"],
+	"Food_Salad": ["bowl_001", "avocado_003"],
+	"Food_Omelette": ["plate_001", "egg_004"],
+	"Food_Pasta": ["plate_007", "shrimp_002"],
+	"Food_Soup": ["bowl_001"],
+	"Drink_Water": ["glass_004"],
+	"Drink_Juice": ["glass_005"],
+	"Drink_Milk": ["yogurt_002"],
+	"Drink_Soda": ["soda_002"],
+	"Drink_Coffee": ["coffee_005"],
 }
 
 var viewport: SubViewport
@@ -81,6 +86,7 @@ var holder: Node3D
 var queue := []
 var frames := 0
 var index := {}
+var food_index := {}
 
 
 func _initialize() -> void:
@@ -119,9 +125,15 @@ func _initialize() -> void:
 		if only.is_empty() or sprite in only:
 			for r in 4:
 				queue.append([sprite, r])
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
+	for sprite in FOOD:
+		if only.is_empty() or sprite in only:
+			queue.append([sprite, -1])  # one view
+	for dir in [OUT, FOOD_OUT]:
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir))
 	if FileAccess.file_exists(OUT + "sprites.json"):
 		index = JSON.parse_string(FileAccess.get_file_as_string(OUT + "sprites.json"))
+	if FileAccess.file_exists(FOOD_OUT + "sprites.json"):
+		food_index = JSON.parse_string(FileAccess.get_file_as_string(FOOD_OUT + "sprites.json"))
 
 
 func _process(_delta: float) -> bool:
@@ -157,31 +169,32 @@ func next_model() -> bool:
 		holder.remove_child(child)
 		child.queue_free()
 	if queue.is_empty():
-		var f := FileAccess.open(OUT + "sprites.json", FileAccess.WRITE)
-		f.store_string(JSON.stringify(index, "\t"))
-		print("baked %d sprites" % index.size())
+		for pair in [[OUT, index], [FOOD_OUT, food_index]]:
+			var f := FileAccess.open(pair[0] + "sprites.json", FileAccess.WRITE)
+			f.store_string(JSON.stringify(pair[1], "\t"))
+		print("baked %d furniture sprites and %d food sprites" % [index.size(), food_index.size()])
 		quit()
 		return true
-	var row: Array = MODELS[queue[0][0]]
+	var sprite: String = queue[0][0]
 	var r: int = queue[0][1]
+	var food: bool = r < 0
+	var parts: Array = FOOD[sprite] if food else MODELS[sprite][0]
 	var stack := Node3D.new()  # the parts, stacked
 	var top := 0.0
-	for part in row[0]:
-		var tiny: bool = "/" in part
-		var model: Node3D = load(TT_SRC % part if tiny else SRC % part).instantiate()
-		if tiny:
-			model.scale *= TT_SCALE / KIT_SCALE  # in Kenney kit units, so parts of both kits stack
+	for part in parts:
+		var model: Node3D = load((FOOD_SRC if food else SRC) % part).instantiate()
 		var box := bounds(model)
 		var holder_part := Node3D.new()
 		holder_part.add_child(model)
 		model.position -= Vector3(box.position.x + box.size.x / 2.0, box.position.y - top, box.position.z + box.size.z / 2.0)
 		stack.add_child(holder_part)
-		top += box.size.y if part != row[0][-1] else 0.0
+		top += box.size.y * (0.35 if food else 1.0) if part != parts[-1] else 0.0  # food sits down in its plate
 	var aabb := bounds_of_children(stack)
-	var s := KIT_SCALE * MODEL_SCALE * float(row[1])
-	s = minf(s, MAX_FOOTPRINT / maxf(aabb.size.x, aabb.size.z))
+	var s := FOOD_SCALE if food else MODEL_SCALE * float(MODELS[sprite][1])
+	if not food:
+		s = minf(s, MAX_FOOTPRINT / maxf(aabb.size.x, aabb.size.z))
 	var pivot := Node3D.new()
-	pivot.rotation.y = r * PI / 2.0  # the kit's models face +z, the +y grid direction
+	pivot.rotation.y = maxi(r, 0) * PI / 2.0  # the packs' models face +z, the +y grid direction
 	pivot.scale = Vector3.ONE * s
 	pivot.add_child(stack)
 	holder.add_child(pivot)
@@ -205,14 +218,15 @@ func save_current() -> void:
 	var image := viewport.get_texture().get_image()
 	soften(image)
 	var used := image.get_used_rect()
-	var name := "%s_r%d" % [sprite, r]
-	image.get_region(used).save_png(ProjectSettings.globalize_path(OUT + name + ".png"))
-	index[name] = {"anchor": [SIZE / 2 - used.position.x, SIZE / 2 - used.position.y]}
+	var food: bool = r < 0
+	var name := sprite if food else "%s_r%d" % [sprite, r]
+	image.get_region(used).save_png(ProjectSettings.globalize_path((FOOD_OUT if food else OUT) + name + ".png"))
+	(food_index if food else index)[name] = {"anchor": [SIZE / 2 - used.position.x, SIZE / 2 - used.position.y]}
 	frames = 0
 	next_model()
 
 
-# The game's soft pastel look: the kit's own colours, lifted a little towards a warm white.
+# The game's soft pastel look: the packs' own colours, lifted a little towards a warm white.
 const SOFTEN := 0.12
 
 

@@ -25,18 +25,83 @@ const Ages = preload("res://scripts/ages.gd")
 const Mind = preload("res://scripts/mind.gd")
 const Morals = preload("res://scripts/morals.gd")
 
-# days: 0 = Monday … 6 = Sunday. start/end: hours. levels: [title, $ per hour, skill needed].
+# Key: the job (or career) name. days: 0 = Monday … 6 = Sunday. start/end: hours. levels: [title, $ per hour,
+# skill needed]. place: where it is ("Barista at the Clinic"; the key when missing). field: the Bus stop section.
+# about: one line on what the job is (Bus stop menu tooltip, docs/WORK.md).
+# Getting hired, like in real life: degree (a College degree first) and needs ({skill: level} you must already
+# have). Jobs without them (Barista, Intern, Gym assistant, Open-mic comic) take anyone grown up: everyone can start.
 const JOBS := {
-	"Café": {"skill": "Charisma", "days": [0, 1, 2, 3, 4], "start": 8, "end": 14,
+	"Café": {"field": "Food and fun", "about": "Makes coffee and keeps the café's regulars happy.", "skill": "Charisma", "days": [0, 1, 2, 3, 4], "start": 8, "end": 14,
 		"levels": [["Barista", 15, 0], ["Shift lead", 22, 2], ["Café manager", 32, 4]]},
-	"Restaurant": {"skill": "Cooking", "days": [2, 3, 4, 5, 6], "start": 16, "end": 22,
+	"Restaurant": {"needs": {"Cooking": 1}, "field": "Food and fun", "about": "Cooks the evening service in a busy kitchen.", "skill": "Cooking", "days": [2, 3, 4, 5, 6], "start": 16, "end": 22,
 		"levels": [["Line cook", 18, 0], ["Sous-chef", 26, 4], ["Head chef", 40, 7]]},
-	"Office": {"skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
+	"Office": {"field": "Business and finance", "about": "Crunches numbers and sits in meetings.", "skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
 		"levels": [["Intern", 16, 0], ["Analyst", 28, 3], ["Manager", 45, 6]]},
-	"Gym": {"skill": "Fitness", "days": [0, 1, 2, 3, 4, 5], "start": 6, "end": 12,
+	"Gym": {"field": "Health and care", "about": "Coaches people through their workouts.", "skill": "Fitness", "days": [0, 1, 2, 3, 4, 5], "start": 6, "end": 12,
 		"levels": [["Assistant", 14, 0], ["Trainer", 22, 3], ["Head coach", 34, 6]]},
-	"Comedy club": {"skill": "Comedy", "days": [3, 4, 5, 6], "start": 19, "end": 23,
+	"Comedy club": {"field": "Food and fun", "about": "Makes a room full of strangers laugh.", "skill": "Comedy", "days": [3, 4, 5, 6], "start": 19, "end": 23,
 		"levels": [["Open-mic comic", 12, 0], ["Opener", 25, 4], ["Headliner", 50, 7]]},
+	# Careers (2026-11-19).
+	"Nurse practitioner": {"degree": true, "needs": {"Medicine": 3}, "field": "Health and care", "place": "Clinic", "skill": "Medicine", "days": [0, 1, 2, 3, 4], "start": 8, "end": 16,
+		"about": "Provides advanced primary and specialty healthcare.",
+		"levels": [["Registered nurse", 24, 0], ["Nurse practitioner", 38, 3], ["Lead nurse practitioner", 52, 6]]},
+	"Physician assistant": {"degree": true, "needs": {"Medicine": 3}, "field": "Health and care", "place": "Hospital", "skill": "Medicine", "days": [1, 2, 3, 4, 5], "start": 7, "end": 15,
+		"about": "Diagnoses illnesses, develops treatment plans, and assists in medical care.",
+		"levels": [["PA trainee", 22, 0], ["Physician assistant", 36, 3], ["Senior physician assistant", 50, 6]]},
+	"Physical therapist assistant": {"needs": {"Fitness": 2, "Medicine": 1}, "field": "Health and care", "place": "Rehab center", "skill": "Fitness", "days": [0, 1, 2, 3, 4],
+		"start": 9, "end": 17, "about": "Helps patients recover mobility and manage pain under a physical therapist.",
+		"levels": [["Rehab aide", 15, 0], ["Physical therapist assistant", 22, 2], ["Senior PT assistant", 30, 5]]},
+	"Health services manager": {"degree": true, "needs": {"Charisma": 2}, "field": "Health and care", "place": "Hospital", "skill": "Charisma", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
+		"about": "Plans and coordinates health services in hospitals or clinics.",
+		"levels": [["Unit coordinator", 20, 0], ["Health services manager", 34, 3], ["Hospital director", 55, 6]]},
+	"Mental health counselor": {"degree": true, "needs": {"Charisma": 3}, "field": "Health and care", "place": "Counseling center", "skill": "Charisma", "days": [0, 1, 2, 3, 4],
+		"start": 10, "end": 18, "about": "Supports individuals and groups with emotional and behavioral challenges.",
+		"levels": [["Peer counselor", 16, 0], ["Mental health counselor", 26, 3], ["Clinical counselor", 38, 6]]},
+	"Software developer": {"needs": {"Logic": 3}, "field": "Tech", "place": "Tech company", "skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 10, "end": 18,
+		"about": "Designs, builds, and maintains applications and software systems.",
+		"levels": [["Junior developer", 24, 0], ["Software developer", 38, 3], ["Lead engineer", 55, 6]]},
+	"Data scientist": {"degree": true, "needs": {"Logic": 4}, "field": "Tech", "place": "Tech company", "skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
+		"about": "Analyzes complex data sets to guide business and scientific decisions.",
+		"levels": [["Data analyst", 22, 0], ["Data scientist", 36, 4], ["Principal data scientist", 54, 7]]},
+	"Information security analyst": {"needs": {"Logic": 3}, "field": "Tech", "place": "Security firm", "skill": "Logic", "days": [6, 0, 1, 2, 3], "start": 8, "end": 16,
+		"about": "Protects computer networks and data from cyber threats.",
+		"levels": [["Security intern", 18, 0], ["Information security analyst", 32, 3], ["Security architect", 50, 6]]},
+	"UX/UI designer": {"needs": {"Creativity": 2, "Logic": 1}, "field": "Creative", "place": "Design studio", "skill": "Creativity", "days": [0, 1, 2, 3, 4], "start": 10, "end": 18,
+		"about": "Shapes how users interact with digital products and interfaces.",
+		"levels": [["Junior designer", 18, 0], ["UX/UI designer", 30, 3], ["Design lead", 45, 6]]},
+	"Operations research analyst": {"degree": true, "needs": {"Logic": 3}, "field": "Business and finance", "place": "Logistics company", "skill": "Logic", "days": [0, 1, 2, 3, 4],
+		"start": 8, "end": 16, "about": "Uses math and analytics to solve logistics and operational problems.",
+		"levels": [["Junior analyst", 19, 0], ["Operations research analyst", 31, 4], ["Head of operations research", 46, 7]]},
+	"Accountant": {"degree": true, "needs": {"Logic": 2}, "field": "Business and finance", "place": "Accounting firm", "skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
+		"about": "Prepares and audits financial records for businesses and individuals.",
+		"levels": [["Bookkeeper", 16, 0], ["Accountant", 27, 2], ["Senior auditor", 40, 5]]},
+	"Financial manager": {"degree": true, "needs": {"Logic": 3, "Charisma": 1}, "field": "Business and finance", "place": "Bank", "skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
+		"about": "Oversees organizational budgets, investments, and financial strategy.",
+		"levels": [["Financial analyst", 22, 0], ["Financial manager", 38, 4], ["Chief financial officer", 60, 7]]},
+	"Civil engineer": {"degree": true, "needs": {"Logic": 3}, "field": "Engineering and energy", "place": "Engineering firm", "skill": "Logic", "days": [0, 1, 2, 3, 4], "start": 8, "end": 16,
+		"about": "Designs infrastructure such as roads, bridges, and water systems.",
+		"levels": [["Engineering technician", 19, 0], ["Civil engineer", 33, 3], ["Chief engineer", 50, 6]]},
+	"Solar PV installer": {"needs": {"Handiness": 1}, "field": "Engineering and energy", "place": "Solar company", "skill": "Handiness", "days": [0, 1, 2, 3, 4],
+		"start": 7, "end": 15, "about": "Assembles and maintains solar energy systems.",
+		"levels": [["Installer helper", 15, 0], ["Solar PV installer", 23, 2], ["Installation lead", 32, 5]]},
+	"Wind turbine technician": {"needs": {"Handiness": 2, "Fitness": 1}, "field": "Engineering and energy", "place": "Wind farm", "skill": "Handiness", "days": [1, 2, 3, 4, 5],
+		"start": 7, "end": 15, "about": "Inspects, repairs, and maintains wind turbines.",
+		"levels": [["Trainee technician", 17, 0], ["Wind turbine technician", 26, 3], ["Site supervisor", 36, 6]]},
+	"Commercial pilot": {"needs": {"Handiness": 3, "Logic": 2}, "field": "Engineering and energy", "place": "Airfield", "skill": "Handiness", "days": [3, 4, 5, 6, 0], "start": 6, "end": 14,
+		"about": "Flies aircraft for charter, cargo, or specialized operations.",
+		"levels": [["Flight instructor", 20, 0], ["Commercial pilot", 40, 4], ["Captain", 60, 7]]},
+	"Teacher": {"degree": true, "needs": {"Charisma": 2}, "field": "Education", "place": "School", "skill": "Charisma", "days": [0, 1, 2, 3, 4], "start": 8, "end": 15,
+		"about": "Instructs students across early childhood, K–12, or higher education.",
+		"levels": [["Teaching assistant", 14, 0], ["Teacher", 24, 2], ["Head teacher", 36, 5]]},
+	"Graphic designer": {"needs": {"Creativity": 2}, "field": "Creative", "place": "Design studio", "skill": "Creativity", "days": [0, 1, 2, 3, 4], "start": 9, "end": 17,
+		"about": "Creates visual concepts for branding, print, and digital media.",
+		"levels": [["Design intern", 14, 0], ["Graphic designer", 24, 2], ["Art director", 40, 6]]},
+	"Writer / editor": {"needs": {"Creativity": 2}, "field": "Creative", "place": "Publishing house", "skill": "Creativity", "days": [0, 1, 2, 3], "start": 10, "end": 16,
+		"about": "Produces, refines, and manages content for books, media, or organizations.",
+		"levels": [["Copywriter", 14, 0], ["Writer and editor", 24, 3], ["Editor-in-chief", 40, 6]]},
+	"Event planner": {"needs": {"Charisma": 2}, "field": "Creative", "place": "Event agency", "skill": "Charisma", "days": [2, 3, 4, 5, 6], "start": 12, "end": 20,
+		"about": "Coordinates logistics, venues, and vendors for conferences, weddings, or gatherings.",
+		"levels": [["Event assistant", 14, 0], ["Event planner", 24, 2], ["Events director", 38, 5]]},
 	# Schools: stage = who goes (ages.gd).
 	"Kindergarten": {"school": true, "stage": 1, "skill": "Charisma", "days": [0, 1, 2, 3, 4], "start": 9, "end": 12,
 		"levels": [["Kindergartner", 0, 0]]},
@@ -60,6 +125,25 @@ const MISSED_PENALTY := 20.0
 const EMOTION_PERFORMANCE := {"Happy": 5.0, "Confident": 8.0, "Focused": 8.0, "Energized": 5.0, "Playful": 3.0,
 	"Sad": -5.0, "Angry": -8.0, "Tense": -5.0, "Uncomfortable": -5.0, "Embarrassed": -3.0, "Bored": -2.0}
 const WORK_PRACTICE := 0.25  # the job's skill improves at this fraction of normal practice while at work
+
+
+# The Bus stop's sections, in the order they're listed.
+static func fields() -> Array:
+	var list := []
+	for job in JOBS:
+		if not is_school(job) and not JOBS[job].field in list:
+			list.append(JOBS[job].field)
+	return list
+
+
+# Where the job is: "Clinic" for a Nurse practitioner, the job's own name for the Café.
+static func place(job: String) -> String:
+	return JOBS[job].get("place", job)
+
+
+# "Barista at the Café", "Registered nurse at the Clinic" (title at level `lvl`, or the person's current one).
+static func title_at(job: String, lvl: int) -> String:
+	return "%s at the %s" % [JOBS[job].levels[lvl][0], place(job)]
 
 
 static func is_school(job: String) -> bool:
@@ -125,7 +209,7 @@ static func start_shift(c: Node2D) -> void:
 	c.shift_day = GameTime.day_index(t)
 	c.shift_started = t
 	c.late = GameTime.hours(t) * 60.0 > JOBS[c.job].start * 60.0 + LATE_MINUTES
-	c.activity = ("At school (%s)" if is_school(c.job) else "At work (%s)") % c.job
+	c.activity = ("At school (%s)" if is_school(c.job) else "At work (%s)") % place(c.job)
 
 
 # Called every frame while at work: practise the job's skill, and come home at the end time. Someone who
@@ -154,7 +238,7 @@ static func finish_shift(c: Node2D) -> void:
 	c.activity = "Back from school" if is_school(job) else "Back from work"
 	if pay > 0:
 		Emotions.add(c, "Payday")
-		Social.log_event("{a} earned $%d at the %s" % [pay, job], c, c)
+		Social.log_event("{a} earned $%d at the %s" % [pay, place(job)], c, c)
 	change_performance(c, shift_result(c))
 	if job == "College" and c.job == "College":
 		c.college_days += 1
@@ -185,7 +269,7 @@ static func change_performance(c: Node2D, amount: float) -> void:
 		c.warned = true
 		Emotions.add(c, "Warned at work")
 		c.show_emote("\"One more slip and you're out.\"", null)
-		Social.log_event("{a} got a warning at the %s" % c.job, c, c)
+		Social.log_event("{a} got a warning at the %s" % place(c.job), c, c)
 	elif c.performance > 50.0:
 		c.warned = false
 	var levels: Array = JOBS[c.job].levels
@@ -208,11 +292,11 @@ static func check_missed(c: Node2D, t: float) -> void:
 		change_performance(c, -MISSED_PENALTY)
 		var school := is_school(c.job)
 		Emotions.add(c, "Skipped school" if school else "Missed work")
-		Social.log_event("{a} %s the %s" % ["skipped" if school else "missed work at", c.job], c, c)
+		Social.log_event("{a} %s the %s" % ["skipped" if school else "missed work at", place(c.job)], c, c)
 
 
 static func fire(c: Node2D) -> void:
-	Social.log_event("{a} was fired from the %s" % c.job, c, c)
+	Social.log_event("{a} was fired from the %s" % place(c.job), c, c)
 	c.show_emote("Fired...", null)
 	Emotions.add(c, "Fired")
 	c.job = ""
@@ -225,19 +309,43 @@ static func fire(c: Node2D) -> void:
 static func can_take(c: Node2D, job: String) -> bool:
 	if job == "College":
 		return Ages.stage(c) >= Ages.YOUNG_ADULT and not c.degree
-	return not is_school(job) and Ages.is_grown_up(c)
+	return not is_school(job) and Ages.is_grown_up(c) and missing(c, job).is_empty()
 
 
+# What `c` still lacks to be hired: ["a degree", "Medicine 3 (you: 1)"]; empty when they qualify.
+static func missing(c: Node2D, job: String) -> Array:
+	var lacks := []
+	if JOBS[job].get("degree", false) and not c.degree:
+		lacks.append("a degree")
+	var needs: Dictionary = JOBS[job].get("needs", {})
+	for skill in needs:
+		var have := Skills.level(c, skill)
+		if have < needs[skill]:
+			lacks.append("%s %d (you: %d)" % [skill, needs[skill], have])
+	return lacks
+
+
+# "Needs: a degree, Medicine 3" ("" when the job takes anyone).
+static func requirements_text(job: String) -> String:
+	var parts := ["a degree"] if JOBS[job].get("degree", false) else []
+	var needs: Dictionary = JOBS[job].get("needs", {})
+	for skill in needs:
+		parts.append("%s %d" % [skill, needs[skill]])
+	return "" if parts.is_empty() else "Needs: " + ", ".join(parts)
+
+
+# A degree starts you one level up, except in jobs that require one (there it's what gets you in).
 static func take_job(c: Node2D, job: String) -> void:
 	c.job = job
-	c.job_level = mini(1, JOBS[job].levels.size() - 1) if c.degree and not is_school(job) else 0
+	var head_start: bool = c.degree and not is_school(job) and not JOBS[job].get("degree", false)
+	c.job_level = mini(1, JOBS[job].levels.size() - 1) if head_start else 0
 	c.performance = SCHOOL_START if is_school(job) else 0.0
 	c.warned = false
 	c.shift_day = GameTime.day_index(c.world.now()) if should_work(c, c.world.now()) else -1  # start tomorrow, not mid-shift
 	if is_school(job):
 		Social.log_event("{a} enrolled in %s" % job, c, c)
 	else:
-		Social.log_event("{a} got a job: %s at the %s" % [title(c), job], c, c)
+		Social.log_event("{a} got a job: %s" % title_at(job, c.job_level), c, c)
 
 
 # Growing up changes school: toddlers → Kindergarten, children → School, teens → High school;
@@ -255,7 +363,7 @@ static func school_for_stage(c: Node2D) -> void:
 
 
 static func quit_job(c: Node2D) -> void:
-	Social.log_event("{a} quit the job at the %s" % c.job, c, c)
+	Social.log_event("{a} quit the job at the %s" % place(c.job), c, c)
 	c.job = ""
 
 
@@ -273,18 +381,24 @@ static func spend(c: Node2D, amount: int) -> bool:
 	return true
 
 
-# Grown-up NPCs without a job look for one each morning: the job that best fits their skills
-# (you choose your own at the Bus stop).
+# Grown-up NPCs without a job look for one each morning: of the jobs that would hire them, one whose skill they're best at (you choose your own
+# at the Bus stop). Among equally good ones, each person has their own pick (by name: no randomness, so seeded
+# runs stay the same).
 static func find_work(c: Node2D) -> void:
 	if c.controlled or c.job != "" or not Ages.is_grown_up(c) or c.dead or c.role != "":
 		return
-	var best := ""
+	var best := []
 	var best_level := -1
 	for name in JOBS:
-		if not is_school(name) and Skills.level(c, JOBS[name].skill) > best_level:
-			best = name
-			best_level = Skills.level(c, JOBS[name].skill)
-	take_job(c, best)
+		if is_school(name) or not missing(c, name).is_empty():
+			continue  # only jobs that would hire them
+		var lvl := Skills.level(c, JOBS[name].skill)
+		if lvl > best_level:
+			best = [name]
+			best_level = lvl
+		elif lvl == best_level:
+			best.append(name)
+	take_job(c, best[absi(hash(c.npc_name)) % best.size()])
 
 
 # Weekly bills, Monday 00:00 (world.gd calls this when a new day starts).

@@ -145,9 +145,9 @@ const OBJECTS := [
 	["Shower", 3, 0, Vector2(505, 524), {"hygiene": 80}, 10.0, Color.WHITE, 36],
 	["TV", 3, 0, Vector2(504, 523), {"fun": 60}, 30.0, Color(0.656, 0.626, 0.671), 28],
 
-	["Bench", -1, 0, Vector2(500, 516), {"fun": 25}, 15.0, Color(0.865, 0.720, 0.748), 12],
-	["Bus stop", -1, 0, Vector2(497, 511), {}, 0.0, Color(0.694, 0.766, 0.842), 50],  # jobs: where you leave for work
-	["Pull-up bar", -1, 0, Vector2(503, 516), {"fun": 15, "energy": -10, "hygiene": -10}, 30.0, Color("#d8d8e9"), 48,
+	["Bench", -1, 0, Vector2(500, 516), {"fun": 25}, 15.0, Color("#eeb48f"), 12],
+	["Bus stop", -1, 0, Vector2(497, 511), {}, 0.0, Color("#f3b9a6"), 50],  # jobs: where you leave for work
+	["Pull-up bar", -1, 0, Vector2(503, 516), {"fun": 15, "energy": -10, "hygiene": -10}, 30.0, Color("#f6d776"), 48,
 		{"verb": "Working out", "skill": "Fitness", "moodlet": "Pumped"}],
 ]
 
@@ -169,7 +169,7 @@ var backdrop: TextureRect  # the soft gradient behind the world, dimmed with the
 
 
 func _ready() -> void:
-	RenderingServer.set_default_clear_color(Color(0.901, 0.901, 0.944))  # pale lilac around everything
+	RenderingServer.set_default_clear_color(Color("#fbefe8"))  # cream around everything (ui_theme.gd PALETTE)
 	y_sort_enabled = true  # things lower on screen draw in front
 	Social.event_log.clear()  # static: would otherwise carry over from a previous game
 	Engine.time_scale = 1.0

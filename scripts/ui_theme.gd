@@ -1,8 +1,8 @@
 # The game's look: Cozy Paws. Chunky rounded shapes, a cocoa outline around everything, hard "sticker" shadows and
 # candy colours, in two themes: DAY (peach cream, coral petal) and DUSK (deep plum, lilac petal) after sunset.
 # The design system lives in the Cozy Paws artifact; this file is its Godot side. Static.
-#   PALETTE  the atmosphere (soft blue → lavender grey → pink): the world (ground, houses, floors, sky,
-#            the home screen). Not part of the UI theme, unchanged.
+#   PALETTE  the atmosphere, in the UI's colours (soft sky → peach cream → petal): the sky behind the world and
+#            the home screen. The world itself uses the same family (game_time.gd GRASS/LEAVES/SKY, world.gd, vision.gd).
 #   DAY/DUSK the UI tokens (same names as the design system, `-` → `_`). `c("petal")` gives the current one.
 #   Legacy names (ACCENT, PAPER, LINE, INK, ROSE…) are kept as the DAY values so older code still compiles; styleboxes
 #            made with flat()/box()/sticker() and colours set with tint() follow set_dusk() by themselves.
@@ -11,13 +11,13 @@
 # Components built on this: scripts/ui/ (cozy_button, cozy_icon, need_bar, dialogue_box, toast_stack, item_tooltip,
 # inventory_slot, hotbar).
 const PALETTE := [
-	Color("#c9def4"),  # 0 baby blue
-	Color("#d0dbef"),  # 1
-	Color("#d8d8e9"),  # 2 lavender grey
-	Color("#dfd5e4"),  # 3
-	Color("#e6d2df"),  # 4
-	Color("#eecfd9"),  # 5
-	Color("#f5ccd4"),  # 6 pink
+	Color("#d4e5f7"),  # 0 soft sky (DAY sky, lightened)
+	Color("#e2ebf4"),  # 1
+	Color("#f1eef0"),  # 2
+	Color("#fbefe8"),  # 3 cream (DAY surface_100)
+	Color("#fde6de"),  # 4 peach cream
+	Color("#fbdcd6"),  # 5
+	Color("#f7cfcf"),  # 6 petal (DAY petal_soft)
 ]
 
 const DAY := {

@@ -48,10 +48,10 @@ const CURTAIN_SECONDS := 60.0  # how long curtains stay closed after someone yel
 const PATH_MARGIN := 10  # A* searches the box around start and goal, grown by this many tiles
 const MAX_PATH_SPAN := 160  # longer trips are refused
 
-const ROOF_COLOR := Color(0.788, 0.656, 0.682)  # default; buildings can set "roof" (palette: ui_theme.gd)
-const SNOW_ROOF_COLOR := Color(0.98, 0.98, 1.0)  # roofs in winter
-const WOOD_COLOR := Color(0.950, 0.859, 0.888)  # floors
-const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: lavender walls
+const ROOF_COLOR := Color("#e3979c")  # default; buildings can set "roof" (the UI's candy colours: ui_theme.gd DAY)
+const SNOW_ROOF_COLOR := Color("#fffaf6")  # roofs in winter
+const WOOD_COLOR := Color("#f8ded3")  # floors: peach cream
+const INNER_WALL_COLOR := Color("#fcefe9")  # cream walls (DAY surface_100)
 
 # rect includes the outer walls. door is on floor 0 and must be on the bottom (+y) or right (+x)
 # wall so it faces the camera. stairs (optional) is one interior cell shared by every floor.
@@ -62,16 +62,16 @@ const INNER_WALL_COLOR := Color(0.925, 0.890, 0.935)  # #dfd5e4 lightened: laven
 # (stairs add an upper floor: add_upper_floor / remove_upper_floor; "built_stairs" marks those).
 const START_BUILDINGS := [
 	{"name": "Your house", "rect": Rect2i(482, 499, 12, 10), "floors": 2, "door": Vector2i(485, 508),
-		"stairs": Vector2i(483, 500), "color": Color("#f5ccd4"), "roof": Color(0.769, 0.640, 0.665),
+		"stairs": Vector2i(483, 500), "color": Color("#fbe1da"), "roof": Color("#e3979c"),  # petal
 		"car": {"cell": Vector2i(488, 511), "dir": Vector2i(1, 0), "model": "sedan"}},
 	{"name": "Alex's house", "rect": Rect2i(498, 499, 10, 10), "floors": 1, "door": Vector2i(502, 508),
-		"color": Color("#c9def4"), "roof": Color(0.631, 0.696, 0.765),
+		"color": Color("#dde8f9"), "roof": Color("#98aedd"),  # sky
 		"car": {"cell": Vector2i(505, 511), "dir": Vector2i(1, 0), "model": "suv"}},
 	{"name": "Riley's house", "rect": Rect2i(486, 518, 10, 9), "floors": 1, "door": Vector2i(495, 522),
-		"color": Color("#dfd5e4"), "roof": Color(0.682, 0.652, 0.697),
+		"color": Color("#e5f1d6"), "roof": Color("#9ec686"),  # leaf
 		"car": {"cell": Vector2i(483, 516), "dir": Vector2i(1, 0), "model": "hatchback-sports"}},
 	{"name": "Starter house", "rect": Rect2i(498, 518, 10, 9), "floors": 1, "door": Vector2i(507, 525),
-		"color": Color("#eecfd9"), "roof": Color(0.747, 0.649, 0.681),
+		"color": Color("#fbefc8"), "roof": Color("#e4b864"),  # butter
 		"car": {"cell": Vector2i(505, 516), "dir": Vector2i(1, 0), "model": "van"}},  # for new households (Play → Create)
 ]
 
@@ -482,7 +482,7 @@ static func door_inside(b: int) -> Vector2i:
 
 func location_name(c: Node2D) -> String:
 	if c.at_work:
-		return ("At school (%s)" if Jobs.is_school(c.job) else "At work (%s)") % c.job
+		return ("At school (%s)" if Jobs.is_school(c.job) else "At work (%s)") % Jobs.place(c.job)
 	if c.building < 0:
 		return "Outside"
 	return "%s, %s" % [BUILDINGS[c.building].name, "ground floor" if c.floor == 0 else "floor %d" % c.floor]
@@ -729,7 +729,7 @@ static func terrain_color(c: Vector2i, p_season: String) -> Color:
 		var lane := c.x % ROAD_EVERY == 1 or c.y % ROAD_EVERY == 1
 		var dash := (c.x + c.y) % 4 < 2 and not (c.x % ROAD_EVERY < ROAD_WIDTH and c.y % ROAD_EVERY < ROAD_WIDTH)
 		if lane and dash:
-			return Color(0.939, 0.939, 0.965)  # lane dashes
-		return Color(0.840, 0.802, 0.858) + Color(shade, shade, shade, 0.0)  # roads
+			return Color("#fffaf6")  # lane dashes
+		return Color("#e3d5d1") + Color(shade, shade, shade, 0.0)  # roads: warm greige
 	var grass: Color = GameTime.GRASS[p_season]
 	return Color(grass.r + shade, grass.g + shade * 2.0, grass.b + shade)

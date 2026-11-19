@@ -108,7 +108,7 @@ carry on from idle).
 | F7 | Send a burglar to your home right now, to try it out (offline or host); see [docs/CRIME.md](docs/CRIME.md) |
 | F8 | Send a kidnapper for the youngest in your household right now (offline or host); see [docs/CRIME.md](docs/CRIME.md) |
 | F3 | Show NPC details above their heads: why they feel what they feel, what they're doing, traits, skills, needs, who they can see, and what the AI chose for them |
-| F11, Alt+Enter or Ctrl+Cmd+F | Fullscreen on/off, on any screen (same as Settings → Fullscreen) |
+| F11, Alt+Enter or Ctrl+Cmd+F | Fullscreen on/off, on any screen (same as Settings → Fullscreen). The game opens fullscreen; turned off, it remembers |
 
 **Manual** mode: your character only does what you click. **Auto** mode: it runs the same AI as the
 NPCs. Clicks still work in Auto; your character follows the order, then decides for itself again.
@@ -117,20 +117,24 @@ NPCs. Clicks still work in Auto; your character follows the order, then decides 
 
 ## The look
 
-Cozy and pastel. The **atmosphere** is one 7-shade palette (`PALETTE` in `ui_theme.gd`), baby blue → lavender → pink:
+Cozy and pastel, and the world uses the **same candy colours as the UI** (Cozy Paws, `ui_theme.gd DAY`), softened.
+The sky behind everything (and the home screen) is `PALETTE` in `ui_theme.gd`, soft sky → peach cream → petal:
+`#d4e5f7` `#e2ebf4` `#f1eef0` `#fbefe8` `#fde6de` `#fbdcd6` `#f7cfcf`.
 
-| # | Hex | Used for |
-|---|-----|----------|
-| 0 | `#c9def4` | Summer ground, fridge and bathroom furniture, top of the backdrop |
-| 1 | `#d0dbef` | Spring ground, kitchen furniture, trash cans |
-| 2 | `#d8d8e9` | Shelves, the paper of every panel (lightened almost to white) |
-| 3 | `#dfd5e4` | Roads (darkened), interior walls (lightened), Riley's house |
-| 4 | `#e6d2df` | Fall ground |
-| 5 | `#eecfd9` | Starter house |
-| 6 | `#f5ccd4` | Your house, closed curtains, bottom of the backdrop |
+| Part of the world | Colour | Where |
+|---|---|---|
+| Grass | Spring `#dcedc8`, Summer `#d2e8b9` (leaf), Fall `#f5e2c0` (butter-peach), Winter `#f8f2ef` (cream snow) | `GameTime.GRASS` |
+| Tree leaves | Spring `#f4bfc4` (petal blossom), Summer `#acd693` (leaf), Fall `#f2b58c` (peach), Winter `#f7f1f1` | `GameTime.LEAVES` (baked) |
+| Houses (walls / roof) | Yours `#fbe1da` / `#e3979c` petal · Alex's `#dde8f9` / `#98aedd` sky · Riley's `#e5f1d6` / `#9ec686` leaf · Starter `#fbefc8` / `#e4b864` butter; winter roofs `#fffaf6` | `World.START_BUILDINGS` (baked) |
+| Roads | `#e3d5d1` warm greige, cream lane dashes; baked road pieces `#c8b5b1` → `#fffaf6` | `world.gd terrain_color`, `tools/bake_neighbourhood.gd` |
+| Inside | Floors `#f8ded3` peach cream, walls `#fcefe9` cream; warm peach lamplight at night | `world.gd`, `GameTime.INDOOR_NIGHT_TINT` |
+| Out of sight | Dusty rose-lilac `#c8a6b6` by day, plum `#1d1630` at night (the dusk UI), cream in fog | `vision.gd` |
+| Street things | Bus stop `#f3b9a6`, bench `#eeb48f`, pull-up bar `#f6d776` | `main.gd OBJECTS` |
+| Around the map | Cream `#fbefe8` | `main.gd` clear colour |
 
-Houses use shades 6, 0, 3 and 5 for their walls, each with a darker roof (the kit's palette texture is repainted
-in them when baking), and trees blossom in `GameTime.LEAVES`; floors are pink. Inside, nights are a soft pink lamplight; outside, the sky changes through the day (see Day and night).
+Houses' and trees' colours are baked into their sprites (the kit's palette texture is repainted when baking): re-run
+`tools/bake_neighbourhood.gd` after changing them. Outside, the sky changes through the day (see Day and night):
+plum night → peach-pink dawn → soft warm morning → white afternoon → golden hour → sunset → lilac dusk.
 Furniture keeps the kit's own colours, softened a little (`SOFTEN` in `tools/bake_furniture.gd`), and character
 sheets get a soft brighter finish.
 
@@ -219,9 +223,11 @@ window sits beside the feed (or the feed goes above it); the baby panel goes und
 catalog sits on the bottom row and the feed and talk window go above it. `tests/check_sim.gd check_layout()`
 opens everything and checks it at 1280×720, 1920×1080 and 1280×1024.
 
-**Window and fullscreen:** the UI scales with the window (`project.godot` stretch `canvas_items` + `expand`):
-there's always at least 1280×720 of room in UI units; a bigger screen shows the same UI larger and a wider or
-taller one gets extra room. F11 / Alt+Enter / Ctrl+Cmd+F toggles fullscreen anywhere (`window_keys.gd`).
+**Window and fullscreen:** the UI scales with the window (`project.godot` stretch `canvas_items` + `expand`,
+sized by `window_keys.gd`): ×(window height / 900), so ×1.2 on a 1080p screen (1600×900 UI units), ×1 at 1440×900,
+×1.6 at 1440p; never below ×1 on a window bigger than 1280×720, and always at least 1280×720 of room, which is
+what the HUD needs (smaller windows shrink the UI to fit). The game opens fullscreen (`project.godot` `window/size/mode=3`, Settings default on).
+F11 / Alt+Enter / Ctrl+Cmd+F toggles fullscreen anywhere (`window_keys.gd`).
 
 ## Project layout
 
@@ -262,7 +268,7 @@ scripts/
   traits.gd             Personality traits in groups (Social, Lifestyle, Heart, Dark), conflicts, their effects
   hobbies.gd            Hobbies (Reading, Fitness, Music...): what's more fun, Hobby time, faster skills
   morals.gd             The path: dark traits × life pressure -> Criminal / Ruthless / Mean / Decent; crimes' odds
-  skills.gd             Skills 0-10 (Cooking, Charisma, Comedy, Fitness, Logic, Stealth): xp, levels, effects
+  skills.gd             Skills 0-10 (Cooking, Charisma, Comedy, Fitness, Logic, Medicine, Creativity, Handiness, Stealth): xp, levels, effects
   kitchen.gd            Recipes, drinks, plates/cups, leftovers and spoiling, kitchen menus and AI options
   perception.gd         What NPCs see (sight radius, line of sight) and how they react (greetings, peeking)
   ownership.gd          Homes, invitations, knocking on doors, answering the door
@@ -545,16 +551,16 @@ they notice nothing and, for you, time runs at Ultra.
 | | Take a bath | hygiene +100, fun +15 | 30 | Freshened up |
 | Bathroom sink | Wash hands / Brush teeth | hygiene +10 / +15 | 2 / 3 | |
 | TV | Watch comedy / the news / a cooking show | fun +60 / +20 / +35 | 30 / 20 / 30 | Comedy / Logic / Cooking |
-| Bookshelf | Read a textbook / a novel / a cookbook | fun +25 / +45 / +15 | 45 / 60 / 30 | Logic (Learned something) / – / Cooking |
+| Bookshelf | Read a textbook / a novel / a cookbook / a medical journal | fun +25 / +45 / +15 / +10 | 45 / 60 / 30 / 40 | Logic (Learned something) / – / Cooking / Medicine (Learned something) |
 | Fireplace | Relax by the fire / Warm up | fun +25, social +5 / energy +10, fun +10 | 30 / 15 | |
 | Bench | Sit on the bench | fun +25 | 15 | |
 | Pull-up bar | Work out / Do a few pull-ups | fun +15, energy −10, hygiene −10 / fun +8, energy −3 | 30 / 10 | Fitness |
-| Nightstand, bedside table | Write in a diary / Put on hand cream | fun +15 / hygiene +5 | 20 / 2 | |
+| Nightstand, bedside table | Write in a diary / Put on hand cream | fun +15 / hygiene +5 | 20 / 2 | Creativity / – |
 | Coffee table | Do a jigsaw puzzle / Put your feet up | fun +30 / energy +5, fun +10 | 40 / 15 | Logic / – |
-| Desk | Study / Write jokes | fun +5 / fun +15 | 45 / 30 | Logic (Learned something) / Comedy |
+| Desk | Study / Write jokes / Sketch designs / Tinker with a gadget / Practise first aid | fun +5 / +15 / +20 / +15 / +5 | 45 / 30 / 30 / 30 / 30 | Logic (Learned something) / Comedy / Creativity / Handiness / Medicine (Learned something) |
 | Kitchen cabinet | Grab a snack / Tidy the cupboard | hunger +15 / fun +5 | 3 / 10 | |
 | Kitchen drawers | Sort the cutlery / Read a recipe card | fun +5 / fun +5 | 10 / 10 | – / Cooking |
-| Washing machine | Do the laundry | hygiene +20, fun −3 | 20 | |
+| Washing machine | Do the laundry / Fix the washing machine | hygiene +20, fun −3 / fun +8 | 20 / 20 | – / Handiness |
 | Lamp (all four) | Read under the lamp | fun +20 | 30 | Logic |
 | Plant (all four) | Water the plant / Talk to the plant | fun +8 / social +5, fun +3 | 3 / 5 | |
 | Rug (all three) | Do yoga / Stretch | fun +10, energy −5 / energy +3 | 20 / 5 | Fitness / –; on the rug |
@@ -653,8 +659,11 @@ NPC who is walking to an object, but not one who is using one.
 All completed and rejected interactions go to `Social.event_log`, which is shown in the bottom-left of the HUD, above the household row, for a little while after something happens.
 
 ### Money and jobs (`jobs.gd`)
-Full details: **[docs/WORK.md](docs/WORK.md)**. Everyone has money. It comes from **jobs**: 5
-careers (Café, Restaurant, Office, Gym, Comedy club), each with 3 levels, a schedule and hourly pay.
+Full details: **[docs/WORK.md](docs/WORK.md)**. Everyone has money. It comes from **jobs**: 25
+careers in 7 fields (the first 5: Café, Restaurant, Office, Gym, Comedy club; then health and care, tech, business
+and finance, engineering and energy, creative and education careers, from Nurse practitioner to Commercial pilot),
+each with 3 levels, a workplace, a schedule and hourly pay. Most need a degree and/or a skill level to be hired
+(the Bus stop shows what you're missing); a few entry jobs take anyone.
 On a workday the worker walks to their **home car** and drives off down the street (grown-ups with a job,
 if the car is home), or to the **Bus stop** (kids, and when the car is out), is away (hidden) until the shift
 ends, and comes back paid for the hours worked: by car, it drives back up the street, parks and they get out. Performance goes up with good shifts (skill and emotion) and down

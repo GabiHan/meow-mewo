@@ -73,7 +73,8 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 
 - HUD placement: `hud.gd layout()` places every panel from the others' real sizes each frame; a new HUD panel
   must be added there (and to `check_layout()` in the tests) so nothing overlaps. The window scales the UI
-  (stretch `canvas_items`/`expand`): lay out for at least 1280×720 UI units. Fullscreen key: `window_keys.gd`.
+  (stretch `canvas_items`/`expand`, sized by `window_keys.gd ui_scale()`: ×1.2 at 1080p): lay out for at least
+1280×720 UI units. Fullscreen key: `window_keys.gd`.
 - UI look: `ui_theme.gd` (Cozy Paws tokens `DAY`/`DUSK`, read with `UiTheme.c("token")`) and the components in
   `scripts/ui/`. New UI: build it from those components or `UiTheme.sticker()`/`panel()`, colour text with
   `UiTheme.tint(control, "font_color", "ink")` (not literal colours), so it follows day/dusk. Text on a fill uses its
@@ -108,7 +109,8 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
   your household (`hud.ours_event`). Use `player.known` to decide what a stranger reveals.
 - Furniture names only show on mouse-over (smart_object.gd); don't add always-on labels to the world.
 - Saving: a new per-person field that should survive save/load must be added to `SAVE_FIELDS` in `save_game.gd`.
-- UI: use `ui_theme.gd` for new controls (keep it cozy): `PALETTE` is the atmosphere (world, backdrop, panel paper),
+- UI: use `ui_theme.gd` for new controls (keep it cozy): `PALETTE` is the sky/backdrop, and the world's colours (GameTime.GRASS/LEAVES/SKY, world.gd, vision.gd veils) are
+  the UI's candy colours softened (README "The look"),
   `ACCENTS` the UI accent (#9ba9ff = active). Flat cards/buttons with thin borders, EB Garamond (`UiTheme.font()`,
   italic for subtitles). Labels in the world set `UiTheme.font()` themselves (changing the engine's default theme
   font makes the renderer report leaked textures at exit). Find the HUD with `main.hud`, not "first CanvasLayer".

@@ -241,7 +241,7 @@ attractive (×1.6 on top of traits), gives **Hobby time** (Happy 2, 3 h) when it
 | Films | Watches everything | TV | Comedy |
 | Music | Always listening | Radio | – |
 | Gardening | Green fingers | Plants | – |
-| Writing | Keeps a diary | Nightstand | – |
+| Writing | Keeps a diary | Nightstand | Creativity |
 | Socialising | Out and about | talking to people, the bench | Charisma |
 
 ## The path (`morals.gd`)
@@ -402,6 +402,9 @@ Skills go from 0 to 10. You earn xp per game minute of practice. From level L to
 | Comedy | Telling jokes; watching TV | 8 | Jokes land 50% + 5% per level |
 | Fitness | Pull-up bar (outside, next to the bench) | 6 | Walk 3% faster per level |
 | Logic | Reading at a bookshelf; Discuss ideas | 4 | Unlocks Discuss ideas at level 3 |
+| Medicine | Bookshelf: Read a medical journal; Desk: Practise first aid | 4 | Health careers (Nurse practitioner, Physician assistant) |
+| Creativity | Desk: Sketch designs; Nightstand: Write in a diary (the Writing hobby) | 6 | Creative careers (UX/UI designer, Graphic designer, Writer / editor) |
+| Handiness | Desk: Tinker with a gadget; Washing machine: Fix the washing machine | 6 | Hands-on careers (Solar PV installer, Wind turbine technician, Commercial pilot) |
 | Stealth | Picking locks, pickpocketing, stealing | 8 | Pickpocket +6%/level; you pick a lock 6% faster per level and are less likely to fail a reinforced one |
 
 xp is ×1.5 with a matching **trait** (Foodie → Cooking, Goofball → Comedy, Bookworm → Logic,

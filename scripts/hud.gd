@@ -349,7 +349,7 @@ func today_items(c: Node2D) -> Array:
 	var t: float = c.world.now()
 	if c.job != "" and not c.at_work:
 		var school := Jobs.is_school(c.job)
-		var what := "School (%s)" % c.job if school else "Work at the %s" % c.job
+		var what := "School (%s)" % c.job if school else "Work at the %s" % Jobs.place(c.job)
 		if Jobs.should_work(c, t):
 			items.append({"title": what, "sub": "Bus stop · now!", "now": false})
 		else:
@@ -653,11 +653,7 @@ func layout() -> void:
 	for panel in [today_panel, child_panel, passport]:
 		if panel.visible and panel.position.x < feed_left + feed_panel.size.x and panel.position.x + panel.size.x > feed_left:
 			ceiling = maxf(ceiling, panel.position.y + panel.size.y + GAP)
-	var spare := feed_panel.position.y - ceiling
-	if spare < 0.0 and feed_lines > 1:
-		feed_lines -= 1
-	elif spare > 80.0 and feed_lines < CHAT_LINES:
-		feed_lines += 1
+	fit_feed(above - GAP - ceiling)
 	if talk.visible:
 		var width := talk.get_combined_minimum_size().x
 		var limit := right_edge if drawer.visible else screen.x - MARGIN
@@ -723,11 +719,30 @@ func build_feed() -> void:
 	column.add_child(events_label)
 
 
+func fill_chat() -> void:
+	chat_label.text = "\n".join(chat.slice(maxi(0, chat.size() - feed_lines)).map(chat_text))
+
+
+# Show as many of the newest chat lines as fit in `room` pixels of height (measured now, not last frame).
+func fit_feed(room: float) -> void:
+	var fits := func() -> bool: return feed_panel.get_combined_minimum_size().y <= room
+	while feed_lines > 1 and not fits.call():
+		feed_lines -= 1
+		fill_chat()
+	while feed_lines < CHAT_LINES and feed_lines < chat.size():
+		feed_lines += 1
+		fill_chat()
+		if not fits.call():
+			feed_lines -= 1
+			fill_chat()
+			break
+
+
 func update_feed() -> void:
 	var now := Time.get_ticks_msec()
 	chat = chat.filter(func(e): return now - e.at < CHAT_SECONDS * 1000.0)
 	chat_label.visible = not chat.is_empty()
-	chat_label.text = "\n".join(chat.slice(maxi(0, chat.size() - feed_lines)).map(chat_text))
+	fill_chat()
 	var ours := Social.event_log.filter(ours_event)  # only what happens to your household
 	var newest: String = Social.format_event(ours[-1], player) if not ours.is_empty() else ""
 	if newest != last_event:
@@ -968,7 +983,7 @@ func fill_drawer() -> void:
 			if Jobs.is_school(c.job):
 				work = "at %s (grade %s)" % [c.job, Jobs.grade(c.performance)]
 			elif c.job != "":
-				work = "%s at the %s" % [Jobs.title(c), c.job]
+				work = Jobs.title_at(c.job, c.job_level)
 			elif not Ages.is_grown_up(c):
 				work = "too young for school" if Ages.stage(c) == Ages.BABY else "not in school"
 			lines.append("Occupation: " + work)
@@ -1008,7 +1023,7 @@ func job_text() -> String:
 		when = "next shift %s %s" % [GameTime.weekday(next).substr(0, 3), GameTime.clock_text(next).substr(0, 5)] if next >= 0.0 else ""
 	if Jobs.is_school(player.job):
 		return "%s · %s · grade %s" % [player.job, when.replace("work", "school").replace("shift", "class"), Jobs.grade(player.performance)]
-	return "%s at the %s, $%d/h · %s · performance %d%%%s" % [Jobs.title(player), player.job, Jobs.hourly(player), when,
+	return "%s, $%d/h · %s · performance %d%%%s" % [Jobs.title_at(player.job, player.job_level), Jobs.hourly(player), when,
 		player.performance, " · WARNING: one more bad shift and you're fired" if player.warned else ""]
 
 

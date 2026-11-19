@@ -13,7 +13,7 @@ const HOBBIES := {
 	"Films": {"text": "Watches everything", "likes": ["TV"], "skill": "Comedy"},
 	"Music": {"text": "Always listening", "likes": ["Radio"], "skill": ""},
 	"Gardening": {"text": "Green fingers", "likes": ["Plant"], "skill": ""},
-	"Writing": {"text": "Keeps a diary", "likes": ["Nightstand"], "skill": ""},
+	"Writing": {"text": "Keeps a diary", "likes": ["Nightstand"], "skill": "Creativity"},
 	"Socialising": {"text": "Out and about", "likes": ["social", "Bench"], "skill": "Charisma"},
 }
 

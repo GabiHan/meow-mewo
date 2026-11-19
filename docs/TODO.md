@@ -7,6 +7,8 @@ Things noticed along the way that weren't part of the task they were found in. N
    off for your home", "Dex, now a criminal, is the burglar…", breaking in), invitations ("let in: you're invited and
    walk inside"), the commute ("the car is away while you work") and abductions. A different set fails each run, and
    "2 resources still in use at exit" shows up on the original code too. Probably timing that isn't fully seeded.
+   Also "hungry Sam makes or finds food… (hunger 24)": in check_kitchen Sam sometimes eats the leftover sandwich from
+   the earlier step instead of cooking; a poor-quality one only brings hunger to ~24, just under the check's 25.
 2. **`.DS_Store` files are tracked by git** and keep showing as modified: untrack them and add `.DS_Store` to `.gitignore`.
 3. **Old colours that don't follow dusk.** Code that uses the old constants or literals directly stays in day colours
    after sunset: `hud.gd` (`DashedBox`, the mood line, `Color(0.65, 0.65, 0.7)` in `friendship_color`, `MID`/`HIGH`),

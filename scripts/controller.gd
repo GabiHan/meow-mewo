@@ -278,16 +278,25 @@ func open_job_menu() -> void:
 			c.college_days, Jobs.COLLEGE_DAYS, Jobs.grade(c.performance)]})
 		var go := "Go to work now" if Jobs.should_work(c, t) else "Not a work time (%s)" % Jobs.schedule_text(c.job)
 		entries.append({"label": go, "disabled": not Jobs.should_work(c, t), "action": go_now})
-		entries.append({"label": "Quit (%s at the %s)" % [Jobs.title(c), c.job], "action": Jobs.quit_job.bind(c)})
-	entries.append({"section": "Job listings" + ("" if Ages.is_grown_up(c) else " (young adults and up)")})
-	for name in Jobs.JOBS:
-		var j: Dictionary = Jobs.JOBS[name]
-		if Jobs.is_school(name) and name != "College":
-			continue
-		var start: int = mini(1, j.levels.size() - 1) if c.degree and not Jobs.is_school(name) else 0
-		var label := "Enroll in College — %s, %d days to a degree" % [Jobs.schedule_text(name), Jobs.COLLEGE_DAYS] if name == "College" \
-			else "%s at the %s — $%d/h, %s (%s)" % [j.levels[start][0], name, j.levels[start][1], Jobs.schedule_text(name), j.skill]
-		entries.append({"label": label, "disabled": name == c.job or not Jobs.can_take(c, name), "action": Jobs.take_job.bind(c, name)})
+		entries.append({"label": "Quit (%s)" % Jobs.title_at(c.job, c.job_level), "action": Jobs.quit_job.bind(c)})
+	var young := "" if Ages.is_grown_up(c) else " (young adults and up)"
+	for field in Jobs.fields():  # Job listings, one section per field (Health and care, Tech…), then College
+		entries.append({"section": field + young})
+		for name in Jobs.JOBS:
+			var j: Dictionary = Jobs.JOBS[name]
+			if Jobs.is_school(name) or j.field != field:
+				continue
+			var start: int = mini(1, j.levels.size() - 1) if c.degree and not j.get("degree", false) else 0
+			var career: String = "" if j.levels[1][0] == j.levels[start][0] else " → " + j.levels[1][0]
+			var lacks: Array = Jobs.missing(c, name)
+			var label := "%s%s — $%d/h, %s (%s)" % [Jobs.title_at(name, start), career, j.levels[start][1], Jobs.schedule_text(name), j.skill]
+			if not lacks.is_empty():
+				label += "  · needs " + ", ".join(lacks)
+			var tip: String = "%s\n%s" % [j.get("about", ""), Jobs.requirements_text(name)] if Jobs.requirements_text(name) != "" else j.get("about", "")
+			entries.append({"label": label, "tooltip": tip, "disabled": name == c.job or not Jobs.can_take(c, name), "action": Jobs.take_job.bind(c, name)})
+	entries.append({"section": "Study" + young})
+	entries.append({"label": "Enroll in College — %s, %d days to a degree" % [Jobs.schedule_text("College"), Jobs.COLLEGE_DAYS],
+		"disabled": c.job == "College" or not Jobs.can_take(c, "College"), "action": Jobs.take_job.bind(c, "College")})
 	show_menu(["Bus stop — $%d" % c.money], entries)
 
 
@@ -316,6 +325,8 @@ func show_menu(headers: Array, entries: Array) -> void:
 			continue
 		menu.add_item(e.label, MENU_ID_OFFSET + menu_actions.size())
 		menu.set_item_disabled(menu.item_count - 1, e.get("disabled", false))
+		if e.get("tooltip", "") != "":
+			menu.set_item_tooltip(menu.item_count - 1, e.tooltip)
 		menu_actions.append(e.action)
 	menu.popup(Rect2i(Vector2i(get_viewport().get_mouse_position()), Vector2i.ZERO))
 

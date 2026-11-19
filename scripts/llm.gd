@@ -254,7 +254,7 @@ static func who(c: Node2D, viewer: Node2D = null) -> String:
 	if not low.is_empty():
 		parts.append("right now: " + ", ".join(low))
 	if c.job != "":
-		parts.append(("goes to %s" % c.job if Jobs.is_school(c.job) else "works as %s at the %s" % [Jobs.title(c), c.job]).to_lower())
+		parts.append(("goes to %s" % c.job if Jobs.is_school(c.job) else "works as %s" % Jobs.title_at(c.job, c.job_level)).to_lower())
 	if c.lover != "":
 		parts.append("%s with %s" % [c.lover_status.to_lower(), c.lover])
 	return "; ".join(parts) + "."

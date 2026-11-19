@@ -7,7 +7,7 @@ const Iso = preload("res://scripts/iso.gd")
 const Furniture = preload("res://scripts/furniture.gd")
 const Block = preload("res://scripts/block.gd")
 const WALL_HEIGHT := 22.0  # like the house's inner walls (world.gd INNER_WALL_HEIGHT)
-const WALL_COLOR := Color(0.925, 0.890, 0.935)  # world.gd INNER_WALL_COLOR
+const WALL_COLOR := Color("#fcefe9")  # world.gd INNER_WALL_COLOR
 
 var sprite := ""
 var cell := Vector2i.ZERO

@@ -1,1202 +1,866 @@
 {
 	"Bathroom_Bathtub_r0": {
 		"anchor": [
-			33.0,
-			44.0
+			32,
+			66
 		]
 	},
 	"Bathroom_Bathtub_r1": {
 		"anchor": [
-			33.0,
-			44.0
+			32,
+			83
 		]
 	},
 	"Bathroom_Bathtub_r2": {
 		"anchor": [
-			33.0,
-			38.0
+			33,
+			83
 		]
 	},
 	"Bathroom_Bathtub_r3": {
 		"anchor": [
-			33.0,
-			38.0
-		]
-	},
-	"Bathroom_Shower1_r0": {
-		"anchor": [
-			24.0,
-			49.0
-		]
-	},
-	"Bathroom_Shower1_r1": {
-		"anchor": [
-			24.0,
-			49.0
-		]
-	},
-	"Bathroom_Shower1_r2": {
-		"anchor": [
-			24.0,
-			48.0
-		]
-	},
-	"Bathroom_Shower1_r3": {
-		"anchor": [
-			24.0,
-			48.0
+			32,
+			66
 		]
 	},
 	"Bathroom_Sink_r0": {
 		"anchor": [
-			30.0,
-			46.0
+			11,
+			40
 		]
 	},
 	"Bathroom_Sink_r1": {
 		"anchor": [
-			31.0,
-			46.0
+			14,
+			40
 		]
 	},
 	"Bathroom_Sink_r2": {
 		"anchor": [
-			31.0,
-			42.0
+			14,
+			37
 		]
 	},
 	"Bathroom_Sink_r3": {
 		"anchor": [
-			30.0,
-			42.0
+			11,
+			36
 		]
 	},
 	"Bathroom_Toilet_r0": {
 		"anchor": [
-			17.0,
-			40.0
+			12,
+			33
 		]
 	},
 	"Bathroom_Toilet_r1": {
 		"anchor": [
-			24.0,
-			40.0
+			14,
+			33
 		]
 	},
 	"Bathroom_Toilet_r2": {
 		"anchor": [
-			24.0,
-			32.0
+			14,
+			26
 		]
 	},
 	"Bathroom_Toilet_r3": {
 		"anchor": [
-			17.0,
-			32.0
-		]
-	},
-	"Bathroom_WashingMachine_r0": {
-		"anchor": [
-			20.0,
-			44.0
-		]
-	},
-	"Bathroom_WashingMachine_r1": {
-		"anchor": [
-			23.0,
-			44.0
-		]
-	},
-	"Bathroom_WashingMachine_r2": {
-		"anchor": [
-			23.0,
-			43.0
-		]
-	},
-	"Bathroom_WashingMachine_r3": {
-		"anchor": [
-			20.0,
-			43.0
-		]
-	},
-	"Bed_Bunk_r0": {
-		"anchor": [
-			39.0,
-			68.0
-		]
-	},
-	"Bed_Bunk_r1": {
-		"anchor": [
-			39.0,
-			68.0
-		]
-	},
-	"Bed_Bunk_r2": {
-		"anchor": [
-			39.0,
-			68.0
-		]
-	},
-	"Bed_Bunk_r3": {
-		"anchor": [
-			39.0,
-			68.0
+			12,
+			26
 		]
 	},
 	"Bed_King_r0": {
 		"anchor": [
-			48.0,
-			45.0
+			47,
+			53
 		]
 	},
 	"Bed_King_r1": {
 		"anchor": [
-			48.0,
-			45.0
+			48,
+			53
 		]
 	},
 	"Bed_King_r2": {
 		"anchor": [
-			48.0,
-			37.0
+			48,
+			40
 		]
 	},
 	"Bed_King_r3": {
 		"anchor": [
-			48.0,
-			37.0
+			47,
+			40
 		]
 	},
 	"Bed_Single_r0": {
 		"anchor": [
-			39.0,
-			40.0
+			41,
+			48
 		]
 	},
 	"Bed_Single_r1": {
 		"anchor": [
-			39.0,
-			40.0
+			41,
+			48
 		]
 	},
 	"Bed_Single_r2": {
 		"anchor": [
-			39.0,
-			32.0
+			41,
+			43
 		]
 	},
 	"Bed_Single_r3": {
 		"anchor": [
-			39.0,
-			32.0
+			41,
+			43
 		]
 	},
 	"Bookshelf_r0": {
 		"anchor": [
-			19.0,
-			71.0
+			18,
+			61
 		]
 	},
 	"Bookshelf_r1": {
 		"anchor": [
-			19.0,
-			71.0
+			18,
+			61
 		]
 	},
 	"Bookshelf_r2": {
 		"anchor": [
-			19.0,
-			71.0
+			18,
+			61
 		]
 	},
 	"Bookshelf_r3": {
 		"anchor": [
-			19.0,
-			71.0
+			18,
+			61
 		]
 	},
 	"Carpet_1_r0": {
 		"anchor": [
-			24.0,
-			14.0
+			44,
+			25
 		]
 	},
 	"Carpet_1_r1": {
 		"anchor": [
-			24.0,
-			14.0
+			42,
+			23
 		]
 	},
 	"Carpet_1_r2": {
 		"anchor": [
-			24.0,
-			14.0
+			44,
+			23
 		]
 	},
 	"Carpet_1_r3": {
 		"anchor": [
-			24.0,
-			14.0
-		]
-	},
-	"Carpet_2_r0": {
-		"anchor": [
-			51.0,
-			26.0
-		]
-	},
-	"Carpet_2_r1": {
-		"anchor": [
-			49.0,
-			26.0
-		]
-	},
-	"Carpet_2_r2": {
-		"anchor": [
-			50.0,
-			27.0
-		]
-	},
-	"Carpet_2_r3": {
-		"anchor": [
-			51.0,
-			27.0
-		]
-	},
-	"Carpet_Round_r0": {
-		"anchor": [
-			37.0,
-			19.0
-		]
-	},
-	"Carpet_Round_r1": {
-		"anchor": [
-			37.0,
-			19.0
-		]
-	},
-	"Carpet_Round_r2": {
-		"anchor": [
-			37.0,
-			19.0
-		]
-	},
-	"Carpet_Round_r3": {
-		"anchor": [
-			37.0,
-			19.0
+			44,
+			23
 		]
 	},
 	"Chair_1_r0": {
 		"anchor": [
-			15.0,
-			33.0
+			8,
+			24
 		]
 	},
 	"Chair_1_r1": {
 		"anchor": [
-			15.0,
-			33.0
+			8,
+			24
 		]
 	},
 	"Chair_1_r2": {
 		"anchor": [
-			15.0,
-			27.0
+			8,
+			24
 		]
 	},
 	"Chair_1_r3": {
 		"anchor": [
-			15.0,
-			28.0
+			8,
+			24
 		]
 	},
 	"Chair_2_r0": {
 		"anchor": [
-			15.0,
-			33.0
+			15,
+			41
 		]
 	},
 	"Chair_2_r1": {
 		"anchor": [
-			15.0,
-			33.0
+			15,
+			41
 		]
 	},
 	"Chair_2_r2": {
 		"anchor": [
-			15.0,
-			27.0
+			13,
+			35
 		]
 	},
 	"Chair_2_r3": {
 		"anchor": [
-			15.0,
-			28.0
+			15,
+			35
 		]
 	},
 	"Chair_3_r0": {
 		"anchor": [
-			15.0,
-			33.0
+			24,
+			43
 		]
 	},
 	"Chair_3_r1": {
 		"anchor": [
-			15.0,
-			33.0
+			22,
+			43
 		]
 	},
 	"Chair_3_r2": {
 		"anchor": [
-			15.0,
-			27.0
+			22,
+			34
 		]
 	},
 	"Chair_3_r3": {
 		"anchor": [
-			15.0,
-			28.0
+			25,
+			34
 		]
 	},
-	"Coat_Rack_r0": {
+	"Clock_Tall_r0": {
 		"anchor": [
-			9.0,
-			57.0
+			14,
+			58
 		]
 	},
-	"Coat_Rack_r1": {
+	"Clock_Tall_r1": {
 		"anchor": [
-			9.0,
-			57.0
+			14,
+			58
 		]
 	},
-	"Coat_Rack_r2": {
+	"Clock_Tall_r2": {
 		"anchor": [
-			9.0,
-			57.0
+			14,
+			58
 		]
 	},
-	"Coat_Rack_r3": {
+	"Clock_Tall_r3": {
 		"anchor": [
-			9.0,
-			57.0
-		]
-	},
-	"Couch_L_r0": {
-		"anchor": [
-			21.0,
-			53.0
-		]
-	},
-	"Couch_L_r1": {
-		"anchor": [
-			52.0,
-			55.0
-		]
-	},
-	"Couch_L_r2": {
-		"anchor": [
-			52.0,
-			53.0
-		]
-	},
-	"Couch_L_r3": {
-		"anchor": [
-			52.0,
-			33.0
+			14,
+			58
 		]
 	},
 	"Couch_Large1_r0": {
 		"anchor": [
-			25.0,
-			51.0
+			34,
+			36
 		]
 	},
 	"Couch_Large1_r1": {
 		"anchor": [
-			47.0,
-			51.0
+			34,
+			36
 		]
 	},
 	"Couch_Large1_r2": {
 		"anchor": [
-			47.0,
-			37.0
+			34,
+			36
 		]
 	},
 	"Couch_Large1_r3": {
 		"anchor": [
-			44.0,
-			35.0
+			34,
+			36
 		]
 	},
 	"Couch_Medium1_r0": {
 		"anchor": [
-			36.0,
-			45.0
+			30,
+			36
 		]
 	},
 	"Couch_Medium1_r1": {
 		"anchor": [
-			37.0,
-			45.0
+			30,
+			36
 		]
 	},
 	"Couch_Medium1_r2": {
 		"anchor": [
-			37.0,
-			40.0
+			30,
+			35
 		]
 	},
 	"Couch_Medium1_r3": {
 		"anchor": [
-			36.0,
-			40.0
+			30,
+			35
 		]
 	},
 	"Couch_Small1_r0": {
 		"anchor": [
-			25.0,
-			42.0
+			24,
+			34
 		]
 	},
 	"Couch_Small1_r1": {
 		"anchor": [
-			26.0,
-			43.0
+			24,
+			34
 		]
 	},
 	"Couch_Small1_r2": {
 		"anchor": [
-			26.0,
-			37.0
+			24,
+			34
 		]
 	},
 	"Couch_Small1_r3": {
 		"anchor": [
-			25.0,
-			37.0
+			24,
+			34
 		]
 	},
 	"Desk_r0": {
 		"anchor": [
-			32.0,
-			43.0
+			27,
+			50
 		]
 	},
 	"Desk_r1": {
 		"anchor": [
-			33.0,
-			43.0
+			27,
+			47
 		]
 	},
 	"Desk_r2": {
 		"anchor": [
-			33.0,
-			43.0
+			27,
+			43
 		]
 	},
 	"Desk_r3": {
 		"anchor": [
-			32.0,
-			43.0
-		]
-	},
-	"Drawer_2_r0": {
-		"anchor": [
-			22.0,
-			38.0
-		]
-	},
-	"Drawer_2_r1": {
-		"anchor": [
-			22.0,
-			38.0
-		]
-	},
-	"Drawer_2_r2": {
-		"anchor": [
-			22.0,
-			38.0
-		]
-	},
-	"Drawer_2_r3": {
-		"anchor": [
-			22.0,
-			38.0
+			27,
+			46
 		]
 	},
 	"Drawer_4_r0": {
 		"anchor": [
-			19.0,
-			69.0
+			16,
+			58
 		]
 	},
 	"Drawer_4_r1": {
 		"anchor": [
-			19.0,
-			69.0
+			17,
+			58
 		]
 	},
 	"Drawer_4_r2": {
 		"anchor": [
-			19.0,
-			69.0
+			17,
+			57
 		]
 	},
 	"Drawer_4_r3": {
 		"anchor": [
-			19.0,
-			69.0
+			16,
+			58
+		]
+	},
+	"Exercise_Bike_r0": {
+		"anchor": [
+			17,
+			45
+		]
+	},
+	"Exercise_Bike_r1": {
+		"anchor": [
+			16,
+			56
+		]
+	},
+	"Exercise_Bike_r2": {
+		"anchor": [
+			19,
+			56
+		]
+	},
+	"Exercise_Bike_r3": {
+		"anchor": [
+			19,
+			45
+		]
+	},
+	"Game_Console_r0": {
+		"anchor": [
+			11,
+			26
+		]
+	},
+	"Game_Console_r1": {
+		"anchor": [
+			13,
+			26
+		]
+	},
+	"Game_Console_r2": {
+		"anchor": [
+			13,
+			25
+		]
+	},
+	"Game_Console_r3": {
+		"anchor": [
+			11,
+			24
+		]
+	},
+	"Guitar_r0": {
+		"anchor": [
+			23,
+			17
+		]
+	},
+	"Guitar_r1": {
+		"anchor": [
+			19,
+			17
+		]
+	},
+	"Guitar_r2": {
+		"anchor": [
+			19,
+			18
+		]
+	},
+	"Guitar_r3": {
+		"anchor": [
+			23,
+			18
 		]
 	},
 	"Houseplant_1_r0": {
 		"anchor": [
-			14.0,
-			30.0
+			8,
+			49
 		]
 	},
 	"Houseplant_1_r1": {
 		"anchor": [
-			14.0,
-			27.0
+			13,
+			48
 		]
 	},
 	"Houseplant_1_r2": {
 		"anchor": [
-			14.0,
-			30.0
+			11,
+			51
 		]
 	},
 	"Houseplant_1_r3": {
 		"anchor": [
-			14.0,
-			27.0
+			11,
+			46
 		]
 	},
 	"Houseplant_3_r0": {
 		"anchor": [
-			16.0,
-			18.0
+			6,
+			22
 		]
 	},
 	"Houseplant_3_r1": {
 		"anchor": [
-			16.0,
-			18.0
+			6,
+			22
 		]
 	},
 	"Houseplant_3_r2": {
 		"anchor": [
-			16.0,
-			18.0
+			6,
+			20
 		]
 	},
 	"Houseplant_3_r3": {
 		"anchor": [
-			16.0,
-			18.0
-		]
-	},
-	"Houseplant_5_r0": {
-		"anchor": [
-			19.0,
-			19.0
-		]
-	},
-	"Houseplant_5_r1": {
-		"anchor": [
-			19.0,
-			19.0
-		]
-	},
-	"Houseplant_5_r2": {
-		"anchor": [
-			19.0,
-			19.0
-		]
-	},
-	"Houseplant_5_r3": {
-		"anchor": [
-			19.0,
-			19.0
+			8,
+			18
 		]
 	},
 	"Houseplant_7_r0": {
 		"anchor": [
-			25.0,
-			30.0
+			16,
+			82
 		]
 	},
 	"Houseplant_7_r1": {
 		"anchor": [
-			18.0,
-			33.0
+			23,
+			82
 		]
 	},
 	"Houseplant_7_r2": {
 		"anchor": [
-			25.0,
-			26.0
+			20,
+			72
 		]
 	},
 	"Houseplant_7_r3": {
 		"anchor": [
-			18.0,
-			33.0
+			15,
+			73
 		]
 	},
 	"Kitchen_2Drawers_r0": {
 		"anchor": [
-			31.0,
-			37.0
+			15,
+			27
 		]
 	},
 	"Kitchen_2Drawers_r1": {
 		"anchor": [
-			31.0,
-			37.0
+			18,
+			27
 		]
 	},
 	"Kitchen_2Drawers_r2": {
 		"anchor": [
-			31.0,
-			37.0
+			18,
+			26
 		]
 	},
 	"Kitchen_2Drawers_r3": {
 		"anchor": [
-			31.0,
-			37.0
+			15,
+			26
 		]
 	},
 	"Kitchen_3Drawers_r0": {
 		"anchor": [
-			31.0,
-			37.0
+			15,
+			27
 		]
 	},
 	"Kitchen_3Drawers_r1": {
 		"anchor": [
-			31.0,
-			37.0
+			18,
+			27
 		]
 	},
 	"Kitchen_3Drawers_r2": {
 		"anchor": [
-			31.0,
-			37.0
+			18,
+			26
 		]
 	},
 	"Kitchen_3Drawers_r3": {
 		"anchor": [
-			31.0,
-			37.0
+			15,
+			26
 		]
 	},
 	"Kitchen_Cabinet1_r0": {
 		"anchor": [
-			22.0,
-			33.0
+			11,
+			26
 		]
 	},
 	"Kitchen_Cabinet1_r1": {
 		"anchor": [
-			22.0,
-			33.0
+			13,
+			26
 		]
 	},
 	"Kitchen_Cabinet1_r2": {
 		"anchor": [
-			22.0,
-			33.0
+			13,
+			25
 		]
 	},
 	"Kitchen_Cabinet1_r3": {
 		"anchor": [
-			22.0,
-			33.0
+			11,
+			24
 		]
 	},
 	"Kitchen_Fridge_r0": {
 		"anchor": [
-			24,
-			65
+			15,
+			55
 		]
 	},
 	"Kitchen_Fridge_r1": {
 		"anchor": [
-			27,
-			65
+			18,
+			55
 		]
 	},
 	"Kitchen_Fridge_r2": {
 		"anchor": [
-			26,
-			63
+			18,
+			53
 		]
 	},
 	"Kitchen_Fridge_r3": {
 		"anchor": [
-			23,
-			63
+			15,
+			53
 		]
 	},
 	"Kitchen_Oven_r0": {
 		"anchor": [
-			29.0,
-			43.0
+			15,
+			36
 		]
 	},
 	"Kitchen_Oven_r1": {
 		"anchor": [
-			32.0,
-			43.0
+			18,
+			36
 		]
 	},
 	"Kitchen_Oven_r2": {
 		"anchor": [
-			32.0,
-			36.0
+			18,
+			36
 		]
 	},
 	"Kitchen_Oven_r3": {
 		"anchor": [
-			29.0,
-			36.0
+			15,
+			36
 		]
 	},
 	"Kitchen_Sink_r0": {
 		"anchor": [
-			31.0,
-			41.0
+			20,
+			39
 		]
 	},
 	"Kitchen_Sink_r1": {
 		"anchor": [
-			31.0,
-			41.0
+			22,
+			39
 		]
 	},
 	"Kitchen_Sink_r2": {
 		"anchor": [
-			31.0,
-			37.0
+			22,
+			38
 		]
 	},
 	"Kitchen_Sink_r3": {
 		"anchor": [
-			31.0,
-			37.0
+			20,
+			38
 		]
 	},
 	"Light_Floor1_r0": {
 		"anchor": [
-			7.0,
-			59.0
+			9,
+			51
 		]
 	},
 	"Light_Floor1_r1": {
 		"anchor": [
-			7.0,
-			59.0
+			9,
+			51
 		]
 	},
 	"Light_Floor1_r2": {
 		"anchor": [
-			7.0,
-			59.0
+			9,
+			51
 		]
 	},
 	"Light_Floor1_r3": {
 		"anchor": [
-			7.0,
-			59.0
-		]
-	},
-	"Light_Floor3_r0": {
-		"anchor": [
-			7.0,
-			64.0
-		]
-	},
-	"Light_Floor3_r1": {
-		"anchor": [
-			7.0,
-			64.0
-		]
-	},
-	"Light_Floor3_r2": {
-		"anchor": [
-			7.0,
-			64.0
-		]
-	},
-	"Light_Floor3_r3": {
-		"anchor": [
-			7.0,
-			64.0
-		]
-	},
-	"Light_Stand1_r0": {
-		"anchor": [
-			22.0,
-			51.0
-		]
-	},
-	"Light_Stand1_r1": {
-		"anchor": [
-			22.0,
-			51.0
-		]
-	},
-	"Light_Stand1_r2": {
-		"anchor": [
-			22.0,
-			51.0
-		]
-	},
-	"Light_Stand1_r3": {
-		"anchor": [
-			22.0,
-			51.0
-		]
-	},
-	"Light_Stand2_r0": {
-		"anchor": [
-			22.0,
-			52.0
-		]
-	},
-	"Light_Stand2_r1": {
-		"anchor": [
-			22.0,
-			52.0
-		]
-	},
-	"Light_Stand2_r2": {
-		"anchor": [
-			22.0,
-			52.0
-		]
-	},
-	"Light_Stand2_r3": {
-		"anchor": [
-			22.0,
-			52.0
+			9,
+			51
 		]
 	},
 	"NightStand_1_r0": {
 		"anchor": [
-			14.0,
-			26.0
+			11,
+			25
 		]
 	},
 	"NightStand_1_r1": {
 		"anchor": [
-			14.0,
-			26.0
+			13,
+			25
 		]
 	},
 	"NightStand_1_r2": {
 		"anchor": [
-			14.0,
-			26.0
+			13,
+			24
 		]
 	},
 	"NightStand_1_r3": {
 		"anchor": [
-			14.0,
-			26.0
-		]
-	},
-	"NightStand_2_r0": {
-		"anchor": [
-			14.0,
-			26.0
-		]
-	},
-	"NightStand_2_r1": {
-		"anchor": [
-			14.0,
-			26.0
-		]
-	},
-	"NightStand_2_r2": {
-		"anchor": [
-			14.0,
-			26.0
-		]
-	},
-	"NightStand_2_r3": {
-		"anchor": [
-			14.0,
-			26.0
-		]
-	},
-	"Radio_r0": {
-		"anchor": [
-			22.0,
-			47.0
-		]
-	},
-	"Radio_r1": {
-		"anchor": [
-			22.0,
-			46.0
-		]
-	},
-	"Radio_r2": {
-		"anchor": [
-			22.0,
-			46.0
-		]
-	},
-	"Radio_r3": {
-		"anchor": [
-			22.0,
-			48.0
-		]
-	},
-	"Shelf_Large_r0": {
-		"anchor": [
-			30.0,
-			70.0
-		]
-	},
-	"Shelf_Large_r1": {
-		"anchor": [
-			30.0,
-			71.0
-		]
-	},
-	"Shelf_Large_r2": {
-		"anchor": [
-			30.0,
-			70.0
-		]
-	},
-	"Shelf_Large_r3": {
-		"anchor": [
-			30.0,
-			71.0
+			11,
+			24
 		]
 	},
 	"Shelf_Small1_r0": {
 		"anchor": [
-			19.0,
-			38.0
+			19,
+			27
 		]
 	},
 	"Shelf_Small1_r1": {
 		"anchor": [
-			19.0,
-			37.0
+			20,
+			22
 		]
 	},
 	"Shelf_Small1_r2": {
 		"anchor": [
-			19.0,
-			38.0
+			19,
+			23
 		]
 	},
 	"Shelf_Small1_r3": {
 		"anchor": [
-			19.0,
-			37.0
-		]
-	},
-	"Stool_r0": {
-		"anchor": [
-			11.0,
-			35.0
-		]
-	},
-	"Stool_r1": {
-		"anchor": [
-			11.0,
-			35.0
-		]
-	},
-	"Stool_r2": {
-		"anchor": [
-			11.0,
-			35.0
-		]
-	},
-	"Stool_r3": {
-		"anchor": [
-			11.0,
-			35.0
+			19,
+			27
 		]
 	},
 	"TV_r0": {
 		"anchor": [
-			30.0,
-			64.0
+			14,
+			45
 		]
 	},
 	"TV_r1": {
 		"anchor": [
-			30.0,
-			64.0
+			16,
+			42
 		]
 	},
 	"TV_r2": {
 		"anchor": [
-			30.0,
-			64.0
+			13,
+			38
 		]
 	},
 	"TV_r3": {
 		"anchor": [
-			30.0,
-			64.0
+			15,
+			41
 		]
 	},
 	"Table_Coffee_r0": {
 		"anchor": [
-			31.0,
-			32.0
+			16,
+			22
 		]
 	},
 	"Table_Coffee_r1": {
 		"anchor": [
-			31.0,
-			32.0
+			16,
+			22
 		]
 	},
 	"Table_Coffee_r2": {
 		"anchor": [
-			31.0,
-			32.0
+			16,
+			22
 		]
 	},
 	"Table_Coffee_r3": {
 		"anchor": [
-			31.0,
-			32.0
+			16,
+			22
 		]
 	},
 	"Table_RoundLarge_r0": {
 		"anchor": [
-			35.0,
-			39.0
+			32,
+			41
 		]
 	},
 	"Table_RoundLarge_r1": {
 		"anchor": [
-			35.0,
-			39.0
+			32,
+			41
 		]
 	},
 	"Table_RoundLarge_r2": {
 		"anchor": [
-			35.0,
-			39.0
+			32,
+			41
 		]
 	},
 	"Table_RoundLarge_r3": {
 		"anchor": [
-			35.0,
-			39.0
+			32,
+			41
 		]
 	},
 	"Table_RoundSmall_r0": {
 		"anchor": [
-			26.0,
-			34.0
+			17,
+			33
 		]
 	},
 	"Table_RoundSmall_r1": {
 		"anchor": [
-			26.0,
-			34.0
+			17,
+			33
 		]
 	},
 	"Table_RoundSmall_r2": {
 		"anchor": [
-			26.0,
-			34.0
+			17,
+			33
 		]
 	},
 	"Table_RoundSmall_r3": {
 		"anchor": [
-			26.0,
-			34.0
+			17,
+			33
 		]
 	},
-	"Teddy_r0": {
+	"Toy_Car_r0": {
 		"anchor": [
-			12.0,
-			42.0
+			11,
+			12
 		]
 	},
-	"Teddy_r1": {
+	"Toy_Car_r1": {
 		"anchor": [
-			22.0,
-			42.0
+			11,
+			14
 		]
 	},
-	"Teddy_r2": {
+	"Toy_Car_r2": {
 		"anchor": [
-			22.0,
-			35.0
+			11,
+			14
 		]
 	},
-	"Teddy_r3": {
+	"Toy_Car_r3": {
 		"anchor": [
-			12.0,
-			35.0
-		]
-	},
-	"Trashcan_Large_r0": {
-		"anchor": [
-			13.0,
-			31.0
-		]
-	},
-	"Trashcan_Large_r1": {
-		"anchor": [
-			13.0,
-			31.0
-		]
-	},
-	"Trashcan_Large_r2": {
-		"anchor": [
-			13.0,
-			31.0
-		]
-	},
-	"Trashcan_Large_r3": {
-		"anchor": [
-			13.0,
-			31.0
-		]
-	},
-	"Trashcan_Small1_r0": {
-		"anchor": [
-			11.0,
-			23.0
-		]
-	},
-	"Trashcan_Small1_r1": {
-		"anchor": [
-			11.0,
-			23.0
-		]
-	},
-	"Trashcan_Small1_r2": {
-		"anchor": [
-			11.0,
-			23.0
-		]
-	},
-	"Trashcan_Small1_r3": {
-		"anchor": [
-			11.0,
-			23.0
+			11,
+			12
 		]
 	}
 }

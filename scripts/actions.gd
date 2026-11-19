@@ -45,6 +45,7 @@ const ACTIONS := {
 		{"name": "Read a textbook", "verb": "Reading", "minutes": 45.0, "ads": {"fun": 25}, "skill": "Logic", "moodlet": "Learned something"},
 		{"name": "Read a novel", "verb": "Reading a novel", "minutes": 60.0, "ads": {"fun": 45}},
 		{"name": "Read a cookbook", "verb": "Reading a cookbook", "minutes": 30.0, "ads": {"fun": 15}, "skill": "Cooking"},
+		{"name": "Read a medical journal", "verb": "Reading a medical journal", "minutes": 40.0, "ads": {"fun": 10}, "skill": "Medicine", "moodlet": "Learned something"},
 	],
 	"Fireplace": [
 		{"name": "Relax by the fire", "verb": "Relaxing by the fire", "minutes": 30.0, "ads": {"fun": 25, "social": 5}},
@@ -54,7 +55,7 @@ const ACTIONS := {
 		{"name": "Sit on the bench", "verb": "Sitting on the bench", "minutes": 15.0, "ads": {"fun": 25}},
 	],
 	"Nightstand": [
-		{"name": "Write in a diary", "verb": "Writing in a diary", "minutes": 20.0, "ads": {"fun": 15}},
+		{"name": "Write in a diary", "verb": "Writing in a diary", "minutes": 20.0, "ads": {"fun": 15}, "skill": "Creativity"},
 		{"name": "Put on hand cream", "verb": "Putting on hand cream", "minutes": 2.0, "ads": {"hygiene": 5}},
 	],
 	"Coffee table": [
@@ -64,6 +65,9 @@ const ACTIONS := {
 	"Desk": [
 		{"name": "Study", "verb": "Studying", "minutes": 45.0, "ads": {"fun": 5}, "skill": "Logic", "moodlet": "Learned something"},
 		{"name": "Write jokes", "verb": "Writing jokes", "minutes": 30.0, "ads": {"fun": 15}, "skill": "Comedy"},
+		{"name": "Sketch designs", "verb": "Sketching designs", "minutes": 30.0, "ads": {"fun": 20}, "skill": "Creativity"},
+		{"name": "Tinker with a gadget", "verb": "Tinkering with a gadget", "minutes": 30.0, "ads": {"fun": 15}, "skill": "Handiness"},
+		{"name": "Practise first aid", "verb": "Practising first aid", "minutes": 30.0, "ads": {"fun": 5}, "skill": "Medicine", "moodlet": "Learned something"},
 	],
 	"Kitchen cabinet": [
 		{"name": "Grab a snack", "verb": "Snacking", "minutes": 3.0, "ads": {"hunger": 15}},
@@ -75,6 +79,7 @@ const ACTIONS := {
 	],
 	"Washing machine": [
 		{"name": "Do the laundry", "verb": "Doing the laundry", "minutes": 20.0, "ads": {"hygiene": 20, "fun": -3}},
+		{"name": "Fix the washing machine", "verb": "Fixing the washing machine", "minutes": 20.0, "ads": {"fun": 8}, "skill": "Handiness"},
 	],
 	"Lamp": [
 		{"name": "Read under the lamp", "verb": "Reading under the lamp", "minutes": 30.0, "ads": {"fun": 20}, "skill": "Logic"},

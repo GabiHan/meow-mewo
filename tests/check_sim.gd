@@ -195,9 +195,9 @@ func check_time() -> void:
 	var spring_at := func(h: float) -> Color: return GameTime.tint(GameTime.game_seconds((h - 8.0) * 60.0), false)
 	var morning: Color = spring_at.call(8.0)
 	var sunset: Color = spring_at.call(20.0)
-	check(morning.b > morning.r and spring_at.call(15.0) == Color.WHITE and sunset.r > sunset.b and sunset.r > 0.9
+	check(morning != Color.WHITE and morning.r >= morning.b and spring_at.call(15.0) == Color.WHITE and sunset.r > sunset.b and sunset.r > 0.9
 		and spring_at.call(23.0).v < 0.7 and GameTime.tint(GameTime.game_seconds(0.0), true) == Color.WHITE,
-		"outside: blue morning, bright afternoon, sunset at dusk, dark night; indoors stays untinted by day")
+		"outside: soft warm morning, bright afternoon, sunset at dusk, dark night; indoors stays untinted by day")
 	for season_name in GameTime.SEASONS:
 		var keys: Array = GameTime.sky_keys(season_name)
 		var ordered := true
@@ -1314,6 +1314,73 @@ func check_commute() -> void:
 
 
 # Jobs, shifts, pay, performance, promotion, prices and bills.
+# The 20 careers (2026-11-19): complete rows, real skills you can practise at home, places in the texts.
+func check_careers() -> void:
+	const Actions = preload("res://scripts/actions.gd")
+	var careers := ["Nurse practitioner", "Physician assistant", "Physical therapist assistant", "Health services manager",
+		"Mental health counselor", "Software developer", "Data scientist", "Information security analyst", "UX/UI designer",
+		"Operations research analyst", "Accountant", "Financial manager", "Civil engineer", "Solar PV installer",
+		"Wind turbine technician", "Commercial pilot", "Teacher", "Graphic designer", "Writer / editor", "Event planner"]
+	var bad := careers.filter(func(n): return not Jobs.JOBS.has(n) or Jobs.JOBS[n].levels.size() != 3 or Jobs.JOBS[n].get("about", "") == "" \
+		or not Skills.SKILLS.has(Jobs.JOBS[n].skill) or Jobs.JOBS[n].end <= Jobs.JOBS[n].start)
+	check(bad.is_empty(), "careers: all 20 are there with 3 levels, a description, hours and a real skill %s" % [bad])
+	var practised := {}
+	for obj in Actions.ACTIONS:
+		for action in Actions.ACTIONS[obj]:
+			practised[action.get("skill", "")] = true
+	var unpractised := ["Medicine", "Creativity", "Handiness"].filter(func(k): return not practised.has(k))
+	check(unpractised.is_empty(), "careers: Medicine, Creativity and Handiness can be practised at home %s" % [unpractised])
+	check(Jobs.place("Nurse practitioner") == "Clinic" and Jobs.place("Café") == "Café"
+		and Jobs.title_at("Nurse practitioner", 0) == "Registered nurse at the Clinic",
+		"careers: a nurse works at the Clinic (%s)" % Jobs.title_at("Nurse practitioner", 0))
+	check(Jobs.fields().size() >= 5 and "Tech" in Jobs.fields() and "Health and care" in Jobs.fields(), "careers: the Bus stop lists them by field %s" % [Jobs.fields()])
+	var riley := person("Riley")
+	var job: String = riley.job
+	var level: int = riley.job_level
+	riley.job = ""
+	Jobs.find_work(riley)
+	var first: String = riley.job
+	riley.job = ""
+	Jobs.find_work(riley)
+	var top := 0
+	for name in Jobs.JOBS:
+		if not Jobs.is_school(name) and Jobs.missing(riley, name).is_empty():
+			top = maxi(top, Skills.level(riley, Jobs.JOBS[name].skill))
+	check(first != "" and riley.job == first and Skills.level(riley, Jobs.JOBS[first].skill) == top,
+		"careers: an unemployed NPC takes a job of their best skill, always the same one (Riley: %s, %s %d)" % [first, Jobs.JOBS[first].skill, top])
+	riley.job = job
+	riley.job_level = level
+
+	# Getting hired needs the right things, like in real life.
+	var nurse := Jobs.JOBS["Nurse practitioner"]
+	var degree: bool = player.degree
+	var medicine: float = player.skills.get("Medicine", 0.0)
+	player.degree = false
+	Skills.set_level(player, "Medicine", 1)
+	var lacks: Array = Jobs.missing(player, "Nurse practitioner")
+	check(not Jobs.can_take(player, "Nurse practitioner") and lacks.size() == 2 and lacks[0] == "a degree" and lacks[1] == "Medicine 3 (you: 1)"
+		and Jobs.can_take(player, "Café") and Jobs.can_take(player, "Office") and Jobs.requirements_text("Café") == "",
+		"hiring: no degree and Medicine 1: the Clinic won't take you (%s); the Café and the Office take anyone" % [lacks])
+	player.degree = true
+	Skills.set_level(player, "Medicine", nurse.needs.Medicine)
+	check(Jobs.can_take(player, "Nurse practitioner") and Jobs.requirements_text("Nurse practitioner") == "Needs: a degree, Medicine 3",
+		"hiring: with a degree and Medicine 3 you can be a nurse")
+	var before_job: String = player.job
+	var before_level: int = player.job_level
+	Jobs.take_job(player, "Nurse practitioner")
+	check(player.job_level == 0 and Jobs.title(player) == "Registered nurse",
+		"hiring: where a degree is required it gets you in, not a level up (%s)" % Jobs.title(player))
+	Jobs.take_job(player, "Café")
+	check(player.job_level == 1, "hiring: elsewhere a degree still starts you one level up (%s)" % Jobs.title(player))
+	player.job = before_job
+	player.job_level = before_level
+	player.degree = degree
+	player.skills["Medicine"] = medicine
+	var picky := Jobs.JOBS.keys().filter(func(n): return not Jobs.is_school(n) and (Jobs.JOBS[n].has("needs") or Jobs.JOBS[n].get("degree", false)))
+	check(picky.size() >= 20 and Jobs.JOBS.keys().any(func(n): return not Jobs.is_school(n) and Jobs.requirements_text(n) == ""),
+		"hiring: %d jobs have requirements, and some take anyone" % picky.size())
+
+
 func check_jobs() -> void:
 	var w: Node2D = main.world
 	reset(player, Vector2(488, 504))
@@ -1324,6 +1391,7 @@ func check_jobs() -> void:
 	set_time(15, 6.0)  # a Tuesday morning, before work
 	Jobs.take_job(player, "Café")
 	check(player.job == "Café" and Jobs.title(player) == "Barista" and Jobs.hourly(player) == 15, "you can take a job: Barista at the Café")
+	check_careers()
 
 	set_time(15, 8.2)
 	player._process(0.0)
@@ -1873,8 +1941,10 @@ func open_layout() -> void:
 func check_layout() -> void:
 	const Settings = preload("res://scripts/settings.gd")
 	var hud: CanvasLayer = main.hud
-	for size in [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(1280, 1024)]:
+	const WindowKeys = preload("res://scripts/window_keys.gd")
+	for size in [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(1280, 1024), Vector2i(1440, 900), Vector2i(2560, 1080), Vector2i(1000, 600)]:
 		root.size = size
+		root.content_scale_size = WindowKeys.ui_size(Vector2(size))  # what window_keys.gd does with a window
 		for n in 3:  # sizes settle over a couple of passes
 			hud.layout()
 		var screen: Vector2 = hud.get_viewport().get_visible_rect().size
@@ -1892,6 +1962,11 @@ func check_layout() -> void:
 					clashes.append("%s / %s" % [names[i], names[j]])
 		check(clashes.is_empty() and names.size() >= 10, "layout: at %dx%d, %d panels open, nothing overlaps %s" % [size.x, size.y, names.size(), clashes])
 	root.size = Vector2i(1280, 720)
+	root.content_scale_size = Vector2i(1280, 720)
+	check(is_equal_approx(WindowKeys.ui_scale(Vector2(1920, 1080)), 1.2) and WindowKeys.ui_size(Vector2(1920, 1080)) == Vector2i(1600, 900)
+		and WindowKeys.ui_scale(Vector2(1280, 720)) == 1.0 and is_equal_approx(WindowKeys.ui_scale(Vector2(2560, 1440)), 1.6)
+		and WindowKeys.ui_size(Vector2(1000, 600)).x >= 1280 and WindowKeys.ui_size(Vector2(1000, 600)).y >= 720,
+		"UI size: ×1.2 on a 1080p screen (1600×900 of room), ×1 at 1280×720, ×1.6 at 1440p, and always at least 1280×720 of room")
 	hud.talk.close()
 	hud.toggle_relationships()
 	hud.set_today(false)
@@ -1910,6 +1985,8 @@ func check_layout() -> void:
 		"fullscreen: F11 and Alt+Enter toggle it, a plain F doesn't")
 	check(ProjectSettings.get_setting("display/window/stretch/mode") == "canvas_items" and ProjectSettings.get_setting("display/window/stretch/aspect") == "expand",
 		"fullscreen: the UI scales with the window and keeps at least 1280x720 of room")
+	check(Settings.DEFAULTS.fullscreen and ProjectSettings.get_setting("display/window/size/mode") == DisplayServer.WINDOW_MODE_FULLSCREEN,
+		"fullscreen: the game opens fullscreen (until you turn it off in Settings or with F11)")
 
 
 # Seeing like your sim (vision.gd): walls, the cone, the dark, lamps, fog.

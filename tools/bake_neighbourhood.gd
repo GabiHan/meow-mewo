@@ -30,8 +30,8 @@ const ROAD_SRC := "res://assets/kenney/roads/Models/GLB format/%s.glb"
 const CAR_SRC := "res://assets/kenney/cars/Models/GLB format/%s.glb"
 const ROAD_SCALE := 3.0  # metres per kit tile: the game's roads are 3 tiles wide (world.gd ROAD_WIDTH)
 const ROADS := {"road_straight_y": ["road-straight", 0.0], "road_straight_x": ["road-straight", PI / 2.0], "road_crossroad": ["road-crossroad", 0.0]}
-const ROAD_DARK := Color(0.69, 0.66, 0.77)  # asphalt
-const ROAD_LIGHT := Color(0.97, 0.96, 0.99)  # pavements and lines
+const ROAD_DARK := Color("#c8b5b1")  # asphalt: warm greige (world.gd terrain_color)
+const ROAD_LIGHT := Color("#fffaf6")  # pavements and lines: cream
 const CAR_SCALE := 0.85  # metres per kit unit: a car is about 1.3 m wide and 2.2 m long
 const CARS := ["sedan", "suv", "taxi", "van", "hatchback-sports", "police", "delivery"]
 const SOFTEN := 0.12  # cars: their own colours, lifted a little towards white (like furniture)
@@ -39,7 +39,7 @@ const SOFTEN := 0.12  # cars: their own colours, lifted a little towards white (
 const ROOF := Rect2i(256, 512, 128, 256)
 const WALL := Rect2i(384, 0, 128, 256)
 const LEAF := [Rect2i(128, 256, 128, 256)]
-const SNOW := Color(0.98, 0.98, 1.0)  # world.gd SNOW_ROOF_COLOR
+const SNOW := Color("#fffaf6")  # world.gd SNOW_ROOF_COLOR
 
 var viewport: SubViewport
 var holder: Node3D

@@ -16,15 +16,16 @@ const SUN := {"Spring": [6.0, 20.0], "Summer": [5.5, 21.5], "Fall": [7.0, 19.0],
 const TWILIGHT_HOURS := 1.0  # dawn and dusk fade over this long, centred on sunrise/sunset
 
 # Screen tint (CanvasModulate). The HUD is never tinted.
-# Indoors keeps the palette: no tint by day, soft pink lamplight at night.
-const INDOOR_NIGHT_TINT := Color(0.953, 0.868, 0.896)
-# Outdoors follows the sky (keyframes in sky_keys(), placed around the season's sunrise and sunset):
-# deep night -> pink-lilac dawn -> cool blue morning -> bright afternoon -> golden hour -> sunset -> violet dusk.
+# Indoors keeps the palette: no tint by day, warm peach lamplight at night.
+const INDOOR_NIGHT_TINT := Color(1.0, 0.88, 0.8)
+# Outdoors follows the sky (keyframes in sky_keys(), placed around the season's sunrise and sunset), in the UI's
+# colours: plum night (DUSK) -> peach-pink dawn -> soft morning -> bright afternoon -> golden hour -> sunset ->
+# lilac dusk (the UI turns to DUSK at sunset too).
 const SKY := {
-	"night": Color(0.36, 0.38, 0.62),
-	"dawn": Color(0.86, 0.76, 0.9),
-	"morning": Color(0.8, 0.87, 1.0),
-	"late_morning": Color(0.92, 0.95, 1.0),
+	"night": Color(0.42, 0.35, 0.6),
+	"dawn": Color(0.98, 0.8, 0.82),
+	"morning": Color(0.98, 0.94, 0.95),
+	"late_morning": Color(1.0, 0.98, 0.97),
 	"afternoon": Color.WHITE,
 	"golden": Color(1.0, 0.84, 0.68),
 	"sunset": Color(1.0, 0.72, 0.76),
@@ -32,11 +33,13 @@ const SKY := {
 }
 
 # Season colours for terrain and trees (world.gd).
-# Palette shades (ui_theme.gd): the ground is blue-lavender, changing gently with the seasons.
-const GRASS := {"Spring": Color("#d0dbef"), "Summer": Color("#c9def4"),
-	"Fall": Color("#e6d2df"), "Winter": Color(0.931, 0.931, 0.961)}
-const LEAVES := {"Spring": Color(0.884, 0.736, 0.765), "Summer": Color(0.821, 0.714, 0.749),  # blossom pinks
-	"Fall": Color(0.767, 0.700, 0.743), "Winter": Color(0.924, 0.924, 0.957)}
+# The UI's candy colours, softened (ui_theme.gd DAY): leaf-green grass, butter-peach in the fall, cream snow.
+# Leaves: petal blossom in spring, leaf in summer, peach in the fall, snow in winter. Trees are baked with these
+# (tools/bake_neighbourhood.gd): re-bake after changing LEAVES.
+const GRASS := {"Spring": Color("#dcedc8"), "Summer": Color("#d2e8b9"),
+	"Fall": Color("#f5e2c0"), "Winter": Color("#f8f2ef")}
+const LEAVES := {"Spring": Color("#f4bfc4"), "Summer": Color("#acd693"),
+	"Fall": Color("#f2b58c"), "Winter": Color("#f7f1f1")}
 
 
 static func game_seconds(clock: float) -> float:

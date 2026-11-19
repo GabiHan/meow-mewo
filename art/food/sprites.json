@@ -1,0 +1,74 @@
+{
+	"Dish_cup": {
+		"anchor": [
+			5,
+			5
+		]
+	},
+	"Dish_plate": {
+		"anchor": [
+			10,
+			6
+		]
+	},
+	"Drink_Coffee": {
+		"anchor": [
+			5,
+			11
+		]
+	},
+	"Drink_Juice": {
+		"anchor": [
+			4,
+			9
+		]
+	},
+	"Drink_Milk": {
+		"anchor": [
+			2,
+			10
+		]
+	},
+	"Drink_Soda": {
+		"anchor": [
+			5,
+			16
+		]
+	},
+	"Drink_Water": {
+		"anchor": [
+			4,
+			8
+		]
+	},
+	"Food_Omelette": {
+		"anchor": [
+			10,
+			6
+		]
+	},
+	"Food_Pasta": {
+		"anchor": [
+			9,
+			6
+		]
+	},
+	"Food_Salad": {
+		"anchor": [
+			7,
+			9
+		]
+	},
+	"Food_Sandwich": {
+		"anchor": [
+			10,
+			6
+		]
+	},
+	"Food_Soup": {
+		"anchor": [
+			7,
+			9
+		]
+	}
+}

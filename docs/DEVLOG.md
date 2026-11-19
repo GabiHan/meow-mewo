@@ -2,6 +2,41 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-11-19 — Getting hired needs qualifications
+- Jobs have hiring requirements (`degree`, `needs` {skill: level} in `jobs.gd JOBS`; table in docs/WORK.md "Getting
+  hired"): e.g. Nurse practitioner a degree + Medicine 3, Commercial pilot Handiness 3 + Logic 2. Café, Office, Gym
+  and Comedy club take anyone. `Jobs.missing()` lists what's lacking, `can_take()` checks it, `find_work()` only
+  looks at jobs that would hire the NPC. The Bus stop greys those out with "· needs …" and a tooltip.
+- Where a degree is required it doesn't also give the one-level head start (it still does elsewhere).
+- Tests: the "hiring:" checks in `check_careers()`.
+
+## 2026-11-19 — The world in the UI's colours
+- The world was cold blue-lavender while the UI is warm Cozy Paws. Now: leaf-green grass (butter-peach in fall,
+  cream snow), petal/leaf/peach trees, candy houses (petal, sky, leaf, butter roofs), warm greige roads, cream walls
+  and peach floors, a dusty rose-lilac veil by day and plum at night (the dusk UI), warm mornings and peach lamplight,
+  and a soft sky → cream → petal backdrop (also the home screen). Houses, trees and roads re-baked.
+- The daylight check now expects a soft warm morning instead of a blue one. Colour table: README "The look".
+
+## 2026-11-19 — UI size suits the screen
+- The UI was stretched to fill the window as if it were 1280×720 (×1.5 on a 1080p screen: too big). Now
+  `window_keys.gd fit_ui()` sets the window's `content_scale_size` whenever it changes size: scale = height / 900
+  (`REFERENCE_HEIGHT`), at least ×1 and never less room than 1280×720 (`MIN_UI_SIZE`). 1080p → ×1.2 (1600×900).
+- `check_layout()` now also checks 1440×900, 2560×1080 and a 1000×600 window, with the sizes window_keys.gd picks.
+
+## 2026-11-19 — Twenty new careers
+- `jobs.gd JOBS` has 20 more careers (Nurse practitioner … Event planner, table in docs/WORK.md), each with a
+  `field`, a `place` (Clinic, Tech company, Airfield…), an `about` line and 3 levels. The Bus stop lists jobs by field
+  with the description as a tooltip, College under *Study*. Texts use `Jobs.place()` / `Jobs.title_at()`.
+- New skills **Medicine**, **Creativity**, **Handiness** (skills.gd), practised at home: Bookshelf "Read a medical
+  journal", Desk "Sketch designs" / "Tinker with a gadget" / "Practise first aid", Washing machine "Fix the washing
+  machine"; "Write in a diary" now trains Creativity (the Writing hobby's skill).
+- `find_work`: among equally good jobs, each NPC picks by a hash of their name (no `randf`, seeded runs unchanged).
+- Tests: `check_careers()`.
+
+## 2026-11-19 — Opens fullscreen
+- The game now opens fullscreen: `window/size/mode=3` in project.godot (no windowed flash) and `fullscreen` on by
+  default in settings.gd. Turning it off (Settings or F11) is remembered in user://settings.cfg.
+
 ## 2026-11-18 — Fullscreen key, a HUD where nothing overlaps, the AI directs NPCs
 - **Fullscreen:** F11, Alt+Enter or Ctrl+Cmd+F on any screen (`window_keys.gd` at /root/WindowKeys, made by
   `Settings.ensure_keys()` from music.gd); still in Settings too. The window now scales the UI

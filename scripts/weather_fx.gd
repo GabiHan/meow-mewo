@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const DROPS := 160
 const RAIN_COLOR := Color(0.62, 0.68, 0.92, 0.45)  # periwinkle streaks (ui_theme.gd ACCENTS, softened)
-const FOG_HAZE := Color(0.97, 0.97, 1.0, 0.28)
+const FOG_HAZE := Color(1.0, 0.97, 0.95, 0.28)  # cream
 
 var world: Node2D
 var canvas: Control

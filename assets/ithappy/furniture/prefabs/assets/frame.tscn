@@ -1,0 +1,47 @@
+[gd_scene format=4 uid="uid://dflxmnoo1e4mu"]
+
+[ext_resource type="Material" uid="uid://bab12qs6ni7qb" path="res://assets/ithappy/furniture/materials/frame.tres" id="1_dxolo"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8vd4u"]
+resource_name = "Frame"
+cull_mode = 2
+albedo_color = Color(0.9063318, 0.9063318, 0.9063318, 1)
+roughness = 0.5
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_mmqwc"]
+_surfaces = [{
+"aabb": AABB(-6.8335447, 0, -5.570751, 14.447299, 1e-05, 9.032734),
+"format": 34896613377,
+"index_count": 48,
+"index_data": PackedByteArray("AAABAAIAAgABAAMAAAAEAAEAAgADAAUABgAEAAAABQADAAcABgAHAAQABQAHAAYACAAJAAoACAALAAkADAANAA4ADAAPAA0AEAARABIAEAATABEAFAAVABYAFAAXABUA"),
+"name": "Frame",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("AgQAAJX5AAAAAAAAAAAAAAIEAABpBgAA//8AAAAAAAAAAAAA//8AAPz7AABpBgAA/PsAAJX5AAD//wAA//8AAPz7AAC5YwAAAgQAACNqAAACBAAAuWMAAPz7AAAjagAA/PsAALCcAAACBAAAGaMAAAIEAACwnAAA/PsAABmjAAD8+wAAK8YAAAIEAACVzAAAAgQAACvGAAD8+wAAlcwAAIdYAACV+QAAhFQAAJXMAACHWAAAlcwAAIRUAACV+QAA")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ksbvb"]
+resource_name = "frame_frame_mesh"
+_surfaces = [{
+"aabb": AABB(-6.8335447, 0, -5.570751, 14.447299, 1e-05, 9.032734),
+"attribute_data": PackedByteArray("ygU0+gAAAADKBcoF//8AAAAA//80+soFNPo0+v////80+jT6AAD//8oFNPr/////NPo0+gAA///KBTT6/////zT6NPoAAP//ygU0+v////80+jT6AAD//8oFNPr/////"),
+"format": 34896613399,
+"index_count": 48,
+"index_data": PackedByteArray("AAABAAIAAgABAAMAAAAEAAEAAgADAAUABgAEAAAABQADAAcABgAHAAQABQAHAAYACAAJAAoACAALAAkADAANAA4ADAAPAA0AEAARABIAEAATABEAFAAVABYAFAAXABUA"),
+"material": SubResource("StandardMaterial3D_8vd4u"),
+"name": "Frame",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("AgQAAJX5BcAAAAAAAAAFwAIEAABpBgXA//8AAAAABcAAAAAA//8FwPz7AABpBgXA/PsAAJX5BcD//wAA//8FwPz7AAC5Y/+/AgQAACNq/78CBAAAuWP/v/z7AAAjav+//PsAALCc/78CBAAAGaP/vwIEAACwnP+//PsAABmj/7/8+wAAK8b/vwIEAACVzP+/AgQAACvG/7/8+wAAlcz/v4dYAACV+VTVhFQAAJXMVNWHWAAAlcxU1YRUAACV+VTVHf08ejj64oLY+RKDDf0ceg39HHod/Tx62PkSgzj64oL///9/////f////3////9/////f////3////9/////f////3////9/////f////3+qqqqqqqqqqqqqqqqqqqqq")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_mmqwc")
+
+[node name="Frame" type="Node3D" unique_id=1965070680]
+
+[node name="Frame" type="MeshInstance3D" parent="." unique_id=1543116158]
+mesh = SubResource("ArrayMesh_ksbvb")
+surface_material_override/0 = ExtResource("1_dxolo")

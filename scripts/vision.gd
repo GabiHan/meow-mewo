@@ -31,9 +31,9 @@ const LAMP_RADIUS := 5.0
 const UPDATE_MSEC := 150
 const MEMORY_ALPHA := [0.22, 0.7]  # the veil over places you remember: [by day, at night]
 const UNKNOWN_ALPHA := [0.5, 0.9]  # over places you've never seen: [by day, at night]
-const DAY_VEIL := Color(0.56, 0.54, 0.68)
-const NIGHT_VEIL := Color(0.07, 0.06, 0.16)
-const FOG_VEIL := Color(0.96, 0.96, 0.99)
+const DAY_VEIL := Color("#c8a6b6")  # dusty rose-lilac: softens grass and roofs without turning them muddy
+const NIGHT_VEIL := Color("#1d1630")  # deep plum (ui_theme.gd DUSK)
+const FOG_VEIL := Color("#fff6f1")  # cream
 
 var world: Node2D
 var visible_cells := {}  # Vector2i -> true: what you see right now (on your floor)

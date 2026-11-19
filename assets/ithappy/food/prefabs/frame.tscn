@@ -1,0 +1,48 @@
+[gd_scene format=4 uid="uid://b7ypsjpbakgrq"]
+
+[ext_resource type="Material" uid="uid://6dxeauxskmmu" path="res://assets/ithappy/food/materials/frame.tres" id="1_dxolo"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_8vd4u"]
+resource_name = "Frame"
+cull_mode = 2
+albedo_color = Color(0.9063318, 0.9063318, 0.9063318, 1)
+roughness = 0.5
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_mmqwc"]
+_surfaces = [{
+"aabb": AABB(-1.060779, -3.0337833e-07, -0.73194313, 2.1215615, 1e-05, 1.4638827),
+"format": 34896613377,
+"index_count": 24,
+"index_data": PackedByteArray("AAABAAIAAgABAAMAAAAEAAEAAgADAAUABgAEAAAABQADAAcABgAHAAQABQAHAAYA"),
+"name": "Frame",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAAAAAAACxAoQAF/wAAAAAAAD//wAATf0DDxf8AACxAoQA5wMAAP//iA///wAA/v+IDwAAAABN/QMP5wMAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_ksbvb"]
+resource_name = "frame_frame_mesh"
+_surfaces = [{
+"aabb": AABB(-1.060779, -3.0337833e-07, -0.73194313, 2.1215615, 1e-05, 1.4638827),
+"attribute_data": PackedByteArray("I97M38DezN/A3szfwN4v3yPezN/A3i/fI94v3yPeL98="),
+"format": 34896613399,
+"index_count": 24,
+"index_data": PackedByteArray("AAABAAIAAgABAAMAAAAEAAEAAgADAAUABgAEAAAABQADAAcABgAHAAQABQAHAAYA"),
+"material": SubResource("StandardMaterial3D_8vd4u"),
+"name": "Frame",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("AAAAAAAA/7+xAoQAF/z/vwAAAAD///+/Tf0DDxf8/7+xAoQA5wP/v///iA////+//v+IDwAA/79N/QMP5wP/v////3////9/////f////3////9/////f////3////9/")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_mmqwc")
+
+[node name="Frame" type="Node3D" unique_id=400985232]
+
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=1821421735]
+position = Vector3(0.290189666, -0.00000000002, -0.983084417)
+mesh = SubResource("ArrayMesh_ksbvb")
+surface_material_override/0 = ExtResource("1_dxolo")

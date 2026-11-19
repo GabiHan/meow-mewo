@@ -1,74 +1,74 @@
 {
 	"car_delivery_r0": {
 		"anchor": [
-			52,
-			53
+			59,
+			83
 		]
 	},
 	"car_delivery_r1": {
 		"anchor": [
-			52,
-			53
+			61,
+			83
 		]
 	},
 	"car_delivery_r2": {
 		"anchor": [
-			52,
-			53
+			61,
+			68
 		]
 	},
 	"car_delivery_r3": {
 		"anchor": [
-			52,
-			53
+			59,
+			68
 		]
 	},
 	"car_hatchback-sports_r0": {
 		"anchor": [
-			52,
-			53
+			54,
+			55
 		]
 	},
 	"car_hatchback-sports_r1": {
 		"anchor": [
-			52,
-			53
+			54,
+			55
 		]
 	},
 	"car_hatchback-sports_r2": {
 		"anchor": [
-			52,
-			53
+			54,
+			46
 		]
 	},
 	"car_hatchback-sports_r3": {
 		"anchor": [
-			52,
-			53
+			54,
+			46
 		]
 	},
 	"car_police_r0": {
 		"anchor": [
-			52,
-			53
+			53,
+			55
 		]
 	},
 	"car_police_r1": {
 		"anchor": [
-			52,
-			53
+			57,
+			55
 		]
 	},
 	"car_police_r2": {
 		"anchor": [
-			52,
-			53
+			57,
+			50
 		]
 	},
 	"car_police_r3": {
 		"anchor": [
-			52,
-			53
+			53,
+			50
 		]
 	},
 	"car_sedan_r0": {
@@ -146,25 +146,25 @@
 	"car_van_r0": {
 		"anchor": [
 			52,
-			53
+			65
 		]
 	},
 	"car_van_r1": {
 		"anchor": [
 			52,
-			53
+			65
 		]
 	},
 	"car_van_r2": {
 		"anchor": [
 			52,
-			53
+			59
 		]
 	},
 	"car_van_r3": {
 		"anchor": [
 			52,
-			53
+			59
 		]
 	},
 	"house_0_1": {

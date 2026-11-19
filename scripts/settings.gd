@@ -3,14 +3,14 @@
 #   music    music volume 0..1 (the Music bus, music.gd)
 #   sounds   other sounds 0..1 (the Sounds bus; for sound effects to come)
 #   muted    everything silent
-#   fullscreen
+#   fullscreen   on by default; the window also opens fullscreen (project.godot window/size/mode=3) so it never flashes
 #   ai_directs   the local language model decides what NPCs near you do (llm.gd decide()), when it's running
 # Changed from Settings on the home screen or the in-game ☰ menu (settings_panel.gd). Fullscreen also has a key
 # everywhere: F11, Alt+Enter or Ctrl+Cmd+F (window_keys.gd, made by ensure_keys()).
 # The window scales everything (project.godot stretch "canvas_items" + "expand"): the screen is always at least
 # 1280×720 in UI units, bigger screens show the same UI larger, wider/taller ones get extra room.
 const PATH := "user://settings.cfg"
-const DEFAULTS := {"master": 0.8, "music": 0.6, "sounds": 0.8, "muted": false, "fullscreen": false, "ai_directs": true}
+const DEFAULTS := {"master": 0.8, "music": 0.6, "sounds": 0.8, "muted": false, "fullscreen": true, "ai_directs": true}
 const BUSES := {"master": "Master", "music": "Music", "sounds": "Sounds"}
 
 static var values := {}
