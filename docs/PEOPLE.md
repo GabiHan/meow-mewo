@@ -22,6 +22,10 @@ Every character (NPCs and you) has:
 Each person has a **look**: a paper doll (skin, figure, face, hair, clothes and their colours), made in the
 character creator or random; see README *Character art*.
 
+The classic street (`town.gd CAST`; the tests always play it). A game from the home screen rolls a new street instead
+(`Town.roll()`): the same households and family shapes, with new names, sexes, looks, ages (parents at least 20 years
+older than their children), 1–3 traits, hobbies, skills, money and a random job each grown-up is qualified for.
+
 | Who | Age ([LIFE.md](LIFE.md)) | Lives | Traits | Starting skills | Money, job ([WORK.md](WORK.md)) |
 |---|---|---|---|---|---|
 | Jo (you) | F, 20 | Your house | none (you decide) | Cooking 2, Charisma 1 | $300, none |
@@ -83,6 +87,11 @@ Personality and crime (hobbies.gd, morals.gd): Hobby time (Happy 2, 3 h), Guilty
 | Jealous | Angry | 3 | 6 h | Saw their partner being romantic with someone else |
 | In a relationship | Happy | 1 | while dating, engaged or married | |
 | Made up, Vented, Gossiped, Showed off, Good advice, Got a gift, Played together, Story time, Teased, Pranked, Supported | various | 1–2 | 2–12 h | New interactions (table below) |
+| Sunny day / Windswept / Soaked / Caught in a storm / Snow day / Too hot / Cozy inside | Happy / Energized / Uncomfortable / Tense / Playful / Uncomfortable / Happy | 1 / 1 / 2 / 2 / 2 / 2 / 1 | while out in that weather (Cozy inside: indoors while it rains, storms or snows) | The weather ([VIEW.md](VIEW.md)) |
+| Danced / Sang together / Loved | Happy | 2 / 1 / 2 | 3 h / 2 h / 3 h | Dance with, Sing together / a forehead kiss |
+| Encouraged / Relaxed | Confident / Happy (clears Tense) | 1 / 1 | 2 h / 3 h | Pat on the back / Give a massage |
+| Swept off my feet / Passionate | Flirty | 3 / 4 | 4 h | Slow dance, Serenade / Make out |
+| Shoved / Slapped | Angry | 2 / 3 | 3 h / 4 h | Shove / Slap |
 | Depressed / Anxious / Thriving / Isolated / Burned out | Sad / Tense / Happy / Sad / Tense | 4 / 3 / 2 / 2 / 2 | lasting | Mind (below) |
 
 **Conditions** last as long as the situation does (rechecked twice a second):
@@ -103,13 +112,13 @@ Personality and crime (hobbies.gd, morals.gd): Hobby time (Happy 2, 3 h), Guilty
 
 | Emotion | Saying yes to others | Starts more often | Cares more about | Learns faster |
 |---|---|---|---|---|
-| Happy | +0.10 | – | – | Cooking |
-| Playful | +0.10 | Tell a joke ×3 | – | Comedy |
+| Happy | +0.10 | Wave, Dance with, Sing together ×1.5 | – | Cooking |
+| Playful | +0.10 | Tell a joke ×3, Tickle ×2.5, Dance with ×2, Fist bump ×2, Swing around ×2 | – | Comedy |
 | Confident | +0.05 | Compliment ×2, Chat ×1.5 | – | Charisma |
-| Energized | – | – | fun ×1.2 | Fitness |
+| Energized | – | Dance with ×2.5, Fist bump ×1.5 | fun ×1.2 | Fitness |
 | Focused | – | Discuss ideas ×3 | – | Logic |
-| Sad | −0.10 | Deep talk ×2, Hug ×2 | social ×1.5 | – |
-| Angry | −0.30 | Argue ×4, Insult ×3 | – | – |
+| Sad | −0.10 | Deep talk ×2, Hug ×2, Hold hands ×1.5 | social ×1.5 | – |
+| Angry | −0.30 | Argue ×4, Insult ×3, Shove ×2, Slap ×1.5 | – | – |
 | Tense | −0.15 | Argue ×2 | – | – |
 | Embarrassed | −0.10 | – | social ×0.6 (wants to hide) | – |
 | Uncomfortable | −0.10 | – | – | – |
@@ -334,16 +343,43 @@ npc.gd); someone asleep can't be talked to.
 | Prank | feeling Playful; friendship ≥ 10; **can backfire** | +5 | +20 | +4 | 5 | Comedy | Had a laugh / Had a laugh — or partner *Pranked* (Angry 2), friendship −8 |
 | Give a gift | $20; friendship ≥ 10 | +10 | +5 | +8 (romance +3) | 3 | – | – / Got a gift (Happy 2) |
 | Play with | partner baby–child | +15 | +25 | +4 | 20 | – | Played together / Played together |
+| Tickle | children+, partner baby–child, friendship ≥ 10 | +10 | +25 | +4 | 5 | – | Had a laugh / Had a laugh |
+| Swing around | teens+, partner toddler or child, friendship ≥ 20 | +10 | +30 | +4 | 5 | – | Played together / Played together |
+| Kiss on the forehead | teens+, family/housemates of a baby–child, friendship ≥ 30 | +10 | 0 | +4 | 1 | – | – / Loved |
+| Wave | – | +4 | 0 | +1 | 1 | – | – |
+| Shake hands | teens+ | +6 | 0 | +2 | 1 | Charisma | – |
+| Fist bump | friendship ≥ 10 | +5 | +8 | +2 | 1 | – | Had a laugh / Had a laugh |
+| Pat on the back | friendship ≥ 20 | +10 | 0 | +3 | 1 | – | – / Encouraged |
+| Dance with | friendship ≥ 15 | +20 | +30 | +5 | 15 | Fitness | Danced / Danced |
+| Sing together | friendship ≥ 20 | +15 | +20 | +4 | 10 | Creativity | Sang together / Sang together |
+| Give a massage | teens+, friendship ≥ 40 | +15 | +5 | +4 | 10 | – | – / Relaxed (clears Tense) |
+| Shove | feeling Angry; can't be refused | 0 | 0 | −12 | 1 | – | – / Shoved |
+| Slap | teens+, feeling Angry; can't be refused | 0 | 0 | −20 | 1 | – | – / Slapped |
 | Read a story | teens+, partner toddler or child | +15 | +15 | +4 | 15 | Logic | – / Story time |
 | Feed, Change & clean, Rock to sleep | teens+, family/housemates of a baby or toddler | | | | | | see [LIFE.md](LIFE.md) |
 | Flirt | romance rules; friendship ≥ 10 | +10 | +10 | +2 (romance +6) | 5 | Charisma | Flirted (Flirty) / Flirted |
 | Kiss | romance ≥ 30, friendship ≥ 20 | +15 | +10 | +3 (romance +8) | 2 | – | Kissed (Flirty 3) / Kissed |
 | Cuddle | romance ≥ 25, friendship ≥ 30 | +25 | +5 | +3 (romance +5) | 15 | – | Cuddled / Cuddled |
+| Hold hands | romance ≥ 20, friendship ≥ 20 | +10 | +5 | +2 (romance +4) | 10 | – | Flirted / Flirted |
+| Kiss on the cheek | romance ≥ 15, friendship ≥ 15 | +10 | +5 | +2 (romance +5) | 1 | – | Flirted / Flirted |
+| Slow dance | romance ≥ 35, friendship ≥ 25 | +20 | +20 | +4 (romance +8) | 15 | Fitness | Swept off my feet / Swept off my feet |
+| Serenade | romance ≥ 20, friendship ≥ 15, Creativity 2 | +10 | +15 | +3 (romance +7) | 8 | Creativity | Flirted / Swept off my feet |
+| Make out | romance ≥ 55, friendship ≥ 30 | +20 | +20 | +3 (romance +10) | 10 | – | Passionate (Flirty 4) / Passionate |
 | Ask to be partners | romance ≥ 40, friendship ≥ 30, both single | +15 | +5 | +5 (romance +10) | 5 | – | In love / In love → **Dating** |
 | Propose | dating, romance ≥ 70 | +20 | +10 | +5 (romance +10) | 5 | – | Engaged / Engaged → **Engaged** |
 | Get married | engaged, at home together | +30 | +20 | +10 (romance +10) | 60 | – | Just married / Just married → **Married**, moves in |
 | Break up | dating/engaged, and romance < 20 or feeling Angry/Sad/Tense; can't be refused | 0 | 0 | −20 (romance −40) | 5 | – | Broke up / Heartbroken |
 | Divorce | married, and romance < 0 or feeling Angry; can't be refused | 0 | 0 | −25 (romance −40) | 10 | – | Broke up / Heartbroken; moves back out |
+
+**Body language.** Interactions with an `anim` move both bodies while they happen (`npc.gd social_pose()`,
+synced online): a hug or a kiss leans them into each other, holding hands brings them side by side, dancing
+bounces and sways, a slow dance sways close together, a tickled child wriggles, a swung child flies up, a shove
+or a slap knocks the other one back. `fx` floats hearts (kisses, cuddles, romance) or music notes (dancing,
+singing, Serenade) above them. Hug, Comfort, Cuddle and Rock to sleep hug; High five shakes; Argue gestures.
+The partner answers with a `reply` when it's done ("Hahaha! Stop!", "Ow! What was that for?!").
+
+**The menu** (click someone) is grouped: Talk, Friendly, Fun, Children, Romance, Relationship, Mean, Crime
+(`Social.group()`).
 
 Teasing and pranks land with the same chance as jokes (50% + 5% per Comedy level). Big steps
 (proposing, marrying, breaking up, babies) are weighted ×0.3 for the AI so they don't happen on a whim.

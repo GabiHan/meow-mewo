@@ -2,6 +2,43 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-11-20 — New neighbours every game, real weather, stronger day and night
+- **Random street** (`town.gd`): `CAST` is the classic street (Jo & Sam, Alex's family, Riley & Noah) as data;
+  `main.gd spawn_residents(cast)` builds it in the same order (the tests' seeded randomness is unchanged). The home
+  screen rolls a new street every visit (`Town.roll()` → `Session.town`, kept by `Session.reset()`): new names, sexes,
+  looks, ages, traits, skills, money and jobs (qualified for them; `degree` set when the job needs one), parents
+  ≥ 20 years older than their kids. "🎲 New neighbours" re-rolls, "Classic street" goes back. `main.households`
+  (was the `HOUSEHOLDS` const) comes from the cast and is saved (`world.households`; older saves: the classic one).
+  `PLAYER_NAME` and menu `TAKEN_NAMES` are gone (taken names come from the street).
+- **Weather** (`weather.gd`): eight kinds: Clear, Cloudy, Windy, Rain, Storm, Snow (winter), Fog, Heatwave (summer),
+  each with sight, a sky tint (`world.gd sky_color()`), a temperature (season + hour + weather), a mood for people
+  outside (or "Cozy inside" while it rains/storms/snows) and need decay outside. The clock bar shows
+  "MON · AFTERNOON ☀ 18°" (☾ on clear nights); hover for the description.
+- **On screen** (`weather_fx.gd`): heavier slanted rain and lightning in storms, snowflakes, blowing leaves, cloud
+  shadows, heat shimmer; and the parts of the day: honey morning haze, a warm afternoon wash, amber golden-hour
+  light with dust, a plum-blue night vignette with fireflies (spring/summer), a lamplit vignette indoors. The `SKY`
+  colours are stronger (honey morning, amber golden hour, coral sunset, deeper night; amber indoor lamplight).
+- HUD fix: the chat feed shrinks back to its content (it only ever grew, so a stale tall feed could overlap the
+  passport).
+- `tools/shot.gd ... sky HOUR WEATHER` screenshots the atmosphere outdoors.
+- Tests: `check_town()`, `check_weather()`; the sky check expects a honey morning and a near-white afternoon.
+
+## 2026-11-20 — Body language: hugs, kisses, dancing
+- 17 new interactions (`social.gd`): Wave, Shake hands, Fist bump, Pat on the back, Dance with, Sing together, Give a
+  massage; with children Tickle, Swing around, Kiss on the forehead; romance Hold hands, Kiss on the cheek, Slow
+  dance, Serenade (Creativity 2), Make out; mean Shove, Slap. New moodlets Danced, Sang together, Encouraged, Relaxed,
+  Loved, Swept off my feet, Passionate, Shoved, Slapped; emotions and traits prefer the fitting ones (Playful tickles
+  and dances, Flirty slow dances, Angry shoves, Active dances, Hot-headed slaps).
+- They're acted out: interaction `anim` → `npc.gd social_pose()` moves both dolls (lean in, sway, bounce, wriggle,
+  knock back); `fx` draws hearts or music notes (`draw_social_fx`). Hug, Kiss, Cuddle, Comfort, High five, Argue,
+  Play with and Rock to sleep got poses too. `social_anim`/`social_fx`/`is_initiator` are synced online (net.gd fast
+  state). Partners answer with the interaction's `reply`.
+- The click menu is grouped into sections (`Social.group()`, `Social.GROUPS`).
+- HUD fix: the chat feed is fitted after the talk window is placed (it used to move up above the talk window
+  without shrinking) and measures the panels above it by their minimum size (new text isn't laid out yet), so it
+  no longer runs into the passport at 1280×720.
+- Tests: `check_body_language()`.
+
 ## 2026-11-19 — itHappy furniture and food
 - All furniture is now itHappy's "Cute Furniture" pack and plates, cups and food its "Food" pack (`assets/ithappy`:
   the prefab scenes, materials and palette, paths rewritten). The old furniture packs are gone (Tiny Treats Charming

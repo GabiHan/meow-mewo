@@ -1,5 +1,5 @@
 # Builds the game: the open world (world.gd), smart objects, the residents, and you (controller.gd),
-# starting as PLAYER_NAME. You can switch to anyone in your household (hud.gd household bar).
+# starting as the street's first grown-up (town.gd: Jo, or a rolled street's). You can switch to anyone in your household (hud.gd household bar).
 # Also owns global controls: game speed and pause (like The Sims), the NPC detail overlay (F3) and zoom.
 #
 # Speed: 1/2/3/4 = Normal/Fast/Faster/Ultra (SPEEDS), P/Space/0 = pause (resumes at the chosen speed).
@@ -27,15 +27,10 @@ const Social = preload("res://scripts/social.gd")
 const Ages = preload("res://scripts/ages.gd")
 
 # Households you can pick on the home screen (Play → Choose a household): home building index.
-const HOUSEHOLDS := [
-	{"name": "Jo & Sam", "home": 0, "about": "Jo (20), a fresh start in life, and her roommate Sam (23), a stand-up comic."},
-	{"name": "Alex's family", "home": 1, "about": "Alex (38), a fiery cook, raising Mia (8) and little Lily (2)."},
-	{"name": "Riley & Noah", "home": 2, "about": "Riley (42), a bookish office worker, and his teenage son Noah (15)."},
-]
 const STARTER_HOUSE := 3  # where new households move in
 const STARTING_FUNDS := 1500  # shared by a new household's grown-ups
 const STAGE_YEARS := {"Child": 8.0, "Teen": 15.0, "Young adult": 21.0, "Adult": 35.0, "Old": 68.0}
-const PLAYER_NAME := "Jo"  # your character's name: change it here
+const Town = preload("res://scripts/town.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Life = preload("res://scripts/life.gd")
 const Llm = preload("res://scripts/llm.gd")
@@ -158,6 +153,7 @@ var controller: Node
 var build: CanvasLayer  # build mode (B)
 var llm: Node  # the local language model (llm.gd): written lines, thoughts, wishes, talking
 var household_name := "Jo & Sam"  # shown in saves
+var households: Array = Town.households(Town.CAST)  # the street's households (town.gd): [{name, home, about}], saved
 var speed := 0  # index into SPEEDS chosen by the player
 var paused := false
 var sleep_boost := false  # time is at Ultra because you're asleep
@@ -194,12 +190,14 @@ func _ready() -> void:
 			you = get_tree().get_nodes_in_group("characters").filter(func(c): return c.npc_name == Session.controlled).front()
 	else:
 		place_furniture()
-		var jo := spawn_residents()
+		var cast := Town.current(Session.town)
+		households = Town.households(cast)
+		var jo := spawn_residents(cast)
 		if Session.mode == "new" and not Session.new_household.is_empty():
 			you = spawn_household(Session.new_household)
 		else:
 			var h: int = Session.household
-			household_name = HOUSEHOLDS[h].name
+			household_name = households[h].name
 			you = jo if h == 0 else get_tree().get_nodes_in_group("characters").filter(
 				func(c): return c.home == h and Ages.is_grown_up(c)).front()
 		Life.setup_families(self)
@@ -258,7 +256,7 @@ func controller_of(c: Node2D) -> Node:
 
 
 func home_name(h: int) -> String:
-	for household in HOUSEHOLDS:
+	for household in households:
 		if household.home == h:
 			return household.name
 	if home_names.has(h):
@@ -283,29 +281,21 @@ func place_furniture() -> void:
 			world.add_prop(Prop.new().setup(p[0], p[3], p[4]), p[1], p[2])
 
 
-# The people who live on the street at the start. Returns Jo.
-func spawn_residents() -> Node2D:
-	# setup(name, tile, color, home building, traits, starting skill levels). See docs/PEOPLE.md.
-	# .set_life(money, job), .set_age(sex, years, parents), .set_look(look). See docs/WORK.md, LIFE.md, README.
-	add_child(Npc.new().setup("Sam", Vector2(490, 503), Color(0.95, 0.65, 0.35), 0,  # Jo's roommate
-		["Outgoing", "Goofball", "Slob"], {"Comedy": 3, "Charisma": 2}).set_life(200, "Comedy club").set_age("M", 23).set_look("sam"))
-	add_child(Npc.new().setup("Alex", Vector2(502, 504), Color(0.75, 0.45, 0.85), 1,
-		["Hot-headed", "Foodie", "Neat"], {"Cooking": 5, "Fitness": 2}).set_life(400, "Restaurant").set_age("F", 38).set_look("alex"))
-	add_child(Npc.new().setup("Mia", Vector2(500, 506), Color(0.95, 0.8, 0.35), 1,  # Alex's daughter
-		["Cheerful"], {"Logic": 1}).set_life(0).set_age("F", 8, ["Alex"]).set_look("mia"))
-	add_child(Npc.new().setup("Lily", Vector2(504, 503), Color(0.6, 0.85, 0.95), 1,  # Alex's youngest
-		["Goofball"], {}).set_life(0).set_age("F", 2.5, ["Alex"]).set_look("lily"))
-	add_child(Npc.new().setup("Riley", Vector2(490, 521), Color(0.9, 0.4, 0.45), 2,
-		["Loner", "Bookworm", "Cheerful"], {"Logic": 4, "Cooking": 2}).set_life(600, "Office").set_age("M", 42).set_look("riley"))
-	add_child(Npc.new().setup("Noah", Vector2(492, 525), Color(0.45, 0.55, 0.9), 2,  # Riley's son
-		["Active", "Goofball"], {"Fitness": 2}).set_life(20).set_age("M", 15, ["Riley"]).set_look("noah"))
-	var jo: Node2D = Npc.new().setup(PLAYER_NAME, Vector2(488, 504), Color(0.35, 0.8, 0.45), 0, [], {"Cooking": 2, "Charisma": 1})
-	jo.set_life(300).set_age("F", 20).set_look("jo")  # no job yet: get one at the Bus stop
-	jo.speed = 2.5
-	for need in jo.needs:
-		jo.needs[need] = 85.0
-	add_child(jo)
-	return jo
+# The people who live on the street at the start (town.gd: the classic street, or a rolled one). Returns the one
+# you play in the first household (Jo on the classic street).
+func spawn_residents(cast: Array) -> Node2D:
+	var you: Node2D = null
+	for r in cast:  # same order and calls as ever: the tests' seeded randomness depends on it
+		var c: Node2D = Npc.new().setup(r.name, r.tile, r.color, r.home, r.traits.duplicate(), r.skills.duplicate())
+		c.set_life(r.money, r.job).set_age(r.sex, r.years, Town.parent_names(cast, r)).set_look(r.look)
+		c.degree = r.get("degree", false)
+		if r.get("you", false):  # no job yet: get one at the Bus stop
+			you = c
+			c.speed = 2.5
+			for need in c.needs:
+				c.needs[need] = 85.0
+		add_child(c)
+	return you
 
 
 # A household made on the home screen moves into the starter house. Returns who you'll control.

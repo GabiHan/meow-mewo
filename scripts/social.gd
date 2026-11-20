@@ -51,6 +51,11 @@ const Morals = preload("res://scripts/morals.gd")
 #   skill              the initiator practises this skill for the duration
 #   moodlet_a / _b     moodlets for the initiator / partner when it completes
 #   lines              one is said out loud by the initiator
+#   anim               (optional) how both bodies move while it happens (npc.gd social_pose()): hug, kiss, hands,
+#                      dance, slow_dance, sway, wave, shake, pat, massage, tickle, swing, argue, shove, slap
+#   fx                 (optional) "hearts" or "notes" floating up between them while it happens
+#   reply              (optional) what the partner says when it's done ("Haha!")
+#   group              (optional) menu section (group()): worked out from the other fields if missing
 const INTERACTIONS := [
 	{"name": "Chat", "a_min": 1, "b_min": 1, "verb": "Chatting with", "min_friendship": -100, "social": 20, "fun": 0, "friendship": 3,
 		"duration": 10.0, "skill": "Charisma", "moodlet_a": "Good conversation", "moodlet_b": "Good conversation",
@@ -69,9 +74,9 @@ const INTERACTIONS := [
 		"moodlet_a": "Interesting discussion", "moodlet_b": "Interesting discussion",
 		"lines": ["I read the universe might be a hologram.", "What if time doesn't actually exist?"]},
 	{"name": "Hug", "a_min": 1, "b_min": 0, "verb": "Hugging", "min_friendship": 50, "social": 25, "fun": 5, "friendship": 5,
-		"duration": 2.0, "moodlet_a": "Hugged", "moodlet_b": "Hugged", "lines": ["Come here, you!"]},
+		"duration": 2.0, "anim": "hug", "moodlet_a": "Hugged", "moodlet_b": "Hugged", "lines": ["Come here, you!"]},
 	{"name": "Comfort", "a_min": 2, "b_min": 1, "verb": "Comforting", "min_friendship": 20, "partner_feeling": ["Sad"], "social": 25, "fun": 0,
-		"friendship": 6, "duration": 10.0, "skill": "Charisma", "moodlet_a": "Good conversation", "moodlet_b": "Comforted",
+		"friendship": 6, "duration": 10.0, "skill": "Charisma", "anim": "hug", "moodlet_a": "Good conversation", "moodlet_b": "Comforted",
 		"lines": ["Hey, it's going to be okay.", "I'm here for you."]},
 	{"name": "Invite over", "a_min": 4, "b_min": 3, "verb": "Inviting", "min_friendship": 10, "special": "invite", "social": 10, "fun": 0,
 		"friendship": 3, "duration": 3.0, "skill": "Charisma", "moodlet_a": "Good conversation", "moodlet_b": "Good conversation",
@@ -103,7 +108,7 @@ const INTERACTIONS := [
 	{"name": "Ask for advice", "a_min": 2, "b_min": 3, "verb": "Asking advice from", "min_friendship": 10, "social": 15, "fun": 0,
 		"friendship": 3, "duration": 10.0, "moodlet_a": "Good advice", "lines": ["What would you do in my place?", "Can I ask you something?"]},
 	{"name": "High five", "a_min": 1, "b_min": 1, "verb": "High-fiving", "min_friendship": 0,
-		"when_feeling": ["Happy", "Playful", "Energized", "Confident"], "social": 5, "fun": 10, "friendship": 2, "duration": 1.0,
+		"when_feeling": ["Happy", "Playful", "Energized", "Confident"], "social": 5, "fun": 10, "friendship": 2, "duration": 1.0, "anim": "shake",
 		"moodlet_a": "Had a laugh", "moodlet_b": "Had a laugh", "lines": ["Up top!"]},
 	{"name": "Tease", "a_min": 2, "b_min": 2, "verb": "Teasing", "min_friendship": 0, "when_feeling": ["Playful", "Happy"],
 		"risky": {"moodlet_b": "Teased", "friendship": -4.0, "emote": "\"Not funny.\"", "memory": "made fun of me", "feeling": -1.5,
@@ -118,13 +123,41 @@ const INTERACTIONS := [
 	{"name": "Give a gift", "a_min": 3, "b_min": 1, "verb": "Giving a gift to", "min_friendship": 10, "cost": 20,
 		"social": 10, "fun": 5, "friendship": 8, "romance": 3, "duration": 3.0, "moodlet_b": "Got a gift",
 		"lines": ["I got you something!", "This made me think of you."]},
+	# Body language: greetings, touch, dancing and singing together
+	{"name": "Wave", "a_min": 1, "b_min": 1, "verb": "Waving at", "min_friendship": -100, "social": 4, "fun": 0, "friendship": 1,
+		"duration": 1.0, "anim": "wave", "reply": "*waves back*", "lines": ["Hi there!", "Hey, good to see you!", "Hello!"]},
+	{"name": "Shake hands", "a_min": 3, "b_min": 3, "verb": "Shaking hands with", "min_friendship": -100, "social": 6, "fun": 0,
+		"friendship": 2, "duration": 1.0, "skill": "Charisma", "anim": "shake", "lines": ["Nice to meet you.", "Good to see you again."]},
+	{"name": "Fist bump", "a_min": 1, "b_min": 1, "verb": "Fist-bumping", "min_friendship": 10, "social": 5, "fun": 8, "friendship": 2,
+		"duration": 1.0, "anim": "shake", "moodlet_a": "Had a laugh", "moodlet_b": "Had a laugh", "lines": ["Bump it!", "Respect."]},
+	{"name": "Pat on the back", "a_min": 2, "b_min": 1, "verb": "Patting", "min_friendship": 20, "social": 10, "fun": 0, "friendship": 3,
+		"duration": 1.0, "anim": "pat", "moodlet_b": "Encouraged", "reply": "\"Thanks, I needed that.\"",
+		"lines": ["Good job!", "You've got this."]},
+	{"name": "Dance with", "a_min": 1, "b_min": 1, "verb": "Dancing with", "min_friendship": 15, "social": 20, "fun": 30, "friendship": 5,
+		"duration": 15.0, "skill": "Fitness", "anim": "dance", "fx": "notes", "moodlet_a": "Danced", "moodlet_b": "Danced",
+		"lines": ["Dance with me!", "I love this song!", "Show me your moves!"]},
+	{"name": "Sing together", "a_min": 1, "b_min": 1, "verb": "Singing with", "min_friendship": 20, "social": 15, "fun": 20, "friendship": 4,
+		"duration": 10.0, "skill": "Creativity", "anim": "sway", "fx": "notes", "moodlet_a": "Sang together", "moodlet_b": "Sang together",
+		"lines": ["Sing it with me!", "La la laaa~"]},
+	{"name": "Give a massage", "a_min": 3, "b_min": 3, "verb": "Massaging", "min_friendship": 40, "social": 15, "fun": 5, "friendship": 4,
+		"duration": 10.0, "anim": "massage", "moodlet_b": "Relaxed", "reply": "\"Ahh, that's the spot.\"",
+		"lines": ["You look tense. Let me help.", "Sit still, this'll feel good."]},
 	# With children
 	{"name": "Play with", "a_min": 2, "b_min": 0, "b_max": 2, "verb": "Playing with", "min_friendship": 0, "social": 15, "fun": 25,
-		"friendship": 4, "duration": 20.0, "moodlet_a": "Played together", "moodlet_b": "Played together",
+		"friendship": 4, "duration": 20.0, "anim": "dance", "moodlet_a": "Played together", "moodlet_b": "Played together",
 		"lines": ["Peekaboo!", "Tag, you're it!", "Let's build a fort!"]},
 	{"name": "Read a story", "a_min": 3, "b_min": 1, "b_max": 2, "verb": "Reading a story to", "min_friendship": 0, "social": 15,
 		"fun": 15, "friendship": 4, "duration": 15.0, "skill": "Logic", "moodlet_b": "Story time",
 		"lines": ["Once upon a time...", "And the little dragon said..."]},
+	{"name": "Tickle", "a_min": 2, "b_min": 0, "b_max": 2, "verb": "Tickling", "min_friendship": 10, "social": 10, "fun": 25, "friendship": 4,
+		"duration": 5.0, "anim": "tickle", "moodlet_a": "Had a laugh", "moodlet_b": "Had a laugh", "reply": "\"Hahaha! Stop!\"",
+		"lines": ["Tickle tickle!", "Here comes the tickle monster!"]},
+	{"name": "Swing around", "a_min": 3, "b_min": 1, "b_max": 2, "verb": "Swinging", "min_friendship": 20, "social": 10, "fun": 30,
+		"friendship": 4, "duration": 5.0, "anim": "swing", "moodlet_a": "Played together", "moodlet_b": "Played together",
+		"reply": "\"Again! Again!\"", "lines": ["Up you go!", "Wheee!"]},
+	{"name": "Kiss on the forehead", "a_min": 3, "b_min": 0, "b_max": 2, "verb": "Kissing", "min_friendship": 30, "special": "care",
+		"social": 10, "fun": 0, "friendship": 4, "duration": 1.0, "anim": "kiss", "fx": "hearts", "moodlet_b": "Loved",
+		"lines": ["Love you, sweetie.", "Sweet dreams."]},
 	# Caring for babies and toddlers: `care` goes to the little one's needs (Life: they can't do it themselves)
 	{"name": "Feed", "a_min": 3, "b_min": 0, "b_max": 1, "verb": "Feeding", "min_friendship": -100, "special": "care",
 		"always_accepted": true, "care": {"hunger": 70, "thirst": 50}, "social": 5, "fun": 0, "friendship": 2, "duration": 10.0,
@@ -133,16 +166,34 @@ const INTERACTIONS := [
 		"always_accepted": true, "care": {"bladder": 100, "hygiene": 80}, "social": 0, "fun": 0, "friendship": 1, "duration": 10.0,
 		"moodlet_b": "Clean and dry", "lines": ["Phew! Let's get you clean.", "All fresh now."]},
 	{"name": "Rock to sleep", "a_min": 3, "b_min": 0, "b_max": 1, "verb": "Rocking", "min_friendship": -100, "special": "care",
-		"always_accepted": true, "care": {"energy": 60}, "social": 5, "fun": 0, "friendship": 2, "duration": 20.0,
+		"always_accepted": true, "care": {"energy": 60}, "social": 5, "fun": 0, "friendship": 2, "duration": 20.0, "anim": "hug",
 		"lines": ["Hush little baby...", "Time to sleep."]},
 	# Romance (romance.gd): young adults and older, not family. Anyone may love anyone.
 	{"name": "Flirt", "a_min": 4, "b_min": 4, "verb": "Flirting with", "min_friendship": 10, "romantic": true, "romance": 6,
 		"social": 10, "fun": 10, "friendship": 2, "duration": 5.0, "skill": "Charisma", "moodlet_a": "Flirted", "moodlet_b": "Flirted",
 		"lines": ["Has anyone told you you have amazing eyes?", "Is it hot in here, or is it just you?", "I like your smile."]},
 	{"name": "Kiss", "a_min": 4, "b_min": 4, "verb": "Kissing", "min_friendship": 20, "min_romance": 30, "romantic": true, "romance": 8,
-		"social": 15, "fun": 10, "friendship": 3, "duration": 2.0, "moodlet_a": "Kissed", "moodlet_b": "Kissed", "lines": ["Come here..."]},
+		"social": 15, "fun": 10, "friendship": 3, "duration": 2.0, "anim": "kiss", "fx": "hearts", "moodlet_a": "Kissed", "moodlet_b": "Kissed",
+		"reply": "\"Mmm...\"", "lines": ["Come here..."]},
 	{"name": "Cuddle", "a_min": 4, "b_min": 4, "verb": "Cuddling", "min_friendship": 30, "min_romance": 25, "romantic": true, "romance": 5,
-		"social": 25, "fun": 5, "friendship": 3, "duration": 15.0, "moodlet_a": "Cuddled", "moodlet_b": "Cuddled", "lines": ["This is nice."]},
+		"social": 25, "fun": 5, "friendship": 3, "duration": 15.0, "anim": "hug", "fx": "hearts", "moodlet_a": "Cuddled", "moodlet_b": "Cuddled",
+		"lines": ["This is nice."]},
+	{"name": "Hold hands", "a_min": 4, "b_min": 4, "verb": "Holding hands with", "min_friendship": 20, "min_romance": 20, "romantic": true,
+		"romance": 4, "social": 10, "fun": 5, "friendship": 2, "duration": 10.0, "anim": "hands", "fx": "hearts",
+		"moodlet_a": "Flirted", "moodlet_b": "Flirted", "lines": ["Can I hold your hand?", "Your hands are warm."]},
+	{"name": "Kiss on the cheek", "a_min": 4, "b_min": 4, "verb": "Kissing", "min_friendship": 15, "min_romance": 15, "romantic": true,
+		"romance": 5, "social": 10, "fun": 5, "friendship": 2, "duration": 1.0, "anim": "kiss", "fx": "hearts",
+		"moodlet_a": "Flirted", "moodlet_b": "Flirted", "reply": "*blushes*", "lines": ["Mwah!", "Just because."]},
+	{"name": "Slow dance", "a_min": 4, "b_min": 4, "verb": "Slow dancing with", "min_friendship": 25, "min_romance": 35, "romantic": true,
+		"romance": 8, "social": 20, "fun": 20, "friendship": 4, "duration": 15.0, "skill": "Fitness", "anim": "slow_dance", "fx": "hearts",
+		"moodlet_a": "Swept off my feet", "moodlet_b": "Swept off my feet", "lines": ["May I have this dance?", "Dance with me. Slowly."]},
+	{"name": "Serenade", "a_min": 4, "b_min": 4, "verb": "Serenading", "min_friendship": 15, "min_romance": 20, "romantic": true,
+		"min_skill": {"Creativity": 2}, "romance": 7, "social": 10, "fun": 15, "friendship": 3, "duration": 8.0, "skill": "Creativity",
+		"anim": "sway", "fx": "notes", "moodlet_a": "Flirted", "moodlet_b": "Swept off my feet", "reply": "\"That was beautiful...\"",
+		"lines": ["This song is for you.", "*sings* You are my sunshine..."]},
+	{"name": "Make out", "a_min": 4, "b_min": 4, "verb": "Making out with", "min_friendship": 30, "min_romance": 55, "romantic": true,
+		"romance": 10, "social": 20, "fun": 20, "friendship": 3, "duration": 10.0, "anim": "kiss", "fx": "hearts",
+		"moodlet_a": "Passionate", "moodlet_b": "Passionate", "lines": ["Come here, you.", "I can't stop thinking about you."]},
 	{"name": "Ask to be partners", "a_min": 4, "b_min": 4, "verb": "Asking out", "min_friendship": 30, "min_romance": 40,
 		"romantic": true, "special": "partners", "romance": 10, "social": 15, "fun": 5, "friendship": 5, "duration": 5.0,
 		"moodlet_a": "In love", "moodlet_b": "In love", "lines": ["Will you be my partner?", "I really like you. Want to make it official?"]},
@@ -159,11 +210,17 @@ const INTERACTIONS := [
 		"always_accepted": true, "romance": -40, "social": 0, "fun": 0, "friendship": -25, "duration": 10.0,
 		"moodlet_a": "Broke up", "moodlet_b": "Heartbroken", "lines": ["I want a divorce."]},
 	{"name": "Argue", "a_min": 2, "b_min": 2, "verb": "Arguing with", "min_friendship": -100, "when_feeling": ["Angry", "Tense", "Uncomfortable"],
-		"always_accepted": true, "social": 10, "fun": -5, "friendship": -10, "duration": 10.0,
+		"always_accepted": true, "social": 10, "fun": -5, "friendship": -10, "duration": 10.0, "anim": "argue",
 		"moodlet_a": "Argued", "moodlet_b": "Argued", "lines": ["You never listen to me!", "That's not what you said yesterday!"]},
 	{"name": "Insult", "a_min": 3, "b_min": 2, "verb": "Insulting", "min_friendship": -100, "when_feeling": ["Angry"], "always_accepted": true,
 		"social": 0, "fun": 0, "friendship": -15, "duration": 2.0, "moodlet_b": "Insulted",
 		"lines": ["You're such a slob.", "Nobody likes you, you know."]},
+	{"name": "Shove", "a_min": 2, "b_min": 2, "verb": "Shoving", "min_friendship": -100, "when_feeling": ["Angry"], "always_accepted": true,
+		"social": 0, "fun": 0, "friendship": -12, "duration": 1.0, "anim": "shove", "moodlet_b": "Shoved", "reply": "\"Hey! Watch it!\"",
+		"lines": ["Get out of my face!", "Back off!"]},
+	{"name": "Slap", "a_min": 3, "b_min": 3, "verb": "Slapping", "min_friendship": -100, "when_feeling": ["Angry"], "always_accepted": true,
+		"social": 0, "fun": 0, "friendship": -20, "duration": 1.0, "anim": "slap", "moodlet_b": "Slapped", "reply": "\"Ow! What was that for?!\"",
+		"lines": ["How could you?!", "You deserved that!"]},
 	# Crimes (morals.gd; commit() below)
 	{"name": "Pickpocket", "a_min": 3, "b_min": 3, "verb": "Brushing past", "min_friendship": -100, "crime": true, "always_accepted": true,
 		"social": 0, "fun": 10, "friendship": 0, "duration": 1.0, "lines": ["*brushes past {who}*"]},
@@ -329,6 +386,30 @@ static func available_interactions(a: Node2D, b: Node2D) -> Array:
 	return result
 
 
+const GROUPS := ["Talk", "Friendly", "Fun", "Children", "Romance", "Relationship", "Mean", "Crime"]
+const TALK := ["Chat", "Tell a joke", "Compliment", "Deep talk", "Discuss ideas", "Comfort", "Apologize", "Talk about feelings",
+	"Gossip", "Brag", "Vent", "Ask for advice", "Invite over", "Ask to leave"]
+
+
+# Which menu section (GROUPS) an interaction goes in.
+static func group(i: Dictionary) -> String:
+	if i.has("group"):
+		return i.group
+	if i.get("crime", false):
+		return "Crime"
+	if i.get("special", "") in ["partners", "propose", "marry", "break_up", "divorce", "baby"]:
+		return "Relationship"
+	if i.get("romantic", false):
+		return "Romance"
+	if i.friendship < 0:
+		return "Mean"
+	if i.has("b_max"):
+		return "Children"
+	if i.name in TALK:
+		return "Talk"
+	return "Fun" if i.fun >= 10 else "Friendly"
+
+
 # What an interaction "advertises" to the utility AI, same format as smart objects.
 static func advertisement(i: Dictionary) -> Dictionary:
 	return {"social": i.social, "fun": i.fun}
@@ -401,6 +482,10 @@ static func begin(a: Node2D, b: Node2D, i: Dictionary) -> void:
 			b.state = "talking"
 			b.activity = i.verb + " {who}"
 			b.activity_with = a
+		for c in ([a] if b.busy_talk else [a, b]):  # body language (npc.gd social_pose())
+			c.social_anim = i.get("anim", "")
+			c.social_fx = i.get("fx", "")
+			c.anim_time = 0.0
 		if i.get("crime", false):
 			a.show_emote(i.lines.pick_random(), b)  # an action, not words (no AI)
 			return
@@ -527,7 +612,9 @@ static func finish(a: Node2D, b: Node2D, i: Dictionary) -> void:
 	# The partner remembers what was done to them; the initiator remembers what they did together.
 	remember(b, a, past_tense(i.name), i.friendship / 5.0)
 	remember(a, b, past_tense(i.name), signf(i.friendship))
-	if i.name == "Tell a joke":
+	if i.has("reply"):
+		b.show_emote(i.reply, a)
+	elif i.name == "Tell a joke":
 		b.show_emote("\"Haha!\"", a)
 	elif i.name == "Compliment":
 		b.show_emote("\"Aw, thanks!\"", a)
@@ -637,7 +724,12 @@ static func past_tense(interaction: String) -> String:
 		"Give a gift": "gave me a gift", "Play with": "played with me", "Read a story": "read me a story", "Feed": "fed me",
 		"Change & clean": "changed me", "Rock to sleep": "rocked me to sleep", "Flirt": "flirted with me", "Kiss": "kissed me",
 		"Cuddle": "cuddled me", "Ask to be partners": "asked me out", "Propose": "proposed to me", "Get married": "married me",
-		"Break up": "broke up with me", "Divorce": "divorced me", "Talk about feelings": "was there for me"}.get(interaction, interaction.to_lower())
+		"Break up": "broke up with me", "Divorce": "divorced me", "Talk about feelings": "was there for me",
+		"Wave": "waved at me", "Shake hands": "shook my hand", "Fist bump": "fist-bumped me", "Pat on the back": "cheered me on",
+		"Dance with": "danced with me", "Sing together": "sang with me", "Give a massage": "gave me a massage", "Tickle": "tickled me",
+		"Swing around": "swung me around", "Kiss on the forehead": "kissed my forehead", "Hold hands": "held my hand",
+		"Kiss on the cheek": "kissed my cheek", "Slow dance": "slow danced with me", "Serenade": "sang me a love song",
+		"Make out": "made out with me", "Shove": "shoved me", "Slap": "slapped me"}.get(interaction, interaction.to_lower())
 
 
 static func log_event(text: String, a: Node2D, b: Node2D) -> void:

@@ -57,7 +57,7 @@ width, so while it's open the menu on the right folds into a **Menu ▾** dropdo
 
 | Button | What it does |
 |---|---|
-| **Play Game** | Offline. **Choose a household** (Jo & Sam, Alex's family, Riley & Noah: you play the household's first grown-up) or **Create a new household** |
+| **Play Game** | Offline. **Choose a household** (you play the household's first grown-up) or **Create a new household**. Every visit to the home screen rolls **new neighbours** (`town.gd roll()`): the same three households (roommates, a parent with two little ones, a parent with a teenager) with new names, sexes, looks, ages, traits, hobbies, skills, money and jobs (each qualified for theirs). 🎲 New neighbours rolls again; Classic street brings back Jo & Sam, Alex's family and Riley & Noah (what the tests play) |
 | **Play Online** | Live with other people on the same Wi-Fi: **Host a town** (pick, create or continue a household; others can join) or **Join a town** (towns on your Wi-Fi, or type an address → pick a free household or move a new one in). See *Online mode* below and [docs/ONLINE.md](docs/ONLINE.md) |
 | **Continue** | Loads your most recent save (greyed out until you have one; shows which) |
 | **Saved Games** | Every save (household, in-game date, money, when saved) with **Load** and **Delete** |
@@ -287,8 +287,9 @@ scripts/
   body.gd               The body: running, tripping, passing out, fainting, accidents, farts, illness, throwing up
   crime.gd              Burglars, kidnappers and the police: when and where, stealing, abductions, missing people (docs/CRIME.md)
   vision.gd             What your sim can see: sight rays, the cone, light, memory, the soft veil (docs/VIEW.md)
-  weather.gd            Clear / cloudy / rain / fog: how far you see outdoors, chances per season
-  weather_fx.gd         Rain falling and fog haze on screen
+  weather.gd            Weather kinds: sight, sky tint, temperature, moods and needs outdoors, chances per season
+  weather_fx.gd         Weather on screen (rain, lightning, snow, wind, fog, heat) and the time-of-day glows
+  town.gd               The street's residents: the classic cast, or a freshly rolled one for each new game
   hud.gd                Bottom row (household, money, clock, speed, build, ☰), Today and Passport tabs, chat feed
 tests/
   check_sim.gd          Headless simulation with assertions (exit code 1 on failure)
@@ -350,20 +351,27 @@ year.
 **Day and night:** the sun rises and sets at different times per season (`SUN`). The screen is tinted by
 `CanvasModulate`; the HUD is never tinted.
 
-* **Indoors** keeps the palette: no tint by day, soft pink lamplight at night (`INDOOR_NIGHT_TINT`).
+* **Indoors** keeps the palette: no tint by day, amber lamplight at night (`INDOOR_NIGHT_TINT`) with a warm
+  lamplit vignette (`weather_fx.gd`).
 * **Outdoors** follows the sky (`SKY` colours, placed by `sky_keys()` around the season's sunrise and sunset), blending smoothly:
 
 | When (spring) | Sky | Look |
 |---------------|-----|------|
-| until 1 h before sunrise (05:00) | night | deep dark blue |
-| sunrise (06:00) | dawn | pink-lilac |
-| sunrise + 1 h (07:00) | morning | cool blue |
-| 10:30 | late morning | pale blue |
-| 12:00 to sunset − 2 h (18:00) | afternoon | bright, untinted |
-| sunset − 45 min (19:15) | golden | warm gold |
-| sunset (20:00) | sunset | pink-coral |
+| until 1 h before sunrise (05:00) | night | deep plum-blue, dark vignette, fireflies (spring, summer) |
+| sunrise (06:00) | dawn | rose |
+| sunrise + 1 h (07:00) | morning | fresh honey, a haze of morning sun from the top left |
+| 10:30 | late morning | soft cream |
+| 12:00 to sunset − 2 h (18:00) | afternoon | bright and sunny, a light warm wash from the top |
+| sunset − 45 min (19:15) | golden | amber, golden light from the west (right) with floating dust |
+| sunset (20:00) | sunset | coral |
 | sunset + 45 min (20:45) | dusk | violet |
-| from sunset + 1.5 h (21:30) | night | deep dark blue |
+| from sunset + 1.5 h (21:30) | night | deep plum-blue |
+
+The glows and vignettes are drawn by `weather_fx.gd` (`parts()`: how much it is morning / afternoon / golden hour /
+night); clouds dim the sun's glows. The weather also tints the sky by day (`world.gd sky_color()`, see
+[docs/VIEW.md](docs/VIEW.md) "Weather"). Under the clock: weekday, part of the day, the weather sign (☾ on a clear
+night) and the temperature; hover for the weather's description.
+
 
 | Season | Sunrise | Sunset | Grass | Trees | Roofs |
 |---|---|---|---|---|---|
@@ -411,7 +419,9 @@ Zomboid style: the whole neighbourhood is always on screen, inside or out, but y
 can see. The house you're in opens up (the floor you're on, walls cut down, no roof); other houses are seen
 from outside. Walls block sight, windows and doors don't; you see far in front of you (by day), only a few
 tiles behind, and only a few tiles at all in the dark except where it's lit (lamps, homes with someone awake).
-The **weather** (clear, cloudy, rain, fog) shortens sight outdoors; rain falls and fog veils the screen.
+The **weather** (clear, cloudy, windy, rain, storm, snow, fog, heatwave) shortens sight outdoors, tints the sky, sets the
+temperature, shows on screen (rain, lightning, snow, blowing leaves, fog) and changes how people outside feel and
+what they need ([docs/VIEW.md](docs/VIEW.md) "Weather").
 Out of sight is under a soft veil (light where you remember, thicker where you've never been); people out of
 sight aren't shown.
 
@@ -635,8 +645,12 @@ Full details and every table: **[docs/PEOPLE.md](docs/PEOPLE.md)**. In short:
    memory, and the initiator gets skill xp. Jokes can fall flat. Rejected: friendship −2 both ways,
    the initiator feels Rejected.
 
-Interactions: **Chat, Tell a joke, Compliment, Deep talk, Discuss ideas, Hug, Comfort, Argue, Insult**
-(table with requirements and effects in [docs/PEOPLE.md](docs/PEOPLE.md)). Durations are in game minutes.
+Interactions (about 50, grouped in the click menu as Talk, Friendly, Fun, Children, Romance, Relationship, Mean,
+Crime): **Chat, Tell a joke, Compliment, Deep talk, Hug, Wave, Shake hands, Fist bump, Pat on the back, Dance with,
+Sing together, Give a massage, Tickle, Swing around, Flirt, Hold hands, Kiss, Kiss on the cheek, Slow dance, Serenade,
+Make out, Argue, Shove, Slap**… (table with requirements and effects in [docs/PEOPLE.md](docs/PEOPLE.md)). Durations
+are in game minutes. Physical ones are **acted out**: both people lean in to hug or kiss, bounce when they dance,
+sway close in a slow dance, with hearts or music notes floating above them (`npc.gd social_pose()`).
 
 NPCs **greet** people they know when they see them ("Good morning, Sam!"), or glare at people
 they're angry with.
@@ -811,7 +825,7 @@ A **look** (`npc.look`, saved) is a Dictionary of numbers, one per part (0 = non
 | `bangs` fringe | 13 | hair colour |
 
 The palettes (`HAIR` 30, `LIPS` 9, `CLOTHES` 51) are the swatches of the art's palette sheet (`assets/doll/palette.png`).
-The starting residents use `PRESETS` (jo, sam, alex, mia, lily, riley, noah, kai; also the key art); everyone else
+The classic street's residents use `PRESETS` (jo, sam, alex, mia, lily, riley, noah, kai; also the key art; a rolled street gets random looks); everyone else
 gets `random_for(sex)` (natural skin and hair, girls often long hair and lashes, sometimes a dress, boys sometimes a
 beard; grey hair when old). Old saves that stored a look's name get that preset (`normalize`).
 
@@ -1000,7 +1014,8 @@ behavior, and add an entry to `docs/DEVLOG.md`.
 * Only one street has houses; the rest of the 1 km map is grass, trees, parked cars and roads.
 * Cars stop for people but people walk through cars that are driving (only parked ones block paths). Online,
   joined players see their own (cosmetic) traffic, and a host's sim driving to work just disappears there.
-* Seasons change how things look, how long the days are and the weather; there's no temperature yet.
+* Temperature is shown and comes from the season, hour and weather, but only the weather's effects act on people
+  (there's no clothing or heating).
 * NPCs have no daily schedule (work, school) yet; they only prefer to sleep at night.
 * Food costs money but the fridge never runs out (no grocery shopping or stock yet).
 * Workplaces and schools are off-map: you see the bus stop, not the café or school.

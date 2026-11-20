@@ -77,7 +77,8 @@ static func capture(main: Node2D) -> Dictionary:
 			"saved_at": Time.get_datetime_string_from_system(false, true), "saved_unix": Time.get_unix_time_from_system(),
 			"money": main.player.money},
 		"world": {"missing": world.crime.capture_missing(), "clock": world.clock, "weather": world.weather, "weather_until": world.weather_until, "buildings": world.building_state(), "kitchens": world.kitchens, "guests": world.guests, "speed": main.speed,
-			"controlled": main.player.npc_name, "household": main.household_name, "next_item_id": Kitchen.next_id, "log": log},
+			"controlled": main.player.npc_name, "household": main.household_name, "next_item_id": Kitchen.next_id, "log": log,
+			"households": main.households},
 		"people": people, "objects": objects, "props": props,
 	}
 
@@ -152,6 +153,7 @@ static func restore(main: Node2D, data: Dictionary) -> Node2D:
 	world.weather_until = data.world.get("weather_until", 0.0)
 	world.apply_building_state(data.world.get("buildings", []))  # built stairs and upper floors, before what's on them
 	main.household_name = data.world.household
+	main.households = data.world.get("households", main.households)  # older saves: the classic street
 	Kitchen.next_id = data.world.next_item_id
 	for o in data.objects:
 		make_object(world, o)

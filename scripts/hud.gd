@@ -651,21 +651,26 @@ func layout() -> void:
 		feed_left = child_panel.position.x + child_panel.size.x + GAP
 	feed_panel.offset_left = feed_left
 	var feed_right := feed_left + feed_panel.size.x if feed_panel.visible else 0.0
-	var ceiling := 0.0  # the lowest panel above the feed: it shows only the newest lines that fit under it
-	for panel in [today_panel, child_panel, passport]:
-		if panel.visible and panel.position.x < feed_left + feed_panel.size.x and panel.position.x + panel.size.x > feed_left:
-			ceiling = maxf(ceiling, panel.position.y + panel.size.y + GAP)
-	fit_feed(above - GAP - ceiling)
-	if talk.visible:
+	var feed_bottom := above - GAP
+	if talk.visible:  # the talk window first: when it has to go under the feed, the feed has less room
 		var width := talk.get_combined_minimum_size().x
 		var limit := right_edge if drawer.visible else screen.x - MARGIN
 		var x := clampf(screen.x / 2.0 - width / 2.0, feed_right + GAP, maxf(feed_right + GAP, limit - width))
 		if x + width > limit:  # no room beside the feed: centre it, the feed goes above it
 			x = maxf(MARGIN, (screen.x - width) / 2.0)
-			feed_panel.offset_bottom = talk.position.y - GAP - screen.y
+			feed_bottom = above - GAP - maxf(talk.size.y, talk.get_combined_minimum_size().y) - GAP
 		talk.offset_left = x - screen.x * 0.5
 		talk.offset_right = talk.offset_left + width
 		talk.offset_bottom = above - GAP - screen.y
+	feed_panel.offset_bottom = feed_bottom - screen.y
+	var ceiling := 0.0  # the lowest panel above the feed: it shows only the newest lines that fit under it
+	var feed_width := maxf(feed_panel.size.x, feed_panel.get_combined_minimum_size().x)  # also while it's hidden
+	for panel in [today_panel, child_panel, passport]:
+		if panel.visible and panel.position.x < feed_left + feed_width and panel.position.x + panel.size.x > feed_left:
+			var height := maxf(panel.size.y, panel.get_combined_minimum_size().y)  # new text may not be laid out yet
+			ceiling = maxf(ceiling, panel.position.y + height + GAP)
+	fit_feed(feed_bottom - ceiling)
+	feed_panel.offset_top = feed_panel.offset_bottom - feed_panel.get_combined_minimum_size().y  # shrink back, not only grow
 
 
 # PAUSED and the toasts go in the first of `areas` ([x from, x to, y from, y to]) wide enough for them and tall
@@ -1077,8 +1082,13 @@ func _process(_delta: float) -> void:
 		update_child_panel()
 	var t: float = player.world.now()
 	time_label.text = GameTime.clock_text(t).substr(0, 5)
-	date_label.text = "%s  %s" % [GameTime.weekday(t).to_upper(), Weather.icon(player.world.weather)]
-	time_label.tooltip_text = "%s · %s · %s · %s" % [GameTime.part_of_day(t), player.world.weather, GameTime.date_text(t), game.speed_text()]
+	var weather: String = player.world.weather
+	var season := GameTime.season(t)
+	date_label.text = "%s · %s  %s %d°" % [GameTime.weekday(t).substr(0, 3).to_upper(), GameTime.part_of_day(t).to_upper(),
+		Weather.icon(weather, GameTime.is_night(t)), Weather.temperature(weather, season, GameTime.hours(t))]
+	date_label.tooltip_text = Weather.describe(weather, season, GameTime.hours(t))
+	time_label.tooltip_text = "%s · %s · %s · %s" % [GameTime.part_of_day(t), Weather.describe(weather, season, GameTime.hours(t)),
+		GameTime.date_text(t), game.speed_text()]
 	paused_label.visible = game.paused
 	for n in speed_buttons.size():
 		var active: bool = game.paused if n == 0 else (not game.paused and not game.sleep_boost and game.speed == n - 1) \

@@ -20,20 +20,20 @@ const Hobbies = preload("res://scripts/hobbies.gd")
 
 const TRAITS := {
 	# Social
-	"Outgoing": {"group": "Social", "text": "Loves company", "decay": {"social": 1.4}, "likes": {"social": 1.3}, "accept": 0.1, "prefer": {"Invite over": 2.0, "Gossip": 1.5, "Flirt": 1.3}, "conflicts": ["Loner"]},
+	"Outgoing": {"group": "Social", "text": "Loves company", "decay": {"social": 1.4}, "likes": {"social": 1.3}, "accept": 0.1, "prefer": {"Invite over": 2.0, "Gossip": 1.5, "Flirt": 1.3, "Wave": 1.5, "Dance with": 1.5}, "conflicts": ["Loner"]},
 	"Loner": {"group": "Social", "text": "Needs time alone", "decay": {"social": 0.6}, "likes": {"social": 0.7}, "accept": -0.1, "prefer": {"Ask to leave": 3.0}, "conflicts": ["Outgoing"]},
 	"Cheerful": {"group": "Social", "text": "Usually happy", "emotions": {"Happy": 1.5, "Sad": 0.5}},
-	"Hot-headed": {"group": "Social", "text": "Quick to anger", "emotions": {"Angry": 1.5}, "prefer": {"Argue": 2.0, "Insult": 2.0}, "peek": -0.2},
+	"Hot-headed": {"group": "Social", "text": "Quick to anger", "emotions": {"Angry": 1.5}, "prefer": {"Argue": 2.0, "Insult": 2.0, "Shove": 2.0, "Slap": 1.5}, "peek": -0.2},
 	"Goofball": {"group": "Social", "text": "Loves a joke", "emotions": {"Playful": 1.3}, "prefer": {"Tell a joke": 2.5, "Prank": 2.0, "Tease": 1.5}, "skills": {"Comedy": 1.5}},
 	# Lifestyle
 	"Foodie": {"group": "Lifestyle", "text": "Lives to eat", "decay": {"hunger": 1.2}, "likes": {"cooking": 1.4}, "skills": {"Cooking": 1.5}},
 	"Bookworm": {"group": "Lifestyle", "text": "Always reading", "likes": {"Bookshelf": 2.0}, "skills": {"Logic": 1.5}},
-	"Active": {"group": "Lifestyle", "text": "Can't sit still", "decay": {"energy": 1.1}, "likes": {"Pull-up bar": 2.5}, "skills": {"Fitness": 1.5}, "conflicts": ["Lazy"]},
+	"Active": {"group": "Lifestyle", "text": "Can't sit still", "decay": {"energy": 1.1}, "likes": {"Pull-up bar": 2.5}, "prefer": {"Dance with": 2.0}, "skills": {"Fitness": 1.5}, "conflicts": ["Lazy"]},
 	"Lazy": {"group": "Lifestyle", "text": "Avoids effort", "decay": {"energy": 0.85}, "likes": {"TV": 1.5, "Pull-up bar": 0.3}, "conflicts": ["Active"]},
 	"Neat": {"group": "Lifestyle", "text": "Hates mess", "decay": {"hygiene": 1.2}, "mess": 1, "conflicts": ["Slob"]},
 	"Slob": {"group": "Lifestyle", "text": "Doesn't mind mess", "decay": {"hygiene": 0.8}, "mess": 99, "conflicts": ["Neat"]},
 	# Heart: their conscience
-	"Kind": {"group": "Heart", "text": "Cares about everyone", "conscience": 2, "emotions": {"Sad": 1.2}, "prefer": {"Compliment": 1.5, "Comfort": 2.0, "Hug": 1.5, "Give a gift": 1.5}, "conflicts": ["Cruel", "Psychopath", "Sociopath"]},
+	"Kind": {"group": "Heart", "text": "Cares about everyone", "conscience": 2, "emotions": {"Sad": 1.2}, "prefer": {"Compliment": 1.5, "Comfort": 2.0, "Hug": 1.5, "Give a gift": 1.5, "Pat on the back": 1.5, "Give a massage": 1.5}, "conflicts": ["Cruel", "Psychopath", "Sociopath"]},
 	"Honest": {"group": "Heart", "text": "Can't tell a lie", "conscience": 1, "prefer": {"Apologize": 2.0}, "conflicts": ["Manipulative"]},
 	"Brave": {"group": "Heart", "text": "Stands up to anyone", "emotions": {"Tense": 0.5}},
 	# Dark (morals.gd): how wicked they are (`dark`) is only half of it; their life decides if it becomes crime
@@ -41,7 +41,7 @@ const TRAITS := {
 	"Sociopath": {"group": "Dark", "text": "Impulsive, no remorse", "dark": 2, "conscience": -2, "emotions": {"Angry": 1.6}, "prefer": {"Threaten": 2.0, "Attack": 1.5, "Insult": 1.5, "Argue": 1.5}, "conflicts": ["Kind", "Psychopath"]},
 	"Narcissist": {"group": "Dark", "text": "It's all about them", "dark": 1, "conscience": -1, "emotions": {"Confident": 1.4, "Angry": 1.2}, "prefer": {"Brag": 3.0, "Manipulate": 1.5}},
 	"Manipulative": {"group": "Dark", "text": "Uses people", "dark": 1, "conscience": -1, "prefer": {"Manipulate": 3.0, "Gossip": 1.5}, "conflicts": ["Honest"]},
-	"Cruel": {"group": "Dark", "text": "Enjoys others' pain", "dark": 2, "conscience": -2, "prefer": {"Insult": 2.5, "Tease": 1.5, "Prank": 1.5, "Attack": 1.3}, "conflicts": ["Kind"]},
+	"Cruel": {"group": "Dark", "text": "Enjoys others' pain", "dark": 2, "conscience": -2, "prefer": {"Insult": 2.5, "Tease": 1.5, "Prank": 1.5, "Attack": 1.3, "Shove": 1.5}, "conflicts": ["Kind"]},
 	"Kleptomaniac": {"group": "Dark", "text": "Can't help taking things", "urge": true, "prefer": {"Pickpocket": 3.0}},
 }
 const GROUPS := ["Social", "Lifestyle", "Heart", "Dark"]

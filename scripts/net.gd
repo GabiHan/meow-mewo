@@ -285,7 +285,7 @@ func fast_state() -> Array:
 		people.append([c.npc_name, c.grid_pos, c.floor, c.state, c.target_object.net_id if c.target_object else 0,
 			c.step.get("asleep", false), c.step.get("seconds", 0.0), c.use_timer, c.partner.npc_name if c.partner else "",
 			c.activity, c.activity_with.npc_name if c.activity_with else "", c.held, c.at_work, c.peek_window, c.auto_mode,
-			c.controlled, c.pose, c.running])
+			c.controlled, c.pose, c.running, c.social_anim, c.social_fx, c.is_initiator])
 	return [main.world.clock, Engine.time_scale, main.paused, people]
 
 
@@ -421,6 +421,9 @@ func fast(state: Array) -> void:
 		c.human = row[15]
 		c.pose = row[16]
 		c.running = row[17]
+		c.social_anim = row[18]
+		c.social_fx = row[19]
+		c.is_initiator = row[20]
 
 
 @rpc("authority", "reliable")

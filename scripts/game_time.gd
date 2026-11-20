@@ -17,19 +17,20 @@ const TWILIGHT_HOURS := 1.0  # dawn and dusk fade over this long, centred on sun
 
 # Screen tint (CanvasModulate). The HUD is never tinted.
 # Indoors keeps the palette: no tint by day, warm peach lamplight at night.
-const INDOOR_NIGHT_TINT := Color(1.0, 0.88, 0.8)
+const INDOOR_NIGHT_TINT := Color(0.98, 0.8, 0.66)  # amber lamplight
 # Outdoors follows the sky (keyframes in sky_keys(), placed around the season's sunrise and sunset), in the UI's
-# colours: plum night (DUSK) -> peach-pink dawn -> soft morning -> bright afternoon -> golden hour -> sunset ->
-# lilac dusk (the UI turns to DUSK at sunset too).
+# colours, each part of the day with its own clear mood: deep plum-blue night (DUSK) -> rose dawn -> fresh honey
+# morning -> bright, sunny afternoon -> amber golden hour -> coral sunset -> violet dusk (the UI turns to DUSK at
+# sunset too). weather_fx.gd adds the matching glow on screen (morning haze, golden light, night vignette).
 const SKY := {
-	"night": Color(0.42, 0.35, 0.6),
-	"dawn": Color(0.98, 0.8, 0.82),
-	"morning": Color(0.98, 0.94, 0.95),
-	"late_morning": Color(1.0, 0.98, 0.97),
-	"afternoon": Color.WHITE,
-	"golden": Color(1.0, 0.84, 0.68),
-	"sunset": Color(1.0, 0.72, 0.76),
-	"dusk": Color(0.64, 0.54, 0.8),
+	"night": Color(0.34, 0.3, 0.56),
+	"dawn": Color(0.97, 0.72, 0.76),
+	"morning": Color(1.0, 0.91, 0.82),
+	"late_morning": Color(1.0, 0.97, 0.92),
+	"afternoon": Color(1.0, 0.99, 0.95),
+	"golden": Color(1.0, 0.76, 0.52),
+	"sunset": Color(0.98, 0.6, 0.62),
+	"dusk": Color(0.56, 0.46, 0.76),
 }
 
 # Season colours for terrain and trees (world.gd).

@@ -49,7 +49,7 @@ Bed (499,502) and Lily's Crib (506,503) in Alex's house, Noah's Bed (493,521) in
 |---|---|---|---|---|---|
 | Objects | – | Bed, Crib, TV | all | all | all |
 | Kitchen | – (must be fed) | – (must be fed) | Counter recipes, cold drinks | all | all |
-| Start interactions | – | Chat, Tell a joke, Hug | + Compliment, Comfort, Argue, Discuss ideas (Logic 3) | + Deep talk, Insult | + Invite over, Ask to leave, Try for a baby |
+| Start interactions | – | Chat, Tell a joke, Hug, Wave, Fist bump, Dance with, Sing together | + Compliment, Comfort, Argue, Discuss ideas (Logic 3) | + Deep talk, Insult | + Invite over, Ask to leave, Try for a baby |
 | Be the partner of | Hug, Play, care | most, care | most | all except romance | all |
 | Answer the door | – | – | – | yes | yes |
 | Jobs, bills | – | – | – | – | yes |

@@ -25,7 +25,6 @@ const Creator = preload("res://scripts/creator.gd")
 const PREVIEW_SCALE := 0.2
 const Traits = preload("res://scripts/traits.gd")
 const Hobbies = preload("res://scripts/hobbies.gd")
-const Main = preload("res://scripts/main.gd")
 const Net = preload("res://scripts/net.gd")
 const Music = preload("res://scripts/music.gd")
 const KeyArt = preload("res://scripts/key_art.gd")
@@ -36,7 +35,7 @@ const MARGIN := 24
 
 const MAX_MEMBERS := 4
 const AGES := ["Child", "Teen", "Young adult", "Adult", "Old"]
-const TAKEN_NAMES := ["Jo", "Sam", "Alex", "Mia", "Lily", "Riley", "Noah", "You"]  # people already on the street
+const Town = preload("res://scripts/town.gd")
 
 var page: VBoxContainer  # the page you opened (left side), rebuilt for each page
 var key_art: Control  # the picture on the left when no page is open (key_art.gd)
@@ -71,6 +70,7 @@ func _ready() -> void:
 	Engine.time_scale = 1.0
 	Music.play(get_tree(), "menu")
 	ResourceLoader.load_threaded_request(GAME_SCENE)  # "Loading the neighbourhood…" while you choose
+	Session.town = Town.roll()  # every new game gets new neighbours (town.gd); "Classic street" brings Jo & Sam back
 	build_layout()
 	show_title()
 
@@ -341,7 +341,9 @@ func show_play() -> void:
 func show_households() -> void:
 	clear_page()
 	title_label("Choose a household", 40)
-	for h in Main.HOUSEHOLDS:
+	small_label("New neighbours every game: names, looks, ages, traits and jobs are rolled." if not Session.town.is_empty()
+		else "The classic street: Jo & Sam, Alex's family, Riley & Noah.")
+	for h in Town.households(Town.current(Session.town)):
 		var card := PanelContainer.new()
 		card.custom_minimum_size = Vector2(560, 0)
 		page.add_child(card)
@@ -365,6 +367,15 @@ func show_households() -> void:
 		play.custom_minimum_size = Vector2(110, 44)
 		play.pressed.connect(start_household.bind(h.home))
 		row.add_child(play)
+	var reroll := func():
+		Session.town = Town.roll()
+		show_households()
+	var classic := func():
+		Session.town = []
+		show_households()
+	button("🎲  New neighbours", reroll, 320)
+	if not Session.town.is_empty():
+		button("Classic street", classic, 320)
 	button("Back", show_play, 200)
 
 
@@ -540,7 +551,7 @@ func read_household() -> Dictionary:
 			return fail("%s: %s" % [person.name if person.name != "" else "Someone", clash])
 		if person.name == "":
 			return fail("Every person needs a name.")
-		if person.name in TAKEN_NAMES or names.has(person.name):
+		if person.name in Town.names(Town.current(Session.town)) + ["You"] or names.has(person.name):
 			return fail("%s is already taken: pick another name." % person.name)
 		names[person.name] = true
 		people.append(person)

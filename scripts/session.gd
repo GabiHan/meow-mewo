@@ -17,6 +17,8 @@ static var online := ""
 static var controlled := ""
 static var online_household := ""
 static var notice := ""
+# The street for a new game (town.gd roll(), made by the home screen; [] = the classic street). reset() keeps it.
+static var town := []
 
 
 static func reset() -> void:

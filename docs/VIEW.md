@@ -40,19 +40,30 @@ you're in are tinted the same way (a house you see any wall of is shown as seen)
 The world has one weather at a time (`world.weather`), lasting 3–8 game hours, then a new one is drawn for the
 season (fog is 3× likelier before 10:00). It's saved, and online the host sends it to everyone.
 
-| Weather | Sight outdoors | Spring | Summer | Fall | Winter | On screen (`weather_fx.gd`, outdoors only) |
-|---|---|---|---|---|---|---|
-| ☀ Clear | ×1 | 4 | 7 | 3 | 3 | – |
-| ☁ Cloudy | ×0.85 | 3 | 2 | 3 | 4 | – |
-| ☂ Rain | ×0.6 | 3 | 1 | 3 | 2 | rain falling (on real time: the same at any game speed) |
-| ≋ Fog | ×0.3 | 1 | 0 | 3 | 2 | a white haze, and the veil turns white |
+| Weather | Sight outdoors | Sky by day | °C | Spring | Summer | Fall | Winter | On screen (`weather_fx.gd`, outdoors) | People outside (inside) | Needs outside |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ☀ Clear (☾ at night) | ×1 | – | +2 | 4 | 6 | 3 | 3 | the sun's glows (README "Day and night") | Sunny day (Happy 1) | – |
+| ☁ Cloudy | ×0.85 | grey | −1 | 3 | 2 | 3 | 3 | drifting cloud shadows | – | – |
+| ≈ Windy | ×0.95 | slightly grey | −2 | 2 | 1 | 3 | 1 | leaves (petals in spring, snow in winter) blowing past | Windswept (Energized 1) | hygiene ×1.3 |
+| ☂ Rain | ×0.6 | blue-grey | −3 | 3 | 1 | 3 | 1 | rain, cloud shadows | Soaked (Uncomfortable 2) (Cozy inside, Happy 1) | hygiene ×1.5, energy ×1.1 |
+| ⚡ Storm | ×0.45 | dark | −4 | 1 | 1 | 1 | 0 | heavy slanted rain, lightning flashes (a dimmer flash indoors), blowing leaves | Caught in a storm (Tense 2) (Cozy inside) | hygiene ×2, energy ×1.2 |
+| ❄ Snow | ×0.7 | cold white | −6 | 0 | 0 | 0 | 4 | snowflakes | Snow day (Playful 2) (Cozy inside) | energy ×1.2, hunger ×1.15 |
+| ≋ Fog | ×0.3 | – | −1 | 1 | 0 | 3 | 2 | a white haze, and the veil turns white | – | – |
+| ♨ Heatwave | ×0.9 | warm | +9 | 0 | 2 | 0 | 0 | a warm shimmer | Too hot (Uncomfortable 2) | thirst ×1.8, energy ×1.2, hygiene ×1.3 |
 
-The weather sign is next to the weekday under the clock (hover the clock to read it).
+**Temperature** (`Weather.temperature()`): the season's average (spring 14, summer 25, fall 12, winter 1 °C), ±5
+through the day (warmest at 15:00, coldest at 03:00), plus the weather's °C.
+
+Moods come from `npc.gd look_around()` (conditional moodlets: they last while you're out in it); people at work
+aren't affected. The sky tint is `world.gd sky_color()`: `GameTime.tint()` × the weather's tint, scaled by daylight
+(and to a third indoors). Under the clock: weekday · part of the day, the weather sign and the temperature; hover it
+for "Rain, 9 °C — Steady rain". Effects move on real time (the same at any game speed).
 
 ## Tuning
 
 `vision.gd`: `RADIUS`, `RAYS`, `DAY_RANGE`, `NIGHT_RANGE`, `BEHIND_RANGE`, `CONE_DEGREES`, `LAMP_RADIUS`,
-`UPDATE_MSEC`, `MEMORY_ALPHA`, `UNKNOWN_ALPHA`, the veil colours. `weather.gd`: `KINDS`, `CHANCES`, `MORNING_FOG`, `HOURS`.
+`UPDATE_MSEC`, `MEMORY_ALPHA`, `UNKNOWN_ALPHA`, the veil colours. `weather.gd`: `KINDS`, `CHANCES`, `MORNING_FOG`, `HOURS`, `SEASON_TEMP`, `SWING`. `weather_fx.gd`: the particle counts
+and the glow colours.
 A sight update takes about 8 ms (mostly the rays).
 
 ## Limits

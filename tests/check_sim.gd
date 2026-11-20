@@ -191,13 +191,13 @@ func check_time() -> void:
 	check(GameTime.daylight(summer_evening) > 0.9 and GameTime.daylight(winter_evening) < 0.1,
 		"at 18:30 it's still light in summer but dark in winter")
 	check(GameTime.tint(midnight, false).v < 0.9 and GameTime.tint(midnight, true).v > GameTime.tint(midnight, false).v
-		and GameTime.tint(noon, false) == Color.WHITE, "night darkens the screen; indoors the lamps are on")
+		and GameTime.tint(noon, false).v > 0.97, "night darkens the screen; indoors the lamps are on")
 	var spring_at := func(h: float) -> Color: return GameTime.tint(GameTime.game_seconds((h - 8.0) * 60.0), false)
 	var morning: Color = spring_at.call(8.0)
 	var sunset: Color = spring_at.call(20.0)
-	check(morning != Color.WHITE and morning.r >= morning.b and spring_at.call(15.0) == Color.WHITE and sunset.r > sunset.b and sunset.r > 0.9
+	check(morning != Color.WHITE and morning.r > morning.b + 0.1 and spring_at.call(15.0).v > 0.97 and sunset.r > sunset.b and sunset.r > 0.9
 		and spring_at.call(23.0).v < 0.7 and GameTime.tint(GameTime.game_seconds(0.0), true) == Color.WHITE,
-		"outside: soft warm morning, bright afternoon, sunset at dusk, dark night; indoors stays untinted by day")
+		"outside: honey morning, bright afternoon, sunset at dusk, dark night; indoors stays untinted by day")
 	for season_name in GameTime.SEASONS:
 		var keys: Array = GameTime.sky_keys(season_name)
 		var ordered := true
@@ -412,7 +412,7 @@ func check_life() -> void:
 	check(baby.needs.hunger >= 79.0 and not Emotions.has(baby, "Crying"), "feeding the baby fills hunger and stops the crying")
 	var with_baby: Array = Social.available_interactions(player, baby).map(func(i): return i.name)
 	check(with_baby.has("Feed") and with_baby.has("Hug") and not with_baby.has("Chat") and not with_baby.has("Flirt"),
-		"with a baby you can hug, play, feed, change and rock, nothing else (%s)" % [with_baby])
+		"with a baby you can hug, play, tickle, kiss, feed, change and rock, nothing else (%s)" % [with_baby])
 
 	# College and a degree.
 	reset(player, Vector2(488, 504))
@@ -503,6 +503,138 @@ func check_romance() -> void:
 	Social.finish(riley, player, interaction("Divorce"))
 	check(player.lover == "" and riley.lover == "" and riley.home == 2 and Emotions.has(player, "Heartbroken"),
 		"divorced: single again, Riley moves back home, you're heartbroken")
+
+
+# A rolled street (town.gd): same shape, new people who make sense.
+func check_town() -> void:
+	const Town = preload("res://scripts/town.gd")
+	var classic: Array = Town.households(Town.CAST)
+	check(classic[0].name == "Jo & Sam" and classic[2].about.contains("his teenage son Noah (15)") and main.households[1].name == "Alex's family",
+		"the classic street: Jo & Sam, Alex's family, Riley & Noah")
+	var ok := true
+	var rolls := []
+	for n in 20:
+		var cast: Array = Town.roll()
+		var names: Array = Town.names(cast)
+		var by := {}
+		for r in cast:
+			by[r.key] = r
+		for r in cast:
+			ok = ok and names.count(r.name) == 1 and Traits.problem(r.traits) == "" and r.look is Dictionary
+			for parent in Town.parent_names(cast, r):
+				ok = ok and cast.filter(func(o): return o.name == parent)[0].years >= r.years + Town.PARENT_GAP
+			if r.job != "":
+				for skill in Jobs.JOBS[r.job].get("needs", {}):
+					ok = ok and r.skills.get(skill, 0) >= Jobs.JOBS[r.job].needs[skill]
+				ok = ok and r.degree == Jobs.JOBS[r.job].get("degree", false)
+		ok = ok and by.lily.years < 4.0 and by.noah.years >= 13.0 and by.jo.get("you", false)
+		ok = ok and Town.households(cast)[1].about.contains(by.mia.name)
+		rolls.append(by.jo.name + by.sam.name)
+	check(ok, "rolled streets: unique names, no clashing traits, parents old enough, everyone qualified for their job")
+	check(rolls.filter(func(r): return r == rolls[0]).size() < 20, "rolled streets differ from game to game")
+
+
+# Weather kinds (weather.gd): sky, temperature, feelings and needs.
+func check_weather() -> void:
+	const Weather = preload("res://scripts/weather.gd")
+	var w: Node2D = main.world
+	var summer := false
+	var winter_snow := false
+	for n in 300:
+		summer = summer or Weather.next("Summer", 14.0) in ["Snow"]
+		winter_snow = winter_snow or Weather.next("Winter", 14.0) == "Snow"
+	check(not summer and winter_snow, "snow only in winter (and it does snow)")
+	check(Weather.temperature("Clear", "Summer", 15.0) > Weather.temperature("Clear", "Summer", 3.0)
+		and Weather.temperature("Heatwave", "Summer", 15.0) >= 35 and Weather.temperature("Snow", "Winter", 3.0) < 0,
+		"temperature: warmer in the afternoon, a heatwave is hot, a snowy winter night freezes")
+	set_time(2, 12.0)
+	var t: float = w.now()
+	w.weather = "Storm"
+	var storm: Color = w.sky_color(t, false)
+	w.weather = "Clear"
+	check(storm.v < w.sky_color(t, false).v - 0.15 and w.sky_color(t, true).v > storm.v, "a storm darkens the sky (less so indoors)")
+	var sam := person("Sam")
+	reset(sam, Vector2(492, 514))  # outside
+	sam.moodlets.clear()
+	w.weather = "Rain"
+	sam.look_around()
+	check(Emotions.has(sam, "Soaked") and not Emotions.has(sam, "Cozy inside"), "out in the rain: soaked")
+	reset(sam, sam.home_cell)
+	sam.look_around()
+	check(not Emotions.has(sam, "Soaked") and Emotions.has(sam, "Cozy inside"), "inside while it rains: cozy")
+	check(Weather.decay("Heatwave", "thirst", true) > 1.5 and Weather.decay("Heatwave", "thirst", false) == 1.0,
+		"a heatwave makes people outside thirsty")
+	w.weather = "Clear"
+	sam.look_around()
+
+
+# Kiss, hug, dance, slap…: every interaction is well formed, unlocks at the right time, and both bodies move.
+func check_body_language() -> void:
+	var sam := person("Sam")
+	var lily := person("Lily")
+	const POSES := ["hug", "kiss", "hands", "dance", "slow_dance", "sway", "wave", "shake", "pat", "massage", "tickle", "swing",
+		"argue", "shove", "slap"]
+	var bad := []
+	for i in Social.INTERACTIONS:
+		for key in ["moodlet_a", "moodlet_b"]:
+			if i.has(key) and not Emotions.MOODLETS.has(i[key]):
+				bad.append("%s %s" % [i.name, i[key]])
+		if i.has("anim") and not i.anim in POSES or i.get("fx", "") not in ["", "hearts", "notes"] or not Social.group(i) in Social.GROUPS:
+			bad.append(i.name)
+	check(bad.is_empty(), "every interaction has real moodlets, a known pose and a menu section %s" % [bad])
+	for c in [player, sam, lily]:
+		reset(c, Vector2(488 + randi_range(0, 3), 504))
+		c.moodlets.clear()
+		set_needs(c, 70.0)
+		c.romance.clear()
+		c.lover = ""
+		c.lover_status = ""
+	player.relationships["Sam"] = 30.0
+	sam.relationships[player.npc_name] = 30.0
+	player.relationships["Lily"] = 40.0
+	var with_sam: Array = names(player, sam)
+	check(with_sam.has("Dance with") and with_sam.has("Wave") and with_sam.has("Shake hands") and not with_sam.has("Slow dance")
+		and not with_sam.has("Slap"), "friends can wave, shake hands and dance; slow dancing needs romance, slapping anger")
+	var alex := person("Alex")  # Lily's mum
+	alex.relationships["Lily"] = 80.0
+	check(names(player, lily).has("Tickle") and not names(player, lily).has("Kiss on the forehead")
+		and names(alex, lily).has("Kiss on the forehead") and not names(player, lily).has("Kiss") and not names(sam, player).has("Tickle"),
+		"toddlers get tickles, forehead kisses from family (never romance); grown-ups don't get tickled")
+	sam.romance[player.npc_name] = 60.0
+	player.romance["Sam"] = 60.0
+	check(names(player, sam).has("Slow dance") and names(player, sam).has("Make out") and names(player, sam).has("Hold hands"),
+		"with romance: hold hands, slow dance, make out")
+	Emotions.add(player, "Argued")
+	Emotions.add(player, "Argued")
+	check(names(player, sam).has("Slap") and names(player, sam).has("Shove"), "angry: shoving and slapping are possible")
+	player.moodlets.clear()
+
+	var hug: Dictionary = interaction("Hug").duplicate()
+	hug.always_accepted = true
+	player.partner = sam
+	player.is_initiator = true
+	player.interaction = hug
+	sam.partner = player
+	Social.begin(player, sam, hug)
+	check(player.social_anim == "hug" and sam.social_anim == "hug" and player.state == "talking", "a hug: both bodies hug")
+	var gap: Vector2 = sam.global_position - player.global_position
+	player.animate(0.1)
+	check(player.anim == "hug" and player.doll.position.dot(gap) > 0.0, "hugging: they lean in towards each other")
+	var dance: Dictionary = interaction("Dance with")
+	var bounce := false
+	for c in [player, sam]:
+		c.social_anim = dance.anim
+		c.social_fx = dance.fx
+	for n in 10:
+		player.animate(0.05)
+		bounce = bounce or player.doll.position.y < -1.0
+	check(bounce, "dancing: they bounce to the beat")
+	Social.finish(player, sam, dance)
+	check(player.social_anim == "" and sam.social_anim == "" and Emotions.has(sam, "Danced") and sam.partner == null,
+		"after the dance: back to normal, and they both feel it")
+	Social.finish(player, sam, interaction("Slap"))
+	check(Emotions.has(sam, "Slapped") and sam.emote.contains("Ow") and Social.memories_of(sam, player)[-1].text == "slapped me",
+		"a slap hurts: Sam's angry, says so and remembers it")
 
 
 # Apologize, prank, gift, caring decisions, the baby panel.
@@ -1240,8 +1372,10 @@ func check_saving() -> void:
 
 	var menu: Control = load("res://scenes/menu.tscn").instantiate()
 	root.add_child(menu)
+	var street: Array = Session.town  # the home screen rolled new neighbours: their names are taken
+	check(street.size() == 7, "the home screen rolls a new street for the next game")
 	menu.show_create()
-	menu.members[0].name.text = "Sam"
+	menu.members[0].name.text = street[0].name
 	menu.household_edit.text = "The Meows"
 	var taken: Dictionary = menu.read_household()
 	menu.members[0].name.text = "Mimi"
@@ -1264,6 +1398,7 @@ func check_saving() -> void:
 		"the character creator: a dress replaces top and bottom, Done gives the person that look")
 	menu.free()
 	Session.reset()
+	Session.town = []
 
 
 # Set the clock to `hour` on game day `day` (0 = day 1, a Monday).
@@ -2519,6 +2654,9 @@ func _process(delta: float) -> bool:
 		check_life()
 		check_romance()
 		check_everyday()
+		check_body_language()
+		check_town()
+		check_weather()
 		check_mind()
 		check_build()
 		check_looks()

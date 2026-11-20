@@ -71,6 +71,7 @@ const Llm = preload("res://scripts/llm.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
 const Body = preload("res://scripts/body.gd")
 const Furniture = preload("res://scripts/furniture.gd")
+const Weather = preload("res://scripts/weather.gd")
 
 const ACT_THRESHOLD := 5.0  # below this score nothing is worth doing, so wander
 const NEEDS := ["hunger", "thirst", "energy", "fun", "bladder", "hygiene", "social"]
@@ -229,7 +230,7 @@ var label: Label
 # Appearance (looks.gd): a layered paper doll (doll.gd), posed by what they're doing (animate)
 var look := {}  # looks.gd: part and colour numbers
 var doll: Node2D
-var anim := "idle"  # the pose animate() chose: idle, walk, run, sit, lie, down, bent
+var anim := "idle"  # the pose animate() chose: idle, walk, run, sit, lie, down, bent, or a social_anim
 var flip := false  # mirrored (facing left on screen)
 var overlay: Node2D  # draws on top of the sprite: progress bar
 var held_sprite: Sprite2D  # what they carry (update_held())
@@ -237,6 +238,8 @@ var held_shown := ""
 var facing_dir := 0  # sheet row (direction)
 var last_move := Vector2(0, 1)
 var anim_time := 0.0
+var social_anim := ""  # how their body moves in the interaction they're in (social.gd `anim`; social_pose())
+var social_fx := ""  # "hearts" / "notes" floating between them (drawn by the initiator, draw_overlay)
 
 
 # Draws the things that go on top of the body sprite (see draw_overlay).
@@ -321,8 +324,9 @@ func _process(delta: float) -> void:
 		intruder_update(delta)
 		return
 	var fx: Dictionary = Ages.EFFECTS[Ages.stage(self)]
+	var outside := building < 0 and not at_work
 	for need in needs:
-		var rate: float = decay[need] * fx.get("decay", {}).get(need, 1.0)
+		var rate: float = decay[need] * fx.get("decay", {}).get(need, 1.0) * Weather.decay(world.weather, need, outside)
 		if need == "energy":
 			rate *= Mind.multiplier(self, "energy_decay") * (1.3 if pregnant_until >= 0.0 else 1.0) * Body.energy_decay(self)
 		needs[need] = maxf(0.0, needs[need] - rate * delta)
@@ -618,8 +622,14 @@ func show_emote(text: String, with: Node2D, seconds := EMOTE_SECONDS) -> void:
 # --- Perception ---
 
 func look_around() -> void:
-	Emotions.update(self, {"Messy home": messy_home(), "Broke": money < 0 and Ages.is_grown_up(self),
-		"Pregnant": pregnant_until >= 0.0, "In a relationship": lover != "", "Crying": is_crying(), "Sick": illness != ""})
+	var conditions := {"Messy home": messy_home(), "Broke": money < 0 and Ages.is_grown_up(self),
+		"Pregnant": pregnant_until >= 0.0, "In a relationship": lover != "", "Crying": is_crying(), "Sick": illness != ""}
+	for kind in Weather.KINDS:  # the weather: out in it, or snug inside while it's out there (weather.gd)
+		for outside in [true, false]:
+			var m := Weather.moodlet(kind, outside)
+			if m != "":
+				conditions[m] = conditions.get(m, false) or (kind == world.weather and outside == (building < 0) and not at_work)
+	Emotions.update(self, conditions)
 	if is_crying() and emote_timer <= 0.0:
 		show_emote("Waaah!", null)
 	seen = []
@@ -1035,6 +1045,8 @@ func end_social() -> void:
 	partner = null
 	interaction = {}
 	is_initiator = false
+	social_anim = ""
+	social_fx = ""
 	var was_busy := busy_talk
 	busy_talk = false
 	if not was_busy and state in ["waiting", "talking", "walking"]:  # someone busy just carries on
@@ -1085,6 +1097,8 @@ func draw_overlay(canvas: Node2D) -> void:
 		var done := clampf(1.0 - use_timer / step.seconds, 0.0, 1.0)
 		canvas.draw_rect(Rect2(-19, -102, 38, 6), Color(0, 0, 0, 0.6))
 		canvas.draw_rect(Rect2(-18, -101, 36 * done, 4), Color(0.45, 0.85, 0.5))
+	if social_fx != "" and is_initiator and state == "talking" and partner:
+		draw_social_fx(canvas, (partner.global_position - global_position).limit_length(80.0) * 0.5)
 	if carrying_loot:  # a burglar's sack over the shoulder
 		canvas.draw_circle(Vector2(-10, -40), 9.0, Color(0.35, 0.3, 0.28))
 		canvas.draw_circle(Vector2(-10, -40), 7.0, Color(0.45, 0.4, 0.36))
@@ -1166,12 +1180,109 @@ func animate(delta: float) -> void:
 			facing_dir = Looks.direction(spot - grid_pos)
 	elif state in ["talking", "waiting"] and partner:
 		facing_dir = Looks.direction(partner.grid_pos - grid_pos)
+		if state == "talking" and social_anim != "":
+			anim = social_anim
+			anim_time += delta
+			var gap: Vector2 = (partner.global_position - global_position).limit_length(80.0)
+			var p := social_pose(social_anim, anim_time, gap)
+			at = p[0]
+			turn = p[1]
+			squash = p[2]
 	var screen_x: float = Iso.to_screen(Looks.DIRS[facing_dir]).x
 	if absf(screen_x) > 0.1:
 		flip = screen_x < 0.0
 	doll.position = at + Vector2(-slide if flip else slide, 0.0)
 	doll.rotation = turn * (-1.0 if flip else 1.0)
 	doll.scale = Vector2(-s if flip else s, s * squash)
+
+
+# Social body language (social.gd `anim`): [doll offset, lean (+ = towards them), squash] at `t` seconds in.
+# `gap` points at the partner on screen. Both people play the same anim; is_initiator picks the side.
+func social_pose(kind: String, t: float, gap: Vector2) -> Array:
+	var at := Vector2.ZERO
+	var turn := 0.0
+	var squash := 1.0
+	var hit := maxf(0.0, sin(t * 5.0))  # a quick swing out and back
+	match kind:
+		"hug":  # arms round each other: close, leaning in
+			at = gap * 0.32
+			turn = 0.12
+		"kiss":
+			at = gap * 0.36
+			turn = 0.18 + sin(t * 3.0) * 0.03
+		"hands":  # side by side, a little swing
+			at = gap * 0.24
+			at.y -= absf(sin(t * 2.0)) * 1.5
+		"dance":  # bouncing and swaying to the beat
+			at = Vector2(sin(t * 3.5) * 4.0, -absf(sin(t * 7.0)) * 6.0)
+			turn = sin(t * 3.5) * 0.18
+		"slow_dance":  # close, swaying together
+			at = gap * 0.3 + Vector2(sin(t * 1.6) * 3.0, 0.0)
+			turn = 0.1 + sin(t * 1.6) * 0.08
+		"sway":  # singing
+			at.y = -absf(sin(t * 2.2)) * 1.5
+			turn = sin(t * 2.2) * 0.1
+		"wave":
+			at.y = -absf(sin(t * 4.5)) * 3.0
+			turn = sin(t * 9.0) * 0.08
+		"shake":  # hands, fists, high fives
+			at = gap * 0.2 + Vector2(0.0, sin(t * 14.0) * 1.5)
+			turn = 0.06
+		"pat":
+			at = gap * 0.22
+			turn = 0.08 + (absf(sin(t * 10.0)) * 0.06 if is_initiator else 0.0)
+		"massage":
+			if is_initiator:
+				at = gap * 0.35
+				turn = 0.12 + sin(t * 6.0) * 0.04
+			else:
+				squash = 0.97 + sin(t * 6.0) * 0.015
+				turn = -0.05
+		"tickle":
+			if is_initiator:
+				at = gap * 0.3
+				turn = 0.15
+			else:  # wriggling with laughter
+				at.y = -absf(sin(t * 11.0)) * 3.0
+				turn = sin(t * 22.0) * 0.14
+		"swing":  # the grown-up holds on, the little one flies round
+			if is_initiator:
+				at = gap * 0.2
+				turn = -0.08
+			else:
+				at = gap * 0.45 + Vector2(0.0, -16.0 - absf(sin(t * 5.0)) * 6.0)
+				turn = sin(t * 5.0) * 0.5
+		"argue":
+			at.y = -absf(sin(t * 6.0)) * 2.0
+			turn = 0.05 + absf(sin(t * 6.0)) * 0.1
+		"shove":
+			at = gap * (0.3 * hit if is_initiator else -0.18 * hit)
+			turn = 0.25 * hit if is_initiator else -0.3 * hit
+		"slap":
+			at = gap * 0.25 * hit if is_initiator else Vector2.ZERO
+			turn = 0.2 * hit if is_initiator else -0.35 * hit
+	return [at, turn, squash]
+
+
+const HEART_COLOR := Color(0.96, 0.52, 0.66)
+const NOTE_COLOR := Color(0.61, 0.66, 1.0)  # the UI accent (#9ba9ff)
+
+
+# Three hearts or music notes rising and fading above the pair (`mid` = halfway to the partner).
+func draw_social_fx(canvas: Node2D, mid: Vector2) -> void:
+	for k in 3:
+		var p := fmod(anim_time * 0.6 + k / 3.0, 1.0)
+		var pos := mid + Vector2((k - 1) * 10.0 + sin((p + k) * 6.0) * 5.0, -100.0 - p * 40.0)
+		var color := HEART_COLOR if social_fx == "hearts" else NOTE_COLOR
+		color.a = sin(p * PI)
+		if social_fx == "hearts":
+			canvas.draw_circle(pos + Vector2(-2.6, 0.0), 3.2, color)
+			canvas.draw_circle(pos + Vector2(2.6, 0.0), 3.2, color)
+			canvas.draw_colored_polygon(PackedVector2Array([pos + Vector2(-5.6, 1.0), pos + Vector2(5.6, 1.0), pos + Vector2(0.0, 7.5)]), color)
+		else:
+			canvas.draw_circle(pos, 3.0, color)
+			canvas.draw_line(pos + Vector2(2.6, 0.0), pos + Vector2(2.6, -10.0), color, 1.5)
+			canvas.draw_line(pos + Vector2(2.6, -10.0), pos + Vector2(6.5, -7.0), color, 1.5)
 
 
 # --- Being controlled (controller.gd) ---

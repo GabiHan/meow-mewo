@@ -1,5 +1,6 @@
 # Screenshot of the game with every HUD panel open (needs a window), or of the home screen:
 #   godot --path . -s res://tools/shot.gd -- out.png [W H [menu|build]]
+#   godot --path . -s res://tools/shot.gd -- out.png W H sky HOUR WEATHER   (outdoors, no panels: the atmosphere)
 extends SceneTree
 
 var frames := 0
@@ -21,7 +22,17 @@ func _initialize() -> void:
 
 func _process(_d: float) -> bool:
 	frames += 1
-	if frames == 60 and OS.get_cmdline_user_args().size() > 3 and OS.get_cmdline_user_args()[3] == "build":
+	var args := OS.get_cmdline_user_args()
+	if frames == 60 and args.size() > 5 and args[3] == "sky":
+		var hud: CanvasLayer = get_first_node_in_group("hud")
+		var world: Node2D = hud.player.world
+		world.clock = (float(args[4]) - 8.0) * 60.0
+		world.weather = args[5]
+		world.weather_until = world.now() + 99999.0
+		hud.player.grid_pos = Vector2(494, 512)
+		hud.player.building = -1
+		world.update_view(true)
+	elif frames == 60 and args.size() > 3 and args[3] == "build":
 		get_first_node_in_group("hud").game.build.toggle()
 	elif frames == 60:
 		var hud: CanvasLayer = get_first_node_in_group("hud")

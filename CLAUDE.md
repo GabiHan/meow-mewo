@@ -53,6 +53,12 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 - Ages: `ages.gd` has no dependencies (use it anywhere); `life.gd` does ageing/births. Anything a character does
   must respect their stage (interactions `a_min`/`b_min`, `Kitchen.allowed`, `may_use`, `Jobs.can_take`).
   Pregnancy only for fertile adults (`Ages.fertile`), never family (`Ages.family`). Documented in `docs/LIFE.md`.
+- Social body language: an interaction's `anim`/`fx` (social.gd) → `npc.gd social_pose()` / `draw_social_fx()`; a new
+  pose needs a `match` branch there and the `POSES` list in `check_body_language()`. Menu sections: `Social.group()`.
+- Starting residents: `town.gd` (`CAST` = the classic street the tests play; `roll()` = a new street per game from the
+  home screen, `Session.town`). Never hard-code a resident's name in game code: rolled streets have other names.
+- Weather: `weather.gd KINDS` (sight, tint, temp, moods, need decay) → world.gd `sky_color()`, npc.gd `look_around`/decay,
+  `weather_fx.gd` (also the time-of-day glows). Keep docs/VIEW.md "Weather" in sync.
 - NPC reactions to what they see go in `perception.gd` (`notice()` → a reaction function + table), not in `npc.gd`.
 
 - Build mode: `catalog.gd` (items, rules; keep docs/BUILD.md's table in sync) and `build_mode.gd` (UI). The controller

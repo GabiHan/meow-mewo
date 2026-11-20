@@ -386,6 +386,13 @@ static func stairs_destination(c: Vector2i, f: int) -> int:
 
 
 # Game seconds since day 1 00:00 (see game_time.gd).
+# The screen tint: the time of day (GameTime.tint) × the weather's sky by day (weather.gd tint: grey clouds, a dark
+# storm, a warm heatwave). Indoors you only feel a little of it through the windows.
+func sky_color(t: float, indoors: bool) -> Color:
+	var cloud: Color = Color.WHITE.lerp(Weather.tint(weather), GameTime.daylight(t) * (0.35 if indoors else 1.0))
+	return GameTime.tint(t, indoors) * cloud
+
+
 func now() -> float:
 	return GameTime.game_seconds(clock)
 
@@ -604,7 +611,7 @@ func _process(delta: float) -> void:
 		for i in exteriors.size():
 			build_exterior(i)  # snowy roofs in winter
 	if player:
-		daylight.color = GameTime.tint(t, player.building >= 0)
+		daylight.color = sky_color(t, player.building >= 0)
 	for c in windows:
 		var w: Dictionary = windows[c]
 		if w.block.curtains and not is_window_closed(c):

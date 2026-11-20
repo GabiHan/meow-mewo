@@ -226,8 +226,13 @@ func open_menu(other: Node2D) -> void:
 				main.hud.talk.open(you, other)
 		var label := "Talk…  (a real person)" if other.controlled else "Talk…  (type to them)"
 		entries.append({"label": label if close else "Talk…  (walk closer)", "disabled": not close or other.partner != null, "action": talk})
-	for i in Social.available_interactions(body, other):
-		entries.append({"label": i.name, "action": body.order_interaction.bind(other, i)})
+	var options := Social.available_interactions(body, other)
+	for group in Social.GROUPS:  # one section per kind: Talk, Friendly, Fun, Children, Romance…
+		var these := options.filter(func(i): return Social.group(i) == group)
+		if not these.is_empty():
+			entries.append({"section": group})
+		for i in these:
+			entries.append({"label": i.name, "action": body.order_interaction.bind(other, i)})
 	var met: bool = body.known.has(other.npc_name)
 	var headers := ["%s — %s (%d)" % [Social.display_name(body, other), Social.relationship_word(f), f]]
 	if met:  # how they feel and who they are: only once you've talked

@@ -38,9 +38,18 @@ const MOODLETS := {
 	"Story time": {"emotion": "Happy", "strength": 1, "hours": 2},
 	"Fed": {"emotion": "Happy", "strength": 1, "hours": 1},
 	"Clean and dry": {"emotion": "Happy", "strength": 1, "hours": 1},
+	"Danced": {"emotion": "Happy", "strength": 2, "hours": 3},
+	"Sang together": {"emotion": "Happy", "strength": 1, "hours": 2},
+	"Encouraged": {"emotion": "Confident", "strength": 1, "hours": 2},
+	"Relaxed": {"emotion": "Happy", "strength": 1, "hours": 3, "removes": ["Tense"]},
+	"Loved": {"emotion": "Happy", "strength": 2, "hours": 3},
+	"Shoved": {"emotion": "Angry", "strength": 2, "hours": 3},
+	"Slapped": {"emotion": "Angry", "strength": 3, "hours": 4},
 	# Romance (romance.gd)
 	"Flirted": {"emotion": "Flirty", "strength": 2, "hours": 3},
 	"Kissed": {"emotion": "Flirty", "strength": 3, "hours": 3},
+	"Swept off my feet": {"emotion": "Flirty", "strength": 3, "hours": 4},
+	"Passionate": {"emotion": "Flirty", "strength": 4, "hours": 4},
 	"Cuddled": {"emotion": "Happy", "strength": 2, "hours": 3},
 	"In love": {"emotion": "Happy", "strength": 3, "hours": 24},
 	"Engaged": {"emotion": "Happy", "strength": 3, "hours": 24},
@@ -129,6 +138,14 @@ const MOODLETS := {
 	"Lonely": {"emotion": "Sad", "strength": 2, "hours": 0},
 	"Content": {"emotion": "Happy", "strength": 1, "hours": 0},
 	"Messy home": {"emotion": "Uncomfortable", "strength": 1, "hours": 0},
+	# Weather (weather.gd): while they're out in it (or snug inside)
+	"Sunny day": {"emotion": "Happy", "strength": 1, "hours": 0},
+	"Windswept": {"emotion": "Energized", "strength": 1, "hours": 0},
+	"Soaked": {"emotion": "Uncomfortable", "strength": 2, "hours": 0},
+	"Caught in a storm": {"emotion": "Tense", "strength": 2, "hours": 0},
+	"Snow day": {"emotion": "Playful", "strength": 2, "hours": 0},
+	"Too hot": {"emotion": "Uncomfortable", "strength": 2, "hours": 0},
+	"Cozy inside": {"emotion": "Happy", "strength": 1, "hours": 0},
 }
 
 # [need, below this value, moodlet]
@@ -144,19 +161,21 @@ const CONTENT_ABOVE := 70.0  # all needs above this: "Content"
 # needs:   {need: ×} how much they care about a need right now
 # learns:  skill learned 1.5× faster while feeling this
 const EFFECTS := {
-	"Happy": {"accept": 0.1, "prefer": {"Invite over": 1.5}, "learns": "Cooking"},
-	"Playful": {"accept": 0.1, "prefer": {"Tell a joke": 3.0, "Tease": 2.0, "Prank": 2.0, "High five": 2.0, "Play with": 2.0},
+	"Happy": {"accept": 0.1, "prefer": {"Invite over": 1.5, "Wave": 1.5, "Dance with": 1.5, "Sing together": 1.5}, "learns": "Cooking"},
+	"Playful": {"accept": 0.1, "prefer": {"Tell a joke": 3.0, "Tease": 2.0, "Prank": 2.0, "High five": 2.0, "Play with": 2.0,
+		"Dance with": 2.0, "Fist bump": 2.0, "Tickle": 2.5, "Swing around": 2.0},
 		"learns": "Comedy"},
-	"Confident": {"accept": 0.05, "prefer": {"Compliment": 2.0, "Chat": 1.5, "Brag": 2.0, "Flirt": 1.5}, "learns": "Charisma"},
-	"Energized": {"needs": {"fun": 1.2}, "learns": "Fitness"},
+	"Confident": {"accept": 0.05, "prefer": {"Compliment": 2.0, "Chat": 1.5, "Brag": 2.0, "Flirt": 1.5, "Shake hands": 1.5}, "learns": "Charisma"},
+	"Energized": {"needs": {"fun": 1.2}, "prefer": {"Dance with": 2.5, "Fist bump": 1.5}, "learns": "Fitness"},
 	"Focused": {"prefer": {"Discuss ideas": 3.0}, "learns": "Logic"},
-	"Sad": {"accept": -0.1, "prefer": {"Deep talk": 2.0, "Hug": 2.0, "Vent": 3.0, "Cuddle": 2.0}, "needs": {"social": 1.5}},
-	"Angry": {"accept": -0.3, "prefer": {"Argue": 4.0, "Insult": 3.0, "Ask to leave": 2.0, "Vent": 2.0, "Break up": 2.0}},
+	"Sad": {"accept": -0.1, "prefer": {"Deep talk": 2.0, "Hug": 2.0, "Vent": 3.0, "Cuddle": 2.0, "Hold hands": 1.5}, "needs": {"social": 1.5}},
+	"Angry": {"accept": -0.3, "prefer": {"Argue": 4.0, "Insult": 3.0, "Ask to leave": 2.0, "Vent": 2.0, "Break up": 2.0, "Shove": 2.0, "Slap": 1.5}},
 	"Tense": {"accept": -0.15, "prefer": {"Argue": 2.0, "Ask to leave": 3.0}},
 	"Embarrassed": {"accept": -0.1, "needs": {"social": 0.6}},
 	"Uncomfortable": {"accept": -0.1},
 	"Bored": {"accept": 0.05, "needs": {"fun": 1.5}, "prefer": {"Tell a joke": 1.5, "Gossip": 1.5, "Prank": 1.5}},
-	"Flirty": {"accept": 0.1, "prefer": {"Flirt": 3.0, "Kiss": 2.0, "Cuddle": 2.0}, "learns": "Charisma"},
+	"Flirty": {"accept": 0.1, "prefer": {"Flirt": 3.0, "Kiss": 2.0, "Cuddle": 2.0, "Hold hands": 2.0,
+		"Kiss on the cheek": 2.0, "Slow dance": 2.5, "Make out": 2.0, "Serenade": 1.5}, "learns": "Charisma"},
 }
 const SKILL_BOOST := 1.5
 
