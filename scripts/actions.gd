@@ -77,10 +77,6 @@ const ACTIONS := {
 		{"name": "Sort the cutlery", "verb": "Sorting the cutlery", "minutes": 10.0, "ads": {"fun": 5}},
 		{"name": "Read a recipe card", "verb": "Reading a recipe card", "minutes": 10.0, "ads": {"fun": 5}, "skill": "Cooking"},
 	],
-	"Washing machine": [
-		{"name": "Do the laundry", "verb": "Doing the laundry", "minutes": 20.0, "ads": {"hygiene": 20, "fun": -3}},
-		{"name": "Fix the washing machine", "verb": "Fixing the washing machine", "minutes": 20.0, "ads": {"fun": 8}, "skill": "Handiness"},
-	],
 	"Lamp": [
 		{"name": "Read under the lamp", "verb": "Reading under the lamp", "minutes": 30.0, "ads": {"fun": 20}, "skill": "Logic"},
 	],
@@ -100,24 +96,30 @@ const ACTIONS := {
 		{"name": "Change clothes", "verb": "Changing clothes", "minutes": 5.0, "ads": {"hygiene": 15}},
 		{"name": "Try on outfits", "verb": "Trying on outfits", "minutes": 20.0, "ads": {"fun": 20}},
 	],
-	"Coat rack": [
-		{"name": "Try on hats", "verb": "Trying on hats", "minutes": 5.0, "ads": {"fun": 10}},
-	],
-	"Bin": [
-		{"name": "Take out the trash", "verb": "Taking out the trash", "minutes": 5.0, "ads": {"hygiene": 5, "fun": -2}},
-	],
-	"Radio": [
-		{"name": "Listen to music", "verb": "Listening to music", "minutes": 30.0, "ads": {"fun": 30}},
-		{"name": "Dance to the radio", "verb": "Dancing to the radio", "minutes": 15.0, "ads": {"fun": 35, "energy": -8}, "skill": "Fitness"},
-	],
-	"Teddy bear": [
-		{"name": "Cuddle the teddy", "verb": "Cuddling the teddy", "minutes": 10.0, "ads": {"fun": 15, "social": 5}},
-	],
 	"Phone": [
 		{"name": "Call a friend", "verb": "On the phone", "minutes": 15.0, "ads": {"social": 25, "fun": 5}, "skill": "Charisma"},
 	],
 	"Alarm": [
 		{"name": "Test the alarm", "verb": "Testing the alarm", "minutes": 2.0, "ads": {"fun": 1}},
+	],
+	"Guitar": [
+		{"name": "Play the guitar", "verb": "Playing the guitar", "minutes": 30.0, "ads": {"fun": 40}, "skill": "Creativity"},
+		{"name": "Write a song", "verb": "Writing a song", "minutes": 40.0, "ads": {"fun": 25}, "skill": "Creativity", "moodlet": "Learned something"},
+	],
+	"Toy": [
+		{"name": "Play with the toy car", "verb": "Playing with the toy car", "minutes": 15.0, "ads": {"fun": 30}},
+	],
+	"Exercise bike": [
+		{"name": "Ride the exercise bike", "verb": "Riding the exercise bike", "minutes": 30.0, "ads": {"fun": 15, "energy": -10, "hygiene": -10}, "skill": "Fitness", "moodlet": "Pumped"},
+		{"name": "Tune up the bike", "verb": "Tuning up the bike", "minutes": 20.0, "ads": {"fun": 8}, "skill": "Handiness"},
+	],
+	"Game console": [
+		{"name": "Play video games", "verb": "Playing video games", "minutes": 40.0, "ads": {"fun": 55, "energy": -3}},
+		{"name": "Play a puzzle game", "verb": "Playing a puzzle game", "minutes": 30.0, "ads": {"fun": 35}, "skill": "Logic"},
+	],
+	"Grandfather clock": [
+		{"name": "Wind the clock", "verb": "Winding the clock", "minutes": 3.0, "ads": {"fun": 5}},
+		{"name": "Oil the clock's gears", "verb": "Oiling the clock's gears", "minutes": 20.0, "ads": {"fun": 8}, "skill": "Handiness"},
 	],
 	"Pull-up bar": [
 		{"name": "Work out", "verb": "Working out", "minutes": 30.0, "ads": {"fun": 15, "energy": -10, "hygiene": -10}, "skill": "Fitness", "moodlet": "Pumped"},

@@ -54,7 +54,7 @@ const ZOOM_MAX := 1.5
 # Buildings are indexes into World.BUILDINGS: 0 = your house, 1 = Alex's, 2 = Riley's, -1 = outdoors.
 const BOOKSHELF := {"verb": "Reading", "skill": "Logic", "moodlet": "Learned something"}
 
-# Furniture sprites (furniture.gd, baked from assets/tinytreats and assets/kenney/furniture by tools/bake_furniture.gd) for each
+# Furniture sprites (furniture.gd, baked from assets/ithappy by tools/bake_furniture.gd) for each
 # object type; an object's extras can override it with "sprite". Objects not listed keep a placeholder box.
 const FURNITURE := {
 	"Fridge": "Kitchen_Fridge_r0", "Counter": "Kitchen_2Drawers_r0", "Stove": "Kitchen_Oven_r0", "Sink": "Kitchen_Sink_r0",
@@ -70,14 +70,14 @@ const PROPS := [
 	["Kitchen_Cabinet1_r0", 0, 0, Vector2i(484, 500), false],
 	["Carpet_1_r0", 0, 0, Vector2i(491, 502), true],
 	["Houseplant_1_r0", 0, 0, Vector2i(492, 500), false],
-	["Light_Stand1_r0", 0, 0, Vector2i(492, 503), false],
-	["Houseplant_5_r1", 0, 0, Vector2i(483, 507), false],
-	["Trashcan_Small1_r0", 0, 0, Vector2i(489, 500), false],
+	["Light_Floor1_r0", 0, 0, Vector2i(492, 503), false],
+	["Houseplant_7_r1", 0, 0, Vector2i(483, 507), false],
+	["Guitar_r0", 0, 0, Vector2i(489, 500), false],
 	["NightStand_1_r0", 0, 1, Vector2i(487, 500), false],
 	["Light_Floor1_r0", 0, 1, Vector2i(489, 500), false],
-	["Carpet_Round_r0", 0, 1, Vector2i(488, 503), true],
+	["Carpet_1_r0", 0, 1, Vector2i(488, 503), true],
 	["Couch_Small1_r2", 0, 1, Vector2i(486, 506), false],
-	["Drawer_2_r2", 0, 1, Vector2i(490, 507), false],
+	["Drawer_4_r2", 0, 1, Vector2i(490, 507), false],
 	["Houseplant_3_r2", 0, 1, Vector2i(492, 507), false],
 	["Shelf_Small1_r2", 0, 1, Vector2i(484, 507), false],
 ]

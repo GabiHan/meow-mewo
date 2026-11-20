@@ -12,6 +12,7 @@ const Kitchen = preload("res://scripts/kitchen.gd")
 const Npc = preload("res://scripts/npc.gd")
 const SmartObject = preload("res://scripts/smart_object.gd")
 const Prop = preload("res://scripts/prop.gd")
+const Furniture = preload("res://scripts/furniture.gd")
 
 const DIR := "user://saves/"
 const VERSION := 1
@@ -173,7 +174,11 @@ static func restore(main: Node2D, data: Dictionary) -> Node2D:
 	return controlled
 
 
+# Furniture that's no longer in the game (an older save, e.g. a bunk bed) is left out: returns null.
 static func make_object(world: Node2D, o: Dictionary) -> Node2D:
+	var Catalog: GDScript = load("res://scripts/catalog.gd")
+	if o.catalog_id != "" and not Catalog.ITEMS.has(o.catalog_id):
+		return null
 	var obj: Node2D = SmartObject.new().setup(o.name, o.pos, o.ads, o.duration, o.color, o.height)
 	var extras: Dictionary = o.extras.duplicate()
 	if extras.sprite == "":
@@ -190,7 +195,9 @@ static func make_object(world: Node2D, o: Dictionary) -> Node2D:
 static func make_prop(world: Node2D, p: Dictionary) -> Node2D:
 	var Catalog: GDScript = load("res://scripts/catalog.gd")
 	var id: String = p.catalog_id if p.catalog_id != "" else Catalog.id_for_model(p.sprite.substr(0, p.sprite.rfind("_r")))
-	if not p.get("wall", false) and id != "" and Catalog.ITEMS[id].has("object"):
+	if not p.get("wall", false) and not Catalog.ITEMS.has(id) and not Furniture.has(p.sprite):
+		return null  # furniture that's no longer in the game (an older save)
+	if not p.get("wall", false) and id != "" and Catalog.ITEMS.has(id) and Catalog.ITEMS[id].has("object"):
 		var obj: Node2D = Catalog.make_object(id, p.cell, p.rotation)
 		world.add_object(obj, p.building, p.floor)
 		return obj

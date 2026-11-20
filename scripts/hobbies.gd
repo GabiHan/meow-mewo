@@ -11,7 +11,7 @@ const HOBBIES := {
 	"Fitness": {"text": "Works out every day", "likes": ["Pull-up bar"], "skill": "Fitness"},
 	"Cooking": {"text": "Loves to cook", "likes": ["cooking"], "skill": "Cooking"},
 	"Films": {"text": "Watches everything", "likes": ["TV"], "skill": "Comedy"},
-	"Music": {"text": "Always listening", "likes": ["Radio"], "skill": ""},
+	"Music": {"text": "Plays the guitar", "likes": ["Guitar"], "skill": "Creativity"},
 	"Gardening": {"text": "Green fingers", "likes": ["Plant"], "skill": ""},
 	"Writing": {"text": "Keeps a diary", "likes": ["Nightstand"], "skill": "Creativity"},
 	"Socialising": {"text": "Out and about", "likes": ["social", "Bench"], "skill": "Charisma"},

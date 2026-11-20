@@ -239,7 +239,7 @@ attractive (×1.6 on top of traits), gives **Hobby time** (Happy 2, 3 h) when it
 | Fitness | Works out every day | Pull-up bar | Fitness |
 | Cooking | Loves to cook | cooking | Cooking |
 | Films | Watches everything | TV | Comedy |
-| Music | Always listening | Radio | – |
+| Music | Plays the guitar | Guitar | Creativity |
 | Gardening | Green fingers | Plants | – |
 | Writing | Keeps a diary | Nightstand | Creativity |
 | Socialising | Out and about | talking to people, the bench | Charisma |
@@ -403,8 +403,8 @@ Skills go from 0 to 10. You earn xp per game minute of practice. From level L to
 | Fitness | Pull-up bar (outside, next to the bench) | 6 | Walk 3% faster per level |
 | Logic | Reading at a bookshelf; Discuss ideas | 4 | Unlocks Discuss ideas at level 3 |
 | Medicine | Bookshelf: Read a medical journal; Desk: Practise first aid | 4 | Health careers (Nurse practitioner, Physician assistant) |
-| Creativity | Desk: Sketch designs; Nightstand: Write in a diary (the Writing hobby) | 6 | Creative careers (UX/UI designer, Graphic designer, Writer / editor) |
-| Handiness | Desk: Tinker with a gadget; Washing machine: Fix the washing machine | 6 | Hands-on careers (Solar PV installer, Wind turbine technician, Commercial pilot) |
+| Creativity | Desk: Sketch designs; Nightstand: Write in a diary (the Writing hobby); Guitar: Play the guitar, Write a song (the Music hobby) | 6 | Creative careers (UX/UI designer, Graphic designer, Writer / editor) |
+| Handiness | Desk: Tinker with a gadget; Exercise bike: Tune up the bike; Grandfather clock: Oil the clock's gears | 6 | Hands-on careers (Solar PV installer, Wind turbine technician, Commercial pilot) |
 | Stealth | Picking locks, pickpocketing, stealing | 8 | Pickpocket +6%/level; you pick a lock 6% faster per level and are less likely to fail a reinforced one |
 
 xp is ×1.5 with a matching **trait** (Foodie → Cooking, Goofball → Comedy, Bookworm → Logic,

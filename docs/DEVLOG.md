@@ -2,6 +2,22 @@
 
 Newest first. Each entry: what changed, why, and anything to watch out for.
 
+## 2026-11-19 — itHappy furniture and food
+- All furniture is now itHappy's "Cute Furniture" pack and plates, cups and food its "Food" pack (`assets/ithappy`:
+  the prefab scenes, materials and palette, paths rewritten). The old furniture packs are gone (Tiny Treats Charming
+  Kitchen, Bubbly Bathroom, Baked Goods, Pleasant Picnic; Kenney Furniture Kit); Tiny Treats houses/park and Kenney
+  cars/roads stay.
+- `tools/bake_furniture.gd` bakes `MODELS` (36 models × 4 rotations) and `FOOD` (12, one view → art/food). Sprite ids
+  are unchanged where a model exists, so houses and saves keep working; mapping in README "Furniture art".
+- Food is real: plates, bowls, cups and glasses on counters/tables (`smart_object.gd update_items()`) and in hands
+  (`npc.gd update_held()`), named by `Kitchen.item_sprite()`; dirty ones are greyed.
+- Catalog: removed what the packs don't have (stool, corner sofa, bedside table, bunk bed, washing machine, three
+  lamps, cactus/palm, two rugs, tall shelf, dresser, coat rack, bins, radio, teddy); new Guitar (Creativity, the Music
+  hobby), Toy car, Exercise bike (Fitness, Handiness), Game console, Grandfather clock (Handiness). Old saves skip
+  furniture that's gone (`save_game.gd make_object/make_prop` return null).
+- Watch out: after baking, run `godot --headless --import` or the game can't load the new sprites (that's why the
+  furniture didn't show after the first bake). The itHappy downloads had no licence file.
+
 ## 2026-11-19 — Getting hired needs qualifications
 - Jobs have hiring requirements (`degree`, `needs` {skill: level} in `jobs.gd JOBS`; table in docs/WORK.md "Getting
   hired"): e.g. Nurse practitioner a degree + Medicine 3, Commercial pilot Handiness 3 + Logic 2. Café, Office, Gym

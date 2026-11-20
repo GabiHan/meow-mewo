@@ -17,9 +17,9 @@ const WALL_COLOR := Color(0.925, 0.890, 0.935)
 const FLOOR_COLOR := Color(0.950, 0.859, 0.888)
 # [sprite, tile] — the furniture in the room
 const FURNITURE := [
-	["Bookshelf_r0", Vector2i(2, 1)], ["Light_Stand1_r0", Vector2i(4, 1)], ["Houseplant_1_r0", Vector2i(5, 1)],
-	["Kitchen_Fridge_r0", Vector2i(1, 2)], ["Carpet_Round_r0", Vector2i(3, 4)], ["Couch_Large1_r1", Vector2i(1, 4)],
-	["Table_RoundSmall_r0", Vector2i(4, 4)], ["Chair_1_r1", Vector2i(3, 4)], ["Houseplant_5_r0", Vector2i(5, 5)],
+	["Bookshelf_r0", Vector2i(2, 1)], ["Light_Floor1_r0", Vector2i(4, 1)], ["Houseplant_1_r0", Vector2i(5, 1)],
+	["Kitchen_Fridge_r0", Vector2i(1, 2)], ["Carpet_1_r0", Vector2i(3, 4)], ["Couch_Large1_r1", Vector2i(1, 4)],
+	["Table_RoundSmall_r0", Vector2i(4, 4)], ["Chair_1_r1", Vector2i(3, 4)], ["Houseplant_7_r0", Vector2i(5, 5)],
 ]
 # [look preset (looks.gd), tile] — who's home
 const PEOPLE := [["jo", Vector2(3.2, 3.0)], ["sam", Vector2(2.4, 5.2)], ["alex", Vector2(5.0, 3.0)], ["mia", Vector2(4.2, 5.6)]]

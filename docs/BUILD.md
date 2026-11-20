@@ -48,31 +48,31 @@ on their own (it advertises its needs to the AI like everything else).
 | Build | Wall | $70 each | | A cut-down wall like the house's own: blocks walking and sight (rooms!). **Press, drag and let go** to draw a straight line of walls (a click does one tile); the tiles light up green where a wall fits |
 | Build | Remove walls | free | | Drag over walls you built to remove them (sold for 75%); they light up pink |
 | Build | Stairs + upper floor | $1500 | | Only in a one-storey house, on the ground floor: stairs on that tile and a new, empty upper floor (the house gets taller outside) |
-| Seating | Wooden chair / Modern chair / Dining armchair / Stool | $40 / $60 / $75 / $25 | ✓ | Sit |
-| Seating | Armchair / Loveseat / Sofa / Corner sofa | $180 / $260 / $350 / $480 | ✓ | Relax, Sit, Nap on the couch |
+| Seating | Wooden chair / Office chair | $40 / $60 | ✓ | Sit |
+| Seating | Comfy armchair / Armchair / Loveseat / Sofa | $220 / $180 / $260 / $350 | ✓ | Relax, Sit, Nap on the couch |
 | Tables | Round dining table / Large table | $120 / $220 | ✓ | a Table (eat here, put food down) |
 | Tables | Coffee table | $90 | ✓ | Do a jigsaw puzzle (Logic), Put your feet up |
-| Tables | Desk | $150 | ✓ | Study (Logic), Write jokes (Comedy) |
-| Tables | Nightstand / Bedside table | $60 / $70 | ✓ | Write in a diary, Put on hand cream |
-| Beds | Single bed / King bed / Bunk bed | $300 / $650 / $420 | ✓ | Sleep (7 h), Nap, Relax in bed |
+| Tables | Desk (with a computer) | $150 | ✓ | Study (Logic), Write jokes (Comedy), Sketch designs (Creativity), Tinker with a gadget (Handiness), Practise first aid (Medicine) |
+| Tables | Nightstand | $60 | ✓ | Write in a diary (Creativity), Put on hand cream |
+| Beds | Single bed / King bed | $300 / $650 | ✓ | Sleep (7 h), Nap, Relax in bed |
 | Kitchen | Fridge / Oven / Counter / Kitchen sink | $500 / $400 / $150 / $200 | ✓ | the kitchen objects (docs/KITCHEN.md) |
 | Kitchen | Kitchen cabinet | $110 | ✓ | Grab a snack, Tidy the cupboard |
 | Kitchen | Kitchen drawers | $130 | ✓ | Sort the cutlery, Read a recipe card (Cooking) |
 | Bathroom | Toilet | $250 | ✓ | Pee, Poo |
-| Bathroom | Bathtub | $500 | ✓ | Take a shower, Take a bath |
+| Bathroom | Bathtub (with a shower) | $500 | ✓ | Take a shower, Take a bath |
 | Bathroom | Bathroom sink | $120 | ✓ | Wash hands, Brush teeth |
-| Bathroom | Washing machine | $350 | ✓ | Do the laundry |
-| Lighting | Floor lamp / Reading lamp / Shade lamp / Standing lamp | $60 / $70 / $90 / $85 | ✓ | Read under the lamp (Logic) |
-| Plants | Fern / Cactus / Small palm / Big leafy plant | $25 / $20 / $30 / $45 | ✓ | Water the plant, Talk to the plant |
-| Rugs | Rug / Dark rug / Round rug | $60 / $70 / $80 | ✓ | Do yoga (Fitness), Stretch; used standing on it, walkable |
-| Storage | Bookshelf | $250 | ✓ | Read a textbook (Logic), a novel, a cookbook (Cooking) |
-| Storage | Wall shelf / Tall shelf | $50 / $140 | ✓ | Browse the shelf, Dust the shelf |
-| Storage | Dresser / Tall dresser | $160 / $190 | ✓ | Change clothes, Try on outfits |
-| Storage | Coat rack | $35 | ✓ | Try on hats |
-| Storage | Bin / Large bin | $15 / $30 | ✓ | Take out the trash |
+| Lighting | Floor lamp | $60 | ✓ | Read under the lamp (Logic) |
+| Plants | Leafy plant / Potted flower / Big leafy plant | $25 / $20 / $45 | ✓ | Water the plant, Talk to the plant |
+| Rugs | Cream rug | $60 | ✓ | Do yoga (Fitness), Stretch; used standing on it, walkable |
+| Storage | Bookshelf | $250 | ✓ | Read a textbook (Logic), a novel, a cookbook (Cooking), a medical journal (Medicine) |
+| Storage | Row of books | $50 | ✓ | Browse the shelf, Dust the shelf |
+| Storage | Wardrobe | $190 | ✓ | Change clothes, Try on outfits |
+| Storage | Grandfather clock | $260 | ✓ | Wind the clock, Oil the clock's gears (Handiness) |
 | Fun | TV | $350 | ✓ | Watch comedy / the news / a cooking show |
-| Fun | Radio | $45 | ✓ | Listen to music, Dance to the radio (Fitness) |
-| Fun | Teddy bear | $20 | ✓ | Cuddle the teddy (toddlers too) |
+| Fun | Guitar | $120 | ✓ | Play the guitar, Write a song (Creativity; the Music hobby) |
+| Fun | Game console | $300 | ✓ | Play video games, Play a puzzle game (Logic) |
+| Fun | Exercise bike | $380 | ✓ | Ride the exercise bike (Fitness), Tune up the bike (Handiness) |
+| Fun | Toy car | $20 | ✓ | Play with the toy car (toddlers too) |
 | Fun | Fireplace | $800 | ✓ | Relax by the fire, Warm up (placeholder box: no fireplace in the kit) |
 | Security | Phone | $60 | ✓ | Call a friend (Charisma); lets the house call the police when a burglar comes (placeholder box) |
 | Security | Alarm | $400 | ✓ | Test the alarm; rings when a burglar opens the door, wakes everyone and calls the police (placeholder box) |
@@ -88,7 +88,7 @@ become unreachable; seats and decor turn freely.
 
 ## Adding an item
 
-1. If it's a new model, add a sprite id and its kit model (`"<pack>/<model>"` for Tiny Treats, a bare name for Kenney) to `MODELS` in `tools/bake_furniture.gd`,
+1. If it's a new model, add a sprite id and its itHappy model (`"<folder>/<model>"` under `assets/ithappy/furniture/prefabs/assets`) to `MODELS` in `tools/bake_furniture.gd`,
    bake (`godot --path . -s res://tools/bake_furniture.gd`) and `godot --headless --import`.
 2. Add a row to `ITEMS` in `catalog.gd`: `name`, `category` (one of `CATEGORIES`), `price`, `model`,
    optional `flat` (rugs) and, for usable furniture, `object`: `{name, ads, minutes, extras}` like an

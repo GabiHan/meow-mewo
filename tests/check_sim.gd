@@ -1048,7 +1048,7 @@ func check_personality() -> void:
 	riley.hobbies = ["Reading"]
 	var reading: float = Traits.like(riley, "Bookshelf")
 	riley.hobbies = ["Music"]
-	check(is_equal_approx(reading, Traits.like(riley, "Bookshelf") * Hobbies.LIKE) and Hobbies.is_hobby(riley, "Radio")
+	check(is_equal_approx(reading, Traits.like(riley, "Bookshelf") * Hobbies.LIKE) and Hobbies.is_hobby(riley, "Guitar")
 		and Traits.skill(riley, "Charisma") == 1.0, "hobbies: Reading makes the bookshelf %.1f× as attractive" % Hobbies.LIKE)
 
 	# The path: how dark × how hard life pushes.

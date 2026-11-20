@@ -300,10 +300,10 @@ tools/
   ui_gallery.gd         Renders every UI component in day and dusk to user://ui_gallery_*.png
   shot.gd               Screenshot of the game with every HUD panel open (or the home screen / build mode):
                         godot --path . -s res://tools/shot.gd -- out.png [W H [menu|build]]
-assets/tinytreats/      Isa Lousberg's Tiny Treats packs (glTF only): baked_goods, bubbly_bathroom,
-                        charming_kitchen, homely_house, pleasant_picnic, pretty_park
+assets/tinytreats/      Isa Lousberg's Tiny Treats packs (glTF only): homely_house, pretty_park (houses, trees)
+assets/ithappy/         itHappy's Cute Furniture and Food packs (prefab scenes, materials, palette): all furniture and food
 assets/doll/            The "build a character" paper-doll layers (444×700 PNGs, not imported: .gdignore) + palette.png
-assets/kenney/          The Kenney kits, unzipped: furniture, cars, roads (only the GLB models are
+assets/kenney/          The Kenney kits, unzipped: cars, roads, characters (only the GLB models are
                         imported; the other formats have a .gdignore)
 art/furniture/          Baked sprites + sprites.json (anchors)
 art/neighbourhood/      Baked houses and trees + sprites.json (anchors)
@@ -560,23 +560,23 @@ they notice nothing and, for you, time runs at Ultra.
 | Desk | Study / Write jokes / Sketch designs / Tinker with a gadget / Practise first aid | fun +5 / +15 / +20 / +15 / +5 | 45 / 30 / 30 / 30 / 30 | Logic (Learned something) / Comedy / Creativity / Handiness / Medicine (Learned something) |
 | Kitchen cabinet | Grab a snack / Tidy the cupboard | hunger +15 / fun +5 | 3 / 10 | |
 | Kitchen drawers | Sort the cutlery / Read a recipe card | fun +5 / fun +5 | 10 / 10 | – / Cooking |
-| Washing machine | Do the laundry / Fix the washing machine | hygiene +20, fun −3 / fun +8 | 20 / 20 | – / Handiness |
-| Lamp (all four) | Read under the lamp | fun +20 | 30 | Logic |
-| Plant (all four) | Water the plant / Talk to the plant | fun +8 / social +5, fun +3 | 3 / 5 | |
-| Rug (all three) | Do yoga / Stretch | fun +10, energy −5 / energy +3 | 20 / 5 | Fitness / –; on the rug |
-| Shelf (wall, tall) | Browse the shelf / Dust the shelf | fun +10 / hygiene +3 | 10 / 5 | |
-| Dresser (both) | Change clothes / Try on outfits | hygiene +15 / fun +20 | 5 / 20 | |
-| Coat rack | Try on hats | fun +10 | 5 | |
-| Bin (both) | Take out the trash | hygiene +5, fun −2 | 5 | |
-| Radio | Listen to music / Dance to the radio | fun +30 / fun +35, energy −8 | 30 / 15 | – / Fitness |
-| Teddy bear | Cuddle the teddy | fun +15, social +5 | 10 | toddlers too |
+| Lamp | Read under the lamp | fun +20 | 30 | Logic |
+| Plant (all three) | Water the plant / Talk to the plant | fun +8 / social +5, fun +3 | 3 / 5 | |
+| Rug | Do yoga / Stretch | fun +10, energy −5 / energy +3 | 20 / 5 | Fitness / –; on the rug |
+| Shelf (row of books) | Browse the shelf / Dust the shelf | fun +10 / hygiene +3 | 10 / 5 | |
+| Dresser (wardrobe) | Change clothes / Try on outfits | hygiene +15 / fun +20 | 5 / 20 | |
+| Guitar | Play the guitar / Write a song | fun +40 / fun +25 | 30 / 40 | Creativity / Creativity (Learned something) |
+| Toy | Play with the toy car | fun +30 | 15 | toddlers too |
+| Exercise bike | Ride the exercise bike / Tune up the bike | fun +15, energy −10, hygiene −10 / fun +8 | 30 / 20 | Fitness (Pumped) / Handiness |
+| Game console | Play video games / Play a puzzle game | fun +55, energy −3 / fun +35 | 40 / 30 | – / Logic |
+| Grandfather clock | Wind the clock / Oil the clock's gears | fun +5 / fun +8 | 3 / 20 | – / Handiness |
 | Fridge, Stove, Counter, Sink, Table | kitchen menus: cook, drinks, leftovers, wash up | | | [docs/KITCHEN.md](docs/KITCHEN.md) |
 
 **All furniture is usable**: every catalog item is a smart object with the actions above (only walls aren't),
 and your house's furnishings (`PROPS` in `main.gd`) are placed as those catalog items. **Seats** (couch, chair):
 you sit on the seat itself, so its tile stays walkable. **Rugs** (`Actions.STAND_ON`): you stand on the rug
 itself, it stays walkable and is drawn flat under people. Everything else you use from the tile in front of it.
-Toddlers use only beds, cribs, the TV and the teddy bear by themselves.
+Toddlers use only beds, cribs, the TV and the toy car by themselves.
 
 ### Character state machine (`npc.gd`)
 
@@ -834,51 +834,61 @@ goes in `PARTS` (looks.gd) and `PARTS` (import_doll.gd), in draw order.
 
 ## Furniture art
 
-Isa Lousberg's **Tiny Treats** packs (CC0; `assets/tinytreats/<pack>`, glTF) give everything they have a model
-for: the kitchen, bathroom, chairs, tables, plants, bins, rugs, a lamp and the radio. Kenney's **Furniture Kit**
-(CC0; `assets/kenney/furniture`, the GLB models) gives the rest: beds, sofas, TV, shelves, drawers, desk,
-nightstands, washing machine, the other lamps, stool, coat rack and teddy. Both are turned into 2D sprites by
-**`tools/bake_furniture.gd`**: each model is rendered with an orthographic camera at the game's 2:1 isometric
-angle (30° pitch, 45° yaw) and scale (1 m = one tile, 45.25 px per metre; a Kenney unit is 2.1 m, a Tiny Treats
-unit 0.65 m), lit, cropped and
-saved as `art/furniture/<Sprite>_r<rotation>.png`, with the pixel of its floor centre in `sprites.json`.
-Rotation r0 faces the +y grid direction (towards where you stand to use it), r1 +x, r2 −y, r3 −x. Models are
-scaled to 85% and to at most 1.6 m across, so they fit a tile.
+All furniture comes from itHappy's **Cute Furniture** pack and all plates, cups and food from its **Food** pack
+(`assets/ithappy/furniture`, `assets/ithappy/food`: the packs' prefab scenes, which hold the meshes and put each
+model's parts together, plus their materials and palette texture). **`tools/bake_furniture.gd`** turns them into
+2D sprites: each model is rendered with an orthographic camera at the game's 2:1 isometric angle (30° pitch, 45°
+yaw) and scale (1 m = one tile, 45.25 px per metre; the packs are in metres), lit, cropped and saved as
+`art/furniture/<Sprite>_r<rotation>.png`, with the pixel of its floor centre in `sprites.json`. Rotation r0 faces
+the +y grid direction (towards where you stand to use it), r1 +x, r2 −y, r3 −x. Models are scaled to 85% and to
+at most 1.6 m across, so they fit a tile. Food is baked once (no rotations) to `art/food/<Sprite>.png`, 1.6× life
+size so you can tell a sandwich from a salad.
 
 Sprite ids are the game's own names (`Kitchen_Fridge`, `Bed_King`…, used by `main.gd`, `catalog.gd` and saves);
-`MODELS` in the tool says which kit model(s) each is, stacked bottom to top (a lamp on a side table, a TV on its
-cabinet, the radio on a side table), and a size factor. `"<pack>/<model>"` is a Tiny Treats model, a bare name a
-Kenney one.
+`MODELS` in the tool says which pack model(s) each is, stacked bottom to top (a tap on a cupboard is the sink, a
+microwave on drawers the stove, a computer on a desk or a low cabinet), and a size factor.
 
 Sprites are shown as `Sprite2D` children (drawing them by hand in `_draw` inside the y-sorted world
 renders them white with the GL Compatibility renderer).
 
-| Object | Sprite | Kit model |
+| Sprite | Pack model(s) | Catalog / object |
 |---|---|---|
-| Fridge, Counter, Stove, Sink | Kitchen_Fridge, Kitchen_2Drawers, Kitchen_Oven, Kitchen_Sink | Tiny Treats charming_kitchen/fridge, countertop_straight_A, stove, countertop_sink |
-| Table | Table_RoundSmall | charming_kitchen/table_C |
-| Bed | Bed_King (your house), Bed_Single (others; also Crib) | Kenney bedDouble, bedSingle |
-| Shower | Bathroom_Bathtub | bubbly_bathroom/bath |
-| Toilet | Bathroom_Toilet | bubbly_bathroom/toilet |
-| Bookshelf, TV | Bookshelf, TV | Kenney bookcaseOpen, cabinetTelevision + televisionModern |
-| Fireplace, Bench, Pull-up bar, Bus stop | placeholder boxes (no model) | |
+| Kitchen_Fridge, Kitchen_2Drawers, Kitchen_Oven, Kitchen_Sink | fridge_01; kitchen_d_09; kitchen_d_10 + microwave_01; kitchen_d_01 + mixer_08 | Fridge, Counter, Stove, Sink |
+| Kitchen_Cabinet1, Kitchen_3Drawers | kitchen_d_08, kitchen_d_10 | Kitchen cabinet, Kitchen drawers |
+| Table_RoundSmall, Table_RoundLarge, Table_Coffee, Desk | kitchen_d_06; kitchen_table_09; coffee_table_03; work_table_06 + computer_01 | tables, desk |
+| Chair_1, Chair_2, Chair_3 | chair_17, chair_pc_04, armchair_18 | Wooden chair, Office chair, Comfy armchair |
+| Couch_Small1, Couch_Medium1, Couch_Large1 | armchair_02, couch_11, couch_08 | Armchair, Loveseat, Sofa |
+| Bed_King, Bed_Single, NightStand_1 | bed_02, bed_07, nightstand_02 | King bed (your house), Single bed (others; also Crib), Nightstand |
+| Bathroom_Bathtub, Bathroom_Toilet, Bathroom_Sink | bath_03 (with shower), toilet_03, wash_basin_07 | Shower/Bathtub, Toilet, Bathroom sink |
+| Bookshelf, Shelf_Small1, Drawer_4 | closet_01, book_03, closet_02 | Bookshelf, Row of books, Wardrobe |
+| Carpet_1 | paper_02, stretched | Cream rug |
+| Houseplant_1, Houseplant_3, Houseplant_7 | plants_15, plants_05, plants_19 | Leafy plant, Potted flower, Big leafy plant |
+| Light_Floor1 | light_05 | Floor lamp |
+| TV, Game_Console | kitchen_d_08 + computer_01; kitchen_d_08 + game_console_01 | TV, Game console |
+| Guitar, Toy_Car, Exercise_Bike, Clock_Tall | guitar_01, toy_02, exercise_bike_01, clock_03 | Guitar, Toy car, Exercise bike, Grandfather clock |
+| Fireplace, Phone, Alarm, Bench, Pull-up bar, Bus stop | placeholder boxes (no model) | |
 
-The other catalog sprites from Tiny Treats: Kitchen_Cabinet1 / Kitchen_3Drawers (countertop_single /
-countertop_straight_B), Table_RoundLarge (table_B), Chair_1–3 (chair), Bathroom_Shower1 (mat + shower),
-Bathroom_Sink (cabinet_bathroom), Carpet_1 (bath mat), Carpet_2 (blue picnic blanket), Houseplant_1/3/5/7
-(plant, bush, bush_large, foliage_B), Light_Floor1 (street_lantern, small), Trashcan_Small1 / Trashcan_Large
-(bin, park trashcan), Radio (Kenney side table + pleasant_picnic/radio). The rest are Kenney.
+| Food sprite (art/food) | Food pack model(s) |
+|---|---|
+| Dish_plate, Dish_cup (dirty: greyed, `Kitchen.DIRTY_TINT`) | plate_001, cup_003 |
+| Food_Sandwich, Food_Salad, Food_Omelette, Food_Pasta, Food_Soup | plate + sandwich_001; bowl_001 + avocado_003; plate + egg_004; plate_007 + shrimp_002; bowl_001 |
+| Drink_Water, Drink_Juice, Drink_Milk, Drink_Soda, Drink_Coffee | glass_004, glass_005, yogurt_002, soda_002, coffee_005 |
 
-**Your house** is also decorated with props (`PROPS` in `main.gd`): kitchen cabinet, two chairs at
-the table, a couch facing the TV on a rug, a floor lamp, plants, a bathroom sink and a bin downstairs;
-a nightstand, floor lamp, round rug, bathroom sink, armchair, dresser, shelf and plant upstairs.
-Props block their tile (rugs don't); a test checks every object is still reachable from the door.
+Plates and cups on counters and tables are sprites on top of the model (`smart_object.gd update_items()`), and
+what someone carries is a sprite in front of them (`npc.gd update_held()`); `Kitchen.item_sprite(item)` names it.
 
-All sprites are baked in 4 rotations (200 sprites).
+**Your house** is also decorated with props (`PROPS` in `main.gd`): kitchen cabinet, two chairs at the table, a
+couch facing the TV on a rug, a floor lamp, plants, a guitar and a bathroom sink downstairs; a nightstand, floor
+lamp, rug, bathroom sink, armchair, wardrobe, row of books and plant upstairs. Props block their tile (rugs don't);
+a test checks every object is still reachable from the door.
 
-**Add furniture:** add a sprite id and its kit model to `MODELS` in `tools/bake_furniture.gd`, run `godot --path . -s res://tools/bake_furniture.gd` (needs a window), then
-`godot --headless --import`, and use `"<Model>_r<n>"` in `FURNITURE` (an object type), an object's
-`"sprite"` extra, or a `PROPS` row. Bake only some: add their ids after `--`.
+All furniture is baked in 4 rotations (36 models, 144 sprites), plus 12 food sprites. Old saves with furniture
+that's no longer in the game (bunk bed, corner sofa, washing machine, bins, coat rack, radio…) load without it.
+
+**Add furniture:** add a sprite id and its pack model(s) (`"<folder>/<model>"` under the furniture pack's
+`prefabs/assets`) to `MODELS` in `tools/bake_furniture.gd` (food: `FOOD`), run `godot --path . -s res://tools/bake_furniture.gd`
+(needs a window), then `godot --headless --import`, and use `"<Model>_r<n>"` in `FURNITURE` (an object type), an
+object's `"sprite"` extra, a `PROPS` row or a catalog item. Bake only some: add their ids after `--`.
 
 ## Neighbourhood art
 
@@ -934,12 +944,13 @@ houses and trees, baked by
 * Fonts: Nunito and Fredoka (SIL Open Font License, `assets/fonts/OFL-Nunito.txt`, `assets/fonts/OFL-Fredoka.txt`). EB Garamond (`assets/fonts/OFL.txt`) is still in the folder but no longer used.
 * Music: "Join my server" and "The game" by adrihuwu, "Beautiful lofi" and "Tokyo lofi" by zephiramusic (`assets/music`;
   from the files the owner provided: check each track's licence before publishing the game).
-* Kitchen, bathroom and other furniture, houses and trees: Isa Lousberg (www.isalousberg.com), Tiny Treats packs
-  (Baked Goods, Bubbly Bathroom, Charming Kitchen, Homely House, Pleasant Picnic, Pretty Park), CC0
+* Furniture, plates, cups and food: itHappy, "Cute Furniture Free" and "Food Free" packs for Godot 4.7, v1.1
+  (`assets/ithappy`). The downloads came without a licence file: check itHappy's licence before publishing the game or
+  sharing the repository.
+* Houses and trees: Isa Lousberg (www.isalousberg.com), Tiny Treats packs (Homely House, Pretty Park), CC0
   (`assets/tinytreats/*/License.txt`).
 * Characters: the "build a character" paper-doll art and palette (`assets/doll`, from the files the owner provided).
-* The rest of the furniture, cars and roads: Kenney (www.kenney.nl), Furniture Kit,
-  Car Kit and City Kit (Roads), CC0 (`assets/kenney/*/License.txt`).
+* Cars and roads: Kenney (www.kenney.nl), Car Kit and City Kit (Roads), CC0 (`assets/kenney/*/License.txt`).
 
 ## How to…
 

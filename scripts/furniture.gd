@@ -1,10 +1,12 @@
-# Baked sprites (static). Furniture comes from tools/bake_furniture.gd → art/furniture (DIR); houses and trees
+# Baked sprites (static). Furniture and food come from tools/bake_furniture.gd → art/furniture (DIR) and art/food
+# (FOOD); houses and trees
 # from tools/bake_neighbourhood.gd → art/neighbourhood (SCENERY). Each folder has a sprites.json of anchors.
 # A furniture sprite name is "<Model>_r<rotation>"; rotation r0 faces the +y grid direction (towards the tile in
 # front, where people stand to use things), r1 +x, r2 −y, r3 −x. `anchor` is the pixel of the model's
 # floor centre, which is drawn on the tile centre.
 const DIR := "res://art/furniture/"
 const SCENERY := "res://art/neighbourhood/"
+const FOOD := "res://art/food/"  # plates, cups and food (kitchen.gd item_sprite()); one view, anchor = bottom centre
 
 static var indexes := {}  # dir -> {sprite: {anchor}}
 

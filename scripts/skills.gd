@@ -16,8 +16,8 @@ const SKILLS := {
 	"Fitness": {"xp_per_minute": 6.0, "from": "the pull-up bar"},
 	"Logic": {"xp_per_minute": 4.0, "from": "reading at a bookshelf, discussing ideas"},
 	"Medicine": {"xp_per_minute": 4.0, "from": "reading medical journals (Bookshelf), first-aid practice (Desk)"},
-	"Creativity": {"xp_per_minute": 6.0, "from": "sketching designs (Desk), writing in a diary (Nightstand)"},
-	"Handiness": {"xp_per_minute": 6.0, "from": "tinkering with gadgets (Desk), fixing the washing machine"},
+	"Creativity": {"xp_per_minute": 6.0, "from": "sketching designs (Desk), writing in a diary (Nightstand), playing the guitar"},
+	"Handiness": {"xp_per_minute": 6.0, "from": "tinkering with gadgets (Desk), tuning up the exercise bike, oiling the grandfather clock"},
 	"Stealth": {"xp_per_minute": 8.0, "from": "picking locks, pickpocketing, stealing (morals.gd, crime.gd)"},
 }
 

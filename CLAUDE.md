@@ -60,9 +60,10 @@ systems work and `docs/DEVLOG.md` for history before changing anything.
 - Character art: paper dolls. `looks.gd` (parts, palettes, presets) + `doll.gd` (one tinted Sprite2D per layer);
   `tools/import_doll.gd` (headless) prepares `assets/doll` → `art/doll`. The creator is `creator.gd`. Things drawn on top of a
   person go in `draw_overlay()` (npc.gd), not `_draw` (that's under the sprite).
-- Art comes from the Tiny Treats packs in `assets/tinytreats/` (glTF; furniture, houses, trees) and the Kenney kits in
-  `assets/kenney/` (cars, roads, furniture Tiny Treats lacks; only GLBs are imported). In `MODELS`,
-  `"<pack>/<model>"` is Tiny Treats, a bare name Kenney.
+- Art: furniture and food from itHappy's packs in `assets/ithappy/` (prefab scenes; `MODELS`/`FOOD` in
+  tools/bake_furniture.gd), houses and trees from the Tiny Treats packs in `assets/tinytreats/` (glTF), cars and roads
+  from the Kenney kits in `assets/kenney/` (only GLBs are imported). Food/plates/cups are sprites from art/food
+  (`Kitchen.item_sprite()`), not drawn shapes.
   Furniture: `tools/bake_furniture.gd` (sprite ids → kit models in `MODELS`) → art/furniture. Houses and trees:
   `tools/bake_neighbourhood.gd` → art/neighbourhood (`Furniture.*(…, Furniture.SCENERY)`); re-bake after changing a
   building's rect or colours. All bakers need a window. See README "Furniture art" / "Neighbourhood art".

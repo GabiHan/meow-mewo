@@ -118,6 +118,8 @@ const HEAR_RADIUS := 25.0  # tiles: you hear people on your floor who are on scr
 var chat := []  # what you heard, newest last: {who, text, with, at (msec)}
 var chat_label: Label
 var feed_lines := CHAT_LINES  # how many chat lines fit under the panels above the feed (layout())
+var events_wanted := false  # there are new household events to show
+var events_fit := true  # ...and they fit (fit_feed())
 
 
 # The passport's mood: a line from low to high with a diamond where you are.
@@ -721,27 +723,39 @@ func build_feed() -> void:
 
 func fill_chat() -> void:
 	chat_label.text = "\n".join(chat.slice(maxi(0, chat.size() - feed_lines)).map(chat_text))
+	chat_label.visible = not chat.is_empty() and feed_lines > 0
 
 
-# Show as many of the newest chat lines as fit in `room` pixels of height (measured now, not last frame).
+# Fit the feed in `room` pixels of height (measured now, not last frame): as many of the newest chat lines as fit;
+# when even one doesn't, the events go first, then the chat too.
 func fit_feed(room: float) -> void:
 	var fits := func() -> bool: return feed_panel.get_combined_minimum_size().y <= room
+	events_label.visible = events_wanted
+	events_fit = true
+	feed_lines = maxi(feed_lines, 1)
+	fill_chat()
 	while feed_lines > 1 and not fits.call():
 		feed_lines -= 1
 		fill_chat()
-	while feed_lines < CHAT_LINES and feed_lines < chat.size():
+	if not fits.call() and events_label.visible:
+		events_fit = false
+		events_label.visible = false
+	if not fits.call():
+		feed_lines = 0
+		fill_chat()
+	while feed_lines > 0 and feed_lines < CHAT_LINES and feed_lines < chat.size():
 		feed_lines += 1
 		fill_chat()
 		if not fits.call():
 			feed_lines -= 1
 			fill_chat()
 			break
+	feed_panel.visible = chat_label.visible or events_label.visible
 
 
 func update_feed() -> void:
 	var now := Time.get_ticks_msec()
 	chat = chat.filter(func(e): return now - e.at < CHAT_SECONDS * 1000.0)
-	chat_label.visible = not chat.is_empty()
 	fill_chat()
 	var ours := Social.event_log.filter(ours_event)  # only what happens to your household
 	var newest: String = Social.format_event(ours[-1], player) if not ours.is_empty() else ""
@@ -750,7 +764,8 @@ func update_feed() -> void:
 		events_until = now + int(EVENT_SECONDS * 1000.0)
 	var recent := ours.slice(maxi(0, ours.size() - FEED_EVENTS))
 	events_label.text = "\n".join(recent.map(func(e): return Social.format_event(e, player)))
-	events_label.visible = newest != "" and now < events_until
+	events_wanted = newest != "" and now < events_until
+	events_label.visible = events_wanted and events_fit
 	feed_panel.visible = chat_label.visible or events_label.visible
 
 

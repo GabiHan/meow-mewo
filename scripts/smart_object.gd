@@ -29,7 +29,8 @@ const FACING := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0
 var items := []  # plates/cups sitting on this object (Counter, Table), see kitchen.gd
 var label: Label
 var label_timer := 0.0
-var drawn_items := -1
+var drawn_items := ""  # which items the sprites on top show (update_items())
+var item_nodes: Node2D  # their sprites (art/food), on top of the model
 
 
 func setup(p_name: String, p_grid: Vector2, p_ads: Dictionary, p_duration: float, p_color: Color, p_height := 24.0) -> Node2D:
@@ -82,9 +83,8 @@ const HOVER_RADIUS := 26.0  # pixels around the middle of the object
 # Items on top: redraw when they change, and refresh the label (with spoil timers) twice a second.
 func _process(delta: float) -> void:
 	label.visible = get_global_mouse_position().distance_to(global_position + Vector2(0, -box_height / 2.0)) < HOVER_RADIUS
-	if items.size() != drawn_items:
-		drawn_items = items.size()
-		queue_redraw()
+	if not items.is_empty() or drawn_items != "":
+		update_items()
 	label_timer -= delta
 	if label_timer > 0.0 or (items.is_empty() and label.text == object_name):
 		return
@@ -121,9 +121,8 @@ func rotate_to(r: int) -> void:
 
 
 func _draw() -> void:
-	if sprite != "":  # the model is a Sprite2D child (with_extras); only the plates are drawn here
-		draw_items(-box_height + 10.0)
-		return
+	if sprite != "":
+		return  # the model is a Sprite2D child (with_extras); plates are sprites too (update_items())
 	# Placeholder isometric box: top face plus two shaded side faces.
 	var w := 28.0
 	var h := 14.0
@@ -131,17 +130,27 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array([Vector2(-w, top), Vector2(0, top + h), Vector2(0, h), Vector2(-w, 0)]), color.darkened(0.1))
 	draw_colored_polygon(PackedVector2Array([Vector2(w, top), Vector2(0, top + h), Vector2(0, h), Vector2(w, 0)]), color.darkened(0.22))
 	draw_colored_polygon(PackedVector2Array([Vector2(0, top - h), Vector2(w, top), Vector2(0, top + h), Vector2(-w, top)]), color)
-	draw_items(top)
 
 
-# Plates and cups on top, in a row.
-func draw_items(top: float) -> void:
+# Plates, cups and food on top (kitchen.gd items), as sprites from art/food, in rows of four. Rebuilt only when
+# what's there changes.
+func update_items() -> void:
+	var key := ",".join(items.map(func(item): return "%s:%s" % [item.get("id", 0), Kitchen.item_sprite(item)]))
+	if key == drawn_items:
+		return
+	drawn_items = key
+	if item_nodes == null:
+		item_nodes = Node2D.new()
+		add_child(item_nodes)
+	for child in item_nodes.get_children():
+		child.queue_free()
+	var top := -box_height + 10.0 if sprite != "" else -box_height
 	for n in items.size():
-		var item: Dictionary = items[n]
-		var at := Vector2(-12 + (n % 4) * 8, top - 2 + (n / 4) * 4)
-		var dish := Color(0.7, 0.66, 0.6) if item.kind == "dirty" else Color(0.95, 0.95, 0.97)
-		draw_set_transform(at, 0.0, Vector2(1.0, 0.5))
-		draw_circle(Vector2.ZERO, 5.0, dish)
-		if item.kind == "food":
-			draw_circle(Vector2.ZERO, 3.0, Kitchen.RECIPES[item.recipe].color)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		var name := Kitchen.item_sprite(items[n])
+		if not Furniture.has(name, Furniture.FOOD):
+			continue
+		var s := Furniture.make_sprite(name, Furniture.FOOD)
+		s.position = Vector2(-16 + (n % 4) * 11, top + 2 + (n / 4) * 5)
+		if items[n].kind == "dirty":
+			s.modulate = Kitchen.DIRTY_TINT
+		item_nodes.add_child(s)

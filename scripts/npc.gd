@@ -70,6 +70,7 @@ const Doll = preload("res://scripts/doll.gd")
 const Llm = preload("res://scripts/llm.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
 const Body = preload("res://scripts/body.gd")
+const Furniture = preload("res://scripts/furniture.gd")
 
 const ACT_THRESHOLD := 5.0  # below this score nothing is worth doing, so wander
 const NEEDS := ["hunger", "thirst", "energy", "fun", "bladder", "hygiene", "social"]
@@ -230,7 +231,9 @@ var look := {}  # looks.gd: part and colour numbers
 var doll: Node2D
 var anim := "idle"  # the pose animate() chose: idle, walk, run, sit, lie, down, bent
 var flip := false  # mirrored (facing left on screen)
-var overlay: Node2D  # draws on top of the sprite: progress bar, carried plate
+var overlay: Node2D  # draws on top of the sprite: progress bar
+var held_sprite: Sprite2D  # what they carry (update_held())
+var held_shown := ""
 var facing_dir := 0  # sheet row (direction)
 var last_move := Vector2(0, 1)
 var anim_time := 0.0
@@ -299,6 +302,9 @@ func _ready() -> void:
 	overlay = Overlay.new()
 	overlay.person = self
 	add_child(overlay)
+	held_sprite = Sprite2D.new()  # the plate or cup they carry (art/food), in front of the body
+	held_sprite.centered = false
+	add_child(held_sprite)
 
 
 func cell() -> Vector2i:
@@ -872,7 +878,7 @@ func on_invited(b: int) -> void:
 
 # Objects in your own home, or outdoors, are fair game. Other people's fridges are not.
 func may_use(obj: Node2D) -> bool:
-	if Ages.stage(self) <= Ages.TODDLER and not obj.object_name in ["Bed", "Crib", "TV", "Teddy bear"]:
+	if Ages.stage(self) <= Ages.TODDLER and not obj.object_name in ["Bed", "Crib", "TV", "Toy"]:
 		return false  # little ones only sleep, watch TV and cuddle their teddy by themselves
 	return obj.building < 0 or obj.building == home
 
@@ -1087,16 +1093,20 @@ func draw_overlay(canvas: Node2D) -> void:
 		canvas.draw_circle(Vector2.ZERO, 11.0, Color(0.42, 0.45, 0.55))
 		canvas.draw_circle(Vector2(6, -3), 5.0, Color(0.85, 0.7, 0.6))
 		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	if not held.is_empty():  # carried plate or cup, in front of the body
-		var dish := Color(0.92, 0.92, 0.95) if held.kind != "dirty" else Color(0.7, 0.66, 0.6)
-		if held.get("dish", "") == "cup" or held.kind == "drink":
-			canvas.draw_rect(Rect2(8, -32, 7, 9), dish)
-		else:
-			canvas.draw_set_transform(Vector2(12, -28), 0.0, Vector2(1.0, 0.5))
-			canvas.draw_circle(Vector2.ZERO, 7.0, dish)
-			if held.kind == "food":
-				canvas.draw_circle(Vector2.ZERO, 4.0, Kitchen.RECIPES[held.recipe].color)
-			canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# The plate, cup or food they carry, as a sprite from art/food (kitchen.gd item_sprite()), held in front.
+func update_held() -> void:
+	var name: String = Kitchen.item_sprite(held) if not held.is_empty() else ""
+	if name == held_shown or held_sprite == null:
+		return
+	held_shown = name
+	held_sprite.visible = name != "" and Furniture.has(name, Furniture.FOOD)
+	if held_sprite.visible:
+		held_sprite.texture = Furniture.texture(name, Furniture.FOOD)
+		held_sprite.offset = -Furniture.anchor(name, Furniture.FOOD)
+		held_sprite.position = Vector2(12, -20)
+		held_sprite.modulate = Kitchen.DIRTY_TINT if held.kind == "dirty" else Color.WHITE
 
 
 # Pose the doll: walking or running (a bob and a lean, mirrored when heading left on screen), sitting on
@@ -1104,6 +1114,7 @@ func draw_overlay(canvas: Node2D) -> void:
 # bent over (body.gd), facing who they talk to, standing otherwise. `anim` names the pose.
 func animate(delta: float) -> void:
 	overlay.queue_redraw()
+	update_held()
 	label.position.y = -45.0 if pose == "down" else -124.0  # lying on the floor: the name sits lower too
 	if doll == null:
 		return

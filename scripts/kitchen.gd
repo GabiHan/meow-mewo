@@ -115,6 +115,22 @@ static func eat_ads(item: Dictionary, now: float) -> Dictionary:
 	return ads
 
 
+# The baked sprite (art/food, tools/bake_furniture.gd FOOD) of a plate, cup or food item: "Food_Pasta", "Drink_Milk",
+# "Dish_plate" (dirty dishes are drawn with DIRTY_TINT).
+static func item_sprite(item: Dictionary) -> String:
+	match item.get("kind", ""):
+		"food":
+			return "Food_" + item.recipe
+		"drink":
+			return "Drink_" + item.drink
+		"dirty":
+			return "Dish_" + item.get("dish", "plate")
+	return ""
+
+
+const DIRTY_TINT := Color(0.78, 0.7, 0.64)
+
+
 static func item_text(item: Dictionary, now: float) -> String:
 	match item.kind:
 		"food":
